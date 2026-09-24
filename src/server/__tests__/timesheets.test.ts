@@ -176,6 +176,7 @@ describe('submit → approve / return', () => {
     expect((await saveDay(db, lina, lina.id, { date: '2026-09-15', workedMinutes: h(10), note: 'Release' })).ok).toBe(true);
     expect((await submitMonth(db, lina, lina.id, 2026, 9, '2026-09-24')).ok).toBe(true);
     expect((await approveMonth(db, khaled, id)).ok).toBe(true);
+    expect(await approveMonth(db, khaled, id)).toMatchObject({ error: 'already_decided' });
 
     const approved = await getMonth(db, lina, lina.id, 2026, 9);
     if (!approved.ok) throw new Error(approved.error);

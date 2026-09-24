@@ -19,6 +19,8 @@ export type ErrorCode =
   | 'no_working_days'
   | 'leave_overlap'
   | 'insufficient_balance'
+  | 'not_all_approved'
+  | 'already_decided'
   | 'forbidden';
 
 export type Result<T = void> = { ok: true; value: T } | { ok: false; error: ErrorCode; detail?: string };

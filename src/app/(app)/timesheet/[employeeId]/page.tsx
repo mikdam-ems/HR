@@ -81,6 +81,7 @@ export default async function TimesheetPage({
               <span aria-hidden="true" className="flip">›</span>
             </Link>
             <span className={`badge status-${view.status}`}>{t.timesheet.status[view.status]}</span>
+            {view.closed ? <span className="badge">{t.timesheet.status.closed}</span> : null}
           </div>
           <span className="muted">
             {title}

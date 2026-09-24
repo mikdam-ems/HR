@@ -1,7 +1,7 @@
 import { and, asc, between, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DB } from '@/db';
-import { dayEntries, employees, timesheets, type Employee, type Role, type TimesheetRow } from '@/db/schema';
+import { dayEntries, employees, monthClosures, timesheets, type Employee, type Role, type TimesheetRow } from '@/db/schema';
 import {
   type DayEntry,
   type LeaveType,
@@ -31,15 +31,29 @@ export interface TimesheetAccess {
 
 const EDITABLE = new Set(['draft', 'returned']);
 
-export function accessFor(actor: Actor, employee: Pick<Employee, 'id' | 'managerId'>, status: string): TimesheetAccess {
+/** True once HR has closed the month for payroll. */
+export async function isMonthClosed(db: DB, year: number, month: number): Promise<boolean> {
+  const rows = await db
+    .select({ id: monthClosures.id })
+    .from(monthClosures)
+    .where(and(eq(monthClosures.year, year), eq(monthClosures.month, month)));
+  return rows.length > 0;
+}
+
+export function accessFor(
+  actor: Actor,
+  employee: Pick<Employee, 'id' | 'managerId'>,
+  status: string,
+  closed = false,
+): TimesheetAccess {
   const self = actor.id === employee.id;
   const manager = employee.managerId === actor.id;
   const adminFallback = !employee.managerId && actor.roles.includes('admin');
   const staff = actor.roles.some((r) => r === 'hr' || r === 'admin' || r === 'finance');
   return {
     view: self || manager || staff,
-    edit: self && EDITABLE.has(status),
-    decide: !self && (manager || adminFallback) && status === 'submitted',
+    edit: self && EDITABLE.has(status) && !closed,
+    decide: !self && (manager || adminFallback) && status === 'submitted' && !closed,
   };
 }
 
@@ -50,6 +64,8 @@ export interface MonthView {
   /** Stored row, or null for a month nobody has touched yet (a draft). */
   timesheet: TimesheetRow | null;
   status: TimesheetRow['status'];
+  /** HR closed this month for payroll; nothing can change. */
+  closed: boolean;
   summary: MonthSummary;
   notes: Record<string, string>;
   times: Record<string, { start: string | null; end: string | null }>;
@@ -82,7 +98,8 @@ export async function getMonth(
   if (!employee) return fail('not_found');
   const timesheet = await findTimesheet(db, employeeId, year, month);
   const status = timesheet?.status ?? 'draft';
-  const access = accessFor(actor, employee, status);
+  const closed = await isMonthClosed(db, year, month);
+  const access = accessFor(actor, employee, status, closed);
   if (!access.view) return fail('forbidden');
 
   const [from, to] = monthRange(year, month);
@@ -107,7 +124,7 @@ export async function getMonth(
   // A note alone is worth the manager's attention, even if the hours match.
   for (const d of summary.days) if (notes[d.day.date]) d.changed = true;
 
-  return ok({ employee, year, month, timesheet, status, summary, notes, times, access });
+  return ok({ employee, year, month, timesheet, status, closed, summary, notes, times, access });
 }
 
 export const dayInput = z.object({
@@ -237,6 +254,8 @@ async function decide(
 ): Promise<Result<void>> {
   const [before] = await db.select().from(timesheets).where(eq(timesheets.id, timesheetId));
   if (!before) return fail('not_found');
+  // A double click or a second tab: say so plainly rather than "forbidden".
+  if (before.status !== 'submitted') return fail('already_decided');
   const view = await getMonth(db, actor, before.employeeId, before.year, before.month);
   if (!view.ok) return view;
   if (!view.value.access.decide) return fail('forbidden');

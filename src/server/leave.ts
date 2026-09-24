@@ -7,6 +7,7 @@ import {
   leaveAdjustments,
   leaveRequests,
   leaveTypeEnum,
+  monthClosures,
   timesheets,
   type Employee,
   type LeaveRequestRow,
@@ -161,14 +162,16 @@ function canDecide(actor: Actor, employee: Pick<Employee, 'id' | 'managerId'>) {
   return employee.managerId === actor.id || (!employee.managerId && actor.roles.includes('admin'));
 }
 
-/** Months that are submitted or approved can't take new leave; the manager must return them first. */
+/** Months that are submitted, approved or closed can't take new leave; the manager must return them first. */
 async function lockedMonths(db: DB, employeeId: string, dates: string[]): Promise<boolean> {
   const months = [...new Set(dates.map((d) => d.slice(0, 7)))];
   const rows = await db
     .select()
     .from(timesheets)
     .where(and(eq(timesheets.employeeId, employeeId), inArray(timesheets.status, ['submitted', 'approved'])));
-  return rows.some((t) => months.includes(`${t.year}-${String(t.month).padStart(2, '0')}`));
+  const closed = await db.select().from(monthClosures);
+  const key = (y: number, m: number) => `${y}-${String(m).padStart(2, '0')}`;
+  return rows.some((t) => months.includes(key(t.year, t.month))) || closed.some((c) => months.includes(key(c.year, c.month)));
 }
 
 export async function decideRequest(
@@ -182,7 +185,7 @@ export async function decideRequest(
   if (!req) return fail('not_found');
   const [employee] = await db.select().from(employees).where(eq(employees.id, req.employeeId));
   if (!employee || !canDecide(actor, employee)) return fail('forbidden');
-  if (req.status !== 'pending') return fail('invalid_input', 'already decided');
+  if (req.status !== 'pending') return fail('already_decided');
 
   if (outcome === 'decline') {
     const [after] = await db
@@ -235,6 +238,9 @@ export async function cancelRequest(db: DB, actor: Actor, requestId: string, tod
   if (req.employeeId !== actor.id) return fail('forbidden');
   const cancellable = req.status === 'pending' || (req.status === 'approved' && req.fromDate > today);
   if (!cancellable) return fail('invalid_input', 'this leave can no longer be cancelled');
+  if (req.status === 'approved' && (await lockedMonths(db, req.employeeId, eachDay(req.fromDate, req.toDate)))) {
+    return fail('month_locked');
+  }
 
   await db.transaction(async (tx) => {
     if (req.status === 'approved') {

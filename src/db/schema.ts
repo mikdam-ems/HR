@@ -220,6 +220,19 @@ export const leaveAdjustments = pgTable(
   (t) => [index('leave_adjustments_employee_idx').on(t.employeeId, t.year)],
 );
 
+/** A month HR has closed for payroll: no timesheet or leave in it can change until an admin reopens it. */
+export const monthClosures = pgTable(
+  'month_closures',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    year: integer('year').notNull(),
+    month: integer('month').notNull(),
+    closedById: uuid('closed_by_id').references(() => employees.id, { onDelete: 'set null' }),
+    closedAt: timestamp('closed_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('month_closures_month_idx').on(t.year, t.month)],
+);
+
 /** Small key/value settings: home calendar, overtime rates. */
 export const settings = pgTable('settings', {
   key: text('key').primaryKey(),

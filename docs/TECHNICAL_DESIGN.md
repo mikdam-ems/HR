@@ -124,6 +124,16 @@ stateDiagram-v2
   Carry-over is an HR adjustment with a reason (no automatic carry-over).
 - **Open (HR):** confirm entitlements, leave year, carry-over rule, and whether reaching 5 years mid-year should count that year.
 
+## Month end (implemented in `src/server/reports.ts`)
+
+- **Reports** (HR, Finance, Admin): everyone with a client assignment that month, their status and totals.
+  Approved months show the totals frozen at approval.
+- **Excel export**: sheet *Summary* (one row per person: days, expected/worked hours, regular / special / off-day
+  overtime, weighted overtime, leave days by type) and sheet *Days* (every person-day with type, hours, leave, note).
+  Hours are decimal (7.5 = 7h 30m) so Finance can sum them. **Open:** match Finance's current column layout.
+- **Closing** (HR, Admin): only when every timesheet in the report is approved. A closed month blocks editing,
+  submitting, approving/returning and leave approval or cancellation touching it. Only an Admin can reopen; both are audited.
+
 ## Automatic checks
 
 `missing_hours` · `too_many_hours` (> 16h) · `leave_on_day_off` · `worked_on_full_leave` · `unassigned`.
@@ -137,5 +147,5 @@ These replace the manager's line-by-line review of the Excel sheet.
 | 2. Rules engine | 3–4 | Calendars, schedules, day rules, totals, checks, leave counting | **Done** — wired to the database; Home shows today and the next 7 days |
 | 3. Timesheets | 5–6 | Month view, edit day, submit/approve/return | **Done** — month calendar + day panel, approvals inbox, totals frozen at submit/approval |
 | 4. Time off | 7–8 | Requests, balances, approvals inbox | **Done** — preview before sending, approval writes to the timesheet, HR adjustments |
-| 5. Finish | 9–10 | Org chart, Finance export, Arabic RTL | Not started |
+| 5. Finish | 9–10 | Org chart, Finance export, Arabic RTL | **Done** — Reports page, Excel export (summary + every day), month closing |
 | 6. Pilot | 11–12 | 3 people run it alongside Excel for a month | Not started |

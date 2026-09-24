@@ -15,13 +15,19 @@ export type Permission =
   | 'people.manage'
   /** Add and edit clients, calendars and holidays. */
   | 'clients.manage'
-  /** Overtime rates, home calendar, roles. */
-  | 'settings.manage';
+  /** Overtime rates, home calendar, roles; reopen a closed month. */
+  | 'settings.manage'
+  /** See every person's month and download the Excel export. */
+  | 'reports.view'
+  /** Close a month for payroll once every timesheet is approved. */
+  | 'months.close';
 
 const GRANTS: Record<Permission, Role[]> = {
   'people.manage': ['hr', 'admin'],
   'clients.manage': ['hr', 'admin'],
   'settings.manage': ['admin'],
+  'reports.view': ['hr', 'finance', 'admin'],
+  'months.close': ['hr', 'admin'],
 };
 
 export function can(user: Pick<CurrentUser, 'roles'> | null, permission: Permission): boolean {
