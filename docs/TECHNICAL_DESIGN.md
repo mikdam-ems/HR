@@ -88,6 +88,26 @@ Decisions baked in (change here if the team disagrees):
 - Hours worked on a client weekend or holiday are **off-day overtime** — **Open:** its rate. Regular overtime rate is also **Open**; both default to 1.0 in tests.
 - Annual leave: 14 days, 21 after 5 years of service (Jordan law as we understand it) — **Open:** HR to confirm.
 
+## Timesheets (implemented in `src/server/timesheets.ts`)
+
+```mermaid
+stateDiagram-v2
+  [*] --> draft: month starts (nothing stored)
+  draft --> submitted: employee submits
+  submitted --> approved: direct manager approves
+  submitted --> returned: manager returns with a note
+  returned --> submitted: employee fixes and resubmits
+```
+
+- Only days that differ from the schedule are stored (`day_entries`). Saving a day back to its schedule deletes the row.
+- A full day of leave always counts 0 hours worked; a half day uses the times entered.
+- Only the person edits their own timesheet, and only while it's a draft or returned.
+- Their **direct manager** approves or returns it (a note is required to return). Nobody decides on their own timesheet; admins cover people with no manager.
+- Colleagues can't see each other's timesheets; HR, Finance and Admin can view any, read-only.
+- Month totals are frozen into `timesheets.totals` at submit and at approval.
+- Leave is entered on the timesheet for now; stage 4 adds leave requests that place approved leave automatically.
+- **Open:** splitting one day's hours across two clients; locking a month for payroll (stage 5, with the Finance export).
+
 ## Automatic checks
 
 `missing_hours` · `too_many_hours` (> 16h) · `leave_on_day_off` · `worked_on_full_leave` · `unassigned`.
@@ -99,7 +119,7 @@ These replace the manager's line-by-line review of the Excel sheet.
 |---|---|---|---|
 | 1. Foundation | 1–2 | Next.js app, Google sign-in, roles, people/clients/assignments, Excel import | **Done** — plus calendars/holidays, schedules, org chart, settings, Arabic/English |
 | 2. Rules engine | 3–4 | Calendars, schedules, day rules, totals, checks, leave counting | **Done** — wired to the database; Home shows today and the next 7 days |
-| 3. Timesheets | 5–6 | Month view, edit day, submit/approve/return | Not started |
+| 3. Timesheets | 5–6 | Month view, edit day, submit/approve/return | **Done** — month calendar + day panel, approvals inbox, totals frozen at submit/approval |
 | 4. Time off | 7–8 | Requests, balances, approvals inbox | Not started |
 | 5. Finish | 9–10 | Org chart, Finance export, Arabic RTL | Not started |
 | 6. Pilot | 11–12 | 3 people run it alongside Excel for a month | Not started |

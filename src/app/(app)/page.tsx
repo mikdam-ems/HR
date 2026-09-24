@@ -3,13 +3,14 @@ import { DayBadge } from '@/components/DayBadge';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { addDays, resolveDay } from '@/domain';
-import { fmt, getDict, localName } from '@/i18n';
+import { clientLabel, fmt, getDict, holidayLabel, localName } from '@/i18n';
 import { formatDate, formatHours, todayISO } from '@/lib/format';
 import { getEmployeeProfile, listEmployees } from '@/server/people';
 import { can } from '@/server/permissions';
 import { loadRulesContext } from '@/server/rulesContext';
 import { requireUser } from '@/server/session';
 import { getSettings } from '@/server/settings';
+import { countPendingApprovals, monthStatus } from '@/server/timesheets';
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireUser();
@@ -23,7 +24,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const today = todayISO();
   const day = resolveDay(ctx, user.id, today);
   const week = Array.from({ length: 7 }, (_, i) => resolveDay(ctx, user.id, addDays(today, i + 1)));
-  const clientName = (id: string | null) => (id ? (ctx.clients[id]?.name ?? '') : t.people.none);
+  const [status, pending] = await Promise.all([
+    monthStatus(db, user.id, Number(today.slice(0, 4)), Number(today.slice(5, 7))),
+    user.isManager || user.roles.includes('admin') ? countPendingApprovals(db, user) : Promise.resolve(0),
+  ]);
   const hint = fmt(t.dayTypeHints[day.dayType], { rate: appSettings.overtimeRates.special });
 
   // HR sees what's missing before timesheets can be trusted.
@@ -49,7 +53,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <h2 id="today">
             {t.home.today} · {formatDate(today, locale, { weekday: 'long', day: 'numeric', month: 'long' })}
           </h2>
-          <DayBadge type={day.dayType} t={t} holiday={day.holidayName} />
+          <DayBadge type={day.dayType} t={t} holiday={holidayLabel(locale, day)} />
         </div>
         <p className="muted" style={{ margin: 0 }}>
           {hint}
@@ -57,15 +61,32 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <div className="row" style={{ gap: 24 }}>
           <span>
             <span className="label">{t.home.client}: </span>
-            {clientName(day.primaryClientId)}
+            {clientLabel(locale, ctx.clients, [day.primaryClientId]) || t.people.none}
           </span>
           <span>
             <span className="label">{t.home.hours}: </span>
-            {day.schedule
-              ? `${day.schedule.start}–${day.schedule.end} (${formatHours(day.expectedMinutes || 0)})`
-              : t.home.noSchedule}
+            {day.schedule ? (
+              <bdi dir="ltr">{`${day.schedule.start}–${day.schedule.end} (${formatHours(day.expectedMinutes || 0)})`}</bdi>
+            ) : (
+              t.home.noSchedule
+            )}
           </span>
         </div>
+      </section>
+
+      <section className="card">
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <div className="row">
+            <h2>{fmt(t.home.timesheetCard, { month: formatDate(today, locale, { month: 'long' }) })}</h2>
+            <span className={`badge status-${status}`}>{t.timesheet.status[status]}</span>
+          </div>
+          <Link className="btn btn-primary" href="/timesheet">
+            {t.home.openTimesheet}
+          </Link>
+        </div>
+        {pending ? (
+          <Link href="/approvals">{fmt(t.home.pending, { count: pending })}</Link>
+        ) : null}
       </section>
 
       <section className="stack" aria-labelledby="next7">
@@ -74,7 +95,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           {week.map((d) => (
             <div key={d.date} className={`week-day day-${d.dayType}`}>
               <strong>{formatDate(d.date, locale, { weekday: 'short', day: 'numeric' })}</strong>
-              <span>{d.holidayName ?? t.dayTypes[d.dayType]}</span>
+              <span>{holidayLabel(locale, d) ?? t.dayTypes[d.dayType]}</span>
               {d.expectedMinutes ? <span>{formatHours(d.expectedMinutes)}</span> : null}
             </div>
           ))}

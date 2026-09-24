@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 
-export function NavLinks({ links }: { links: { href: string; label: string }[] }) {
+export function NavLinks({ links }: { links: { href: string; label: string; badge?: number }[] }) {
   const path = usePathname();
   return (
     <>
@@ -12,6 +12,7 @@ export function NavLinks({ links }: { links: { href: string; label: string }[] }
         return (
           <Link key={l.href} href={l.href} className="nav-link" aria-current={active ? 'page' : undefined}>
             {l.label}
+            {l.badge ? <span className="nav-badge">{l.badge}</span> : null}
           </Link>
         );
       })}

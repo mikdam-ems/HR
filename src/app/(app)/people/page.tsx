@@ -4,7 +4,7 @@ import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import type { Employee } from '@/db/schema';
 import { resolveDay, type ResolvedDay } from '@/domain';
-import { fmt, getDict, localName, type Locale } from '@/i18n';
+import { clientLabel, fmt, getDict, localName, type Locale } from '@/i18n';
 import type { Dict } from '@/i18n/en';
 import { todayISO } from '@/lib/format';
 import { listClients } from '@/server/clients';
@@ -130,7 +130,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                       </td>
                       <td>{p.jobTitle ?? t.people.none}</td>
                       <td>{manager ? localName(locale, manager.nameEn, manager.nameAr) : t.people.none}</td>
-                      <td>{clientNames(d, ctx.clients) || t.people.none}</td>
+                      <td>{clientNames(d, ctx.clients, locale) || t.people.none}</td>
                       <td>
                         <DayBadge type={d.dayType} t={t} />
                       </td>
@@ -146,8 +146,8 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
   );
 }
 
-function clientNames(d: ResolvedDay, clients: Record<string, { name: string }>) {
-  return [...new Set(d.clientIds)].map((id) => clients[id]?.name ?? '').join(', ');
+function clientNames(d: ResolvedDay, clients: Record<string, { name: string; nameAr?: string }>, locale: Locale) {
+  return clientLabel(locale, clients, d.clientIds);
 }
 
 function OrgItem({
@@ -159,7 +159,7 @@ function OrgItem({
 }: {
   node: OrgNode<Employee>;
   days: Map<string, ResolvedDay>;
-  ctxClients: Record<string, { name: string }>;
+  ctxClients: Record<string, { name: string; nameAr?: string }>;
   locale: Locale;
   t: Dict;
 }) {
@@ -179,7 +179,7 @@ function OrgItem({
         <span className="stack" style={{ gap: 0 }}>
           <strong style={{ fontWeight: 600 }}>{localName(locale, p.nameEn, p.nameAr)}</strong>
           <span className="muted small">
-            {[p.jobTitle, clientNames(d, ctxClients)].filter(Boolean).join(' · ') || t.people.none}
+            {[p.jobTitle, clientNames(d, ctxClients, locale)].filter(Boolean).join(' · ') || t.people.none}
           </span>
         </span>
       </Link>

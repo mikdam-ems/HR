@@ -13,6 +13,7 @@ export type ErrorCode =
   | 'unknown_client'
   | 'unknown_calendar'
   | 'calendar_in_use'
+  | 'month_not_started'
   | 'forbidden';
 
 export type Result<T = void> = { ok: true; value: T } | { ok: false; error: ErrorCode; detail?: string };

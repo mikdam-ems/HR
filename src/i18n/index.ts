@@ -20,6 +20,22 @@ export function fmt(template: string, vars: Record<string, string | number>): st
   return template.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? `{${k}}`));
 }
 
+/** The holiday name that decided a day's type, in the page's language. */
+export function holidayLabel(locale: Locale, day: { holidayName?: string; holidayNameAr?: string }): string | undefined {
+  return day.holidayName ? localName(locale, day.holidayName, day.holidayNameAr) : undefined;
+}
+
+/** Client names from the rules context, in the page's language. */
+export function clientLabel(
+  locale: Locale,
+  clients: Record<string, { name: string; nameAr?: string }>,
+  ids: readonly (string | null)[],
+): string {
+  return [...new Set(ids.filter((id): id is string => !!id))]
+    .map((id) => (clients[id] ? localName(locale, clients[id].name, clients[id].nameAr) : ''))
+    .join(', ');
+}
+
 /** Arabic name when the page is in Arabic and one exists. */
 export function localName(locale: Locale, en: string, ar: string | null | undefined): string {
   return locale === 'ar' && ar ? ar : en;

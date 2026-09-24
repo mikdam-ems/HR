@@ -6,6 +6,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   smallint,
@@ -116,6 +117,65 @@ export const schedules = pgTable(
   (t) => [uniqueIndex('schedules_employee_from_idx').on(t.employeeId, t.effectiveFrom)],
 );
 
+export const timesheetStatusEnum = pgEnum('timesheet_status', ['draft', 'submitted', 'returned', 'approved']);
+export type TimesheetStatus = (typeof timesheetStatusEnum.enumValues)[number];
+
+export const leaveTypeEnum = pgEnum('leave_type', [
+  'annual',
+  'sick',
+  'maternity',
+  'paternity',
+  'bereavement',
+  'hajj',
+  'unpaid',
+  'compensatory',
+]);
+
+/** One per person per month. Created on first edit or submit; a month with no row is an untouched draft. */
+export const timesheets = pgTable(
+  'timesheets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    year: integer('year').notNull(),
+    month: integer('month').notNull(),
+    status: timesheetStatusEnum('status').notNull().default('draft'),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    decidedById: uuid('decided_by_id').references(() => employees.id, { onDelete: 'set null' }),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    /** The manager's note when returning (or approving). */
+    managerNote: text('manager_note'),
+    /** Month totals frozen at submit and approval, so later calendar changes don't rewrite history. */
+    totals: jsonb('totals'),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('timesheets_employee_month_idx').on(t.employeeId, t.year, t.month)],
+);
+
+/** A day that differs from the auto-filled schedule. Days without a row are "as scheduled". */
+export const dayEntries = pgTable(
+  'day_entries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    date: date('date', { mode: 'string' }).notNull(),
+    workedMinutes: integer('worked_minutes').notNull(),
+    /** HH:MM, kept for display; workedMinutes is what counts. */
+    startTime: text('start_time'),
+    endTime: text('end_time'),
+    leaveType: leaveTypeEnum('leave_type'),
+    /** 1 = full day, 0.5 = half day. */
+    leavePortion: numeric('leave_portion', { mode: 'number' }),
+    note: text('note'),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('day_entries_employee_date_idx').on(t.employeeId, t.date)],
+);
+
 /** Small key/value settings: home calendar, overtime rates. */
 export const settings = pgTable('settings', {
   key: text('key').primaryKey(),
@@ -168,7 +228,14 @@ export const schedulesRelations = relations(schedules, ({ one }) => ({
   employee: one(employees, { fields: [schedules.employeeId], references: [employees.id] }),
 }));
 
+export const timesheetsRelations = relations(timesheets, ({ one }) => ({
+  employee: one(employees, { fields: [timesheets.employeeId], references: [employees.id] }),
+  decidedBy: one(employees, { fields: [timesheets.decidedById], references: [employees.id] }),
+}));
+
 export type Employee = typeof employees.$inferSelect;
+export type TimesheetRow = typeof timesheets.$inferSelect;
+export type DayEntryRow = typeof dayEntries.$inferSelect;
 export type Calendar = typeof calendars.$inferSelect;
 export type HolidayRow = typeof holidays.$inferSelect;
 export type ClientRow = typeof clients.$inferSelect;

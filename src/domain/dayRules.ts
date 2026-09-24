@@ -57,7 +57,7 @@ export function resolveDay(ctx: RulesContext, employeeId: string, date: ISODate)
   // Rule 1: a holiday at any assigned client makes it a day off.
   for (const a of active) {
     const holiday = holidayOn(calendarForClient(ctx, a.clientId), date);
-    if (holiday) return { ...base, dayType: 'client_holiday', holidayName: holiday.name, expectedMinutes: 0 };
+    if (holiday) return { ...base, dayType: 'client_holiday', holidayName: holiday.name, holidayNameAr: holiday.nameAr, expectedMinutes: 0 };
   }
 
   // Rule 2: the primary client's work week decides weekends.
@@ -70,7 +70,13 @@ export function resolveDay(ctx: RulesContext, employeeId: string, date: ISODate)
   // Rule 3: client is working but it's a home (Jordan) holiday → worked hours are special overtime.
   const homeHoliday = holidayOn(ctx.homeCalendar, date);
   if (homeHoliday) {
-    return { ...base, dayType: 'special_overtime', holidayName: homeHoliday.name, expectedMinutes };
+    return {
+      ...base,
+      dayType: 'special_overtime',
+      holidayName: homeHoliday.name,
+      holidayNameAr: homeHoliday.nameAr,
+      expectedMinutes,
+    };
   }
 
   // Rule 4: normal working day.

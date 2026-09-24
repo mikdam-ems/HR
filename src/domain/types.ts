@@ -7,6 +7,7 @@ export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export interface Holiday {
   date: ISODate;
   name: string;
+  nameAr?: string;
 }
 
 /** A set of working weekdays plus public holidays: a client's, or EMS's home calendar (Jordan). */
@@ -21,6 +22,7 @@ export interface WorkCalendar {
 export interface Client {
   id: string;
   name: string;
+  nameAr?: string;
   calendarId: string;
 }
 
@@ -62,6 +64,7 @@ export interface ResolvedDay {
   dayType: DayType;
   /** Name of the holiday that decided the day type, if any. */
   holidayName?: string;
+  holidayNameAr?: string;
   clientIds: string[];
   primaryClientId: string | null;
   /** Minutes the person is expected to work. 0 on days off. */

@@ -25,14 +25,14 @@ export async function loadRulesContext(db: DB): Promise<RulesContext> {
       id: c.id,
       name: c.name,
       workWeek: c.workWeek as Weekday[],
-      holidays: holidayRows.filter((h) => h.calendarId === c.id).map((h) => ({ date: h.date, name: h.nameEn })),
+      holidays: holidayRows.filter((h) => h.calendarId === c.id).map((h) => ({ date: h.date, name: h.nameEn, nameAr: h.nameAr ?? undefined })),
     };
   }
 
   return {
     calendars: cals,
     homeCalendar: (appSettings.homeCalendarId && cals[appSettings.homeCalendarId]) || EMPTY_HOME,
-    clients: Object.fromEntries(clientRows.map((c) => [c.id, { id: c.id, name: c.nameEn, calendarId: c.calendarId }])),
+    clients: Object.fromEntries(clientRows.map((c) => [c.id, { id: c.id, name: c.nameEn, nameAr: c.nameAr ?? undefined, calendarId: c.calendarId }])),
     assignments: assignmentRows.map((a) => ({
       employeeId: a.employeeId,
       clientId: a.clientId,

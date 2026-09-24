@@ -11,13 +11,14 @@ import { DayBadge } from '@/components/DayBadge';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { resolveDay, scheduledMinutes } from '@/domain';
-import { getDict, localName } from '@/i18n';
+import { getDict, holidayLabel, localName } from '@/i18n';
 import { formatDate, formatHours, todayISO } from '@/lib/format';
 import { listClients } from '@/server/clients';
 import { getEmployeeProfile } from '@/server/people';
 import { can } from '@/server/permissions';
 import { loadRulesContext } from '@/server/rulesContext';
 import { requireUser } from '@/server/session';
+import { accessFor } from '@/server/timesheets';
 
 export default async function ProfilePage({
   params,
@@ -47,7 +48,7 @@ export default async function ProfilePage({
           <div className="row">
             <h1>{name}</h1>
             {!person.active ? <span className="badge badge-danger">{t.people.inactive}</span> : null}
-            <DayBadge type={day.dayType} t={t} holiday={day.holidayName} />
+            <DayBadge type={day.dayType} t={t} holiday={holidayLabel(locale, day)} />
           </div>
           <span className="muted">
             {[person.jobTitle, person.email].filter(Boolean).join(' · ')}
@@ -63,11 +64,18 @@ export default async function ProfilePage({
             )}
           </span>
         </div>
-        {manage ? (
-          <Link className="btn" href={`/people/${person.id}/edit`}>
-            {t.profile.edit}
-          </Link>
-        ) : null}
+        <div className="row">
+          {accessFor(user, person, 'draft').view ? (
+            <Link className="btn" href={`/timesheet/${person.id}`}>
+              {t.nav.timesheet}
+            </Link>
+          ) : null}
+          {manage ? (
+            <Link className="btn" href={`/people/${person.id}/edit`}>
+              {t.profile.edit}
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <section className="card">
