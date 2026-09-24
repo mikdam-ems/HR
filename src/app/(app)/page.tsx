@@ -10,6 +10,7 @@ import { can } from '@/server/permissions';
 import { loadRulesContext } from '@/server/rulesContext';
 import { requireUser } from '@/server/session';
 import { getSettings } from '@/server/settings';
+import { countPendingLeave, getBalances } from '@/server/leave';
 import { countPendingApprovals, monthStatus } from '@/server/timesheets';
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -24,10 +25,15 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const today = todayISO();
   const day = resolveDay(ctx, user.id, today);
   const week = Array.from({ length: 7 }, (_, i) => resolveDay(ctx, user.id, addDays(today, i + 1)));
-  const [status, pending] = await Promise.all([
+  const approver = user.isManager || user.roles.includes('admin');
+  const [status, pendingSheets, pendingLeave, balances] = await Promise.all([
     monthStatus(db, user.id, Number(today.slice(0, 4)), Number(today.slice(5, 7))),
-    user.isManager || user.roles.includes('admin') ? countPendingApprovals(db, user) : Promise.resolve(0),
+    approver ? countPendingApprovals(db, user) : Promise.resolve(0),
+    approver ? countPendingLeave(db, user) : Promise.resolve(0),
+    getBalances(db, user.id, Number(today.slice(0, 4))),
   ]);
+  const pending = pendingSheets + pendingLeave;
+  const annualLeft = balances.find((b) => b.type === 'annual')?.available;
   const hint = fmt(t.dayTypeHints[day.dayType], { rate: appSettings.overtimeRates.special });
 
   // HR sees what's missing before timesheets can be trusted.
@@ -80,10 +86,16 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             <h2>{fmt(t.home.timesheetCard, { month: formatDate(today, locale, { month: 'long' }) })}</h2>
             <span className={`badge status-${status}`}>{t.timesheet.status[status]}</span>
           </div>
-          <Link className="btn btn-primary" href="/timesheet">
-            {t.home.openTimesheet}
-          </Link>
+          <div className="row">
+            <Link className="btn" href="/time-off">
+              {t.timeOff.request}
+            </Link>
+            <Link className="btn btn-primary" href="/timesheet">
+              {t.home.openTimesheet}
+            </Link>
+          </div>
         </div>
+        {annualLeft !== undefined ? <span className="muted">{fmt(t.home.annualLeft, { n: annualLeft })}</span> : null}
         {pending ? (
           <Link href="/approvals">{fmt(t.home.pending, { count: pending })}</Link>
         ) : null}

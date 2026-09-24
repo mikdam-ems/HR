@@ -15,6 +15,13 @@
       "when": 1790263095550,
       "tag": "0001_timesheets",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790263757232,
+      "tag": "0002_leave",
+      "breakpoints": true
     }
   ]
 }

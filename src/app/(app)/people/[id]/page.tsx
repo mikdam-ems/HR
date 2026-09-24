@@ -19,6 +19,9 @@ import { can } from '@/server/permissions';
 import { loadRulesContext } from '@/server/rulesContext';
 import { requireUser } from '@/server/session';
 import { accessFor } from '@/server/timesheets';
+import { getBalances, listAdjustments } from '@/server/leave';
+import { addAdjustmentAction } from '@/app/(app)/time-off/actions';
+import { Balances } from '@/components/Balances';
 
 export default async function ProfilePage({
   params,
@@ -39,6 +42,11 @@ export default async function ProfilePage({
   const today = todayISO();
   const day = resolveDay(ctx, person.id, today);
   const name = localName(locale, person.nameEn, person.nameAr);
+  const year = Number(today.slice(0, 4));
+  const seesLeave = accessFor(user, person, 'draft').view;
+  const [balances, adjustments] = seesLeave
+    ? await Promise.all([getBalances(db, person.id, year), listAdjustments(db, person.id, year)])
+    : [[], []];
 
   return (
     <>
@@ -92,6 +100,53 @@ export default async function ProfilePage({
           <span className="muted">{t.profile.noReports}</span>
         )}
       </section>
+
+      {seesLeave ? (
+        <section className="stack">
+          <h2>
+            {t.timeOff.adjustments} · {year}
+          </h2>
+          <Balances balances={balances} t={t} />
+          {adjustments.length ? (
+            <ul className="muted small" style={{ margin: 0, paddingInlineStart: 18 }}>
+              {adjustments.map((a) => (
+                <li key={a.id}>
+                  {t.timesheet.leaveTypes[a.type]}: {a.days > 0 ? '+' : ''}
+                  {a.days} · {a.reason}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {manage ? (
+            <form action={addAdjustmentAction} className="card">
+              <input type="hidden" name="employeeId" value={person.id} />
+              <input type="hidden" name="year" value={year} />
+              <h3>{t.timeOff.addAdjustment}</h3>
+              <div className="grid-form">
+                <div className="field">
+                  <label htmlFor="adj-type">{t.timeOff.type}</label>
+                  <select id="adj-type" name="type">
+                    <option value="annual">{t.timesheet.leaveTypes.annual}</option>
+                    <option value="sick">{t.timesheet.leaveTypes.sick}</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="adj-days">{t.timeOff.adjustDays}</label>
+                  <input id="adj-days" name="days" type="number" step="0.5" min={-100} max={100} required />
+                </div>
+                <div className="field">
+                  <label htmlFor="adj-reason">{t.timeOff.reason}</label>
+                  <input id="adj-reason" name="reason" type="text" required maxLength={200} />
+                </div>
+                <div>
+                  <button className="btn btn-primary">{t.timeOff.addAdjustment}</button>
+                </div>
+              </div>
+              <span className="muted small">{t.timeOff.adjustHint}</span>
+            </form>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="stack">
         <h2>{t.profile.assignments}</h2>

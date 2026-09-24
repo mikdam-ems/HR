@@ -4,6 +4,7 @@ import { getDict, localName } from '@/i18n';
 import { can } from '@/server/permissions';
 import { getDb } from '@/db';
 import { requireUser } from '@/server/session';
+import { countPendingLeave } from '@/server/leave';
 import { countPendingApprovals } from '@/server/timesheets';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -17,11 +18,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .slice(0, 2)
     .toUpperCase();
 
-  const pending = user.isManager || user.roles.includes('admin') ? await countPendingApprovals(await getDb(), user) : 0;
+  const approver = user.isManager || user.roles.includes('admin');
+  const db = approver ? await getDb() : null;
+  const pending = db ? (await countPendingApprovals(db, user)) + (await countPendingLeave(db, user)) : 0;
   const links = [
     { href: '/', label: t.nav.home },
     { href: '/timesheet', label: t.nav.timesheet },
-    ...(user.isManager || user.roles.includes('admin')
+    { href: '/time-off', label: t.nav.timeOff },
+    ...(approver
       ? [{ href: '/approvals', label: t.nav.approvals, badge: pending || undefined }]
       : []),
     { href: '/people', label: t.nav.people },

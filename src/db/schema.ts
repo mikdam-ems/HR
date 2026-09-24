@@ -176,6 +176,50 @@ export const dayEntries = pgTable(
   (t) => [uniqueIndex('day_entries_employee_date_idx').on(t.employeeId, t.date)],
 );
 
+export const leaveStatusEnum = pgEnum('leave_status', ['pending', 'approved', 'declined', 'cancelled']);
+export type LeaveStatus = (typeof leaveStatusEnum.enumValues)[number];
+
+export const leaveRequests = pgTable(
+  'leave_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    type: leaveTypeEnum('type').notNull(),
+    fromDate: date('from_date', { mode: 'string' }).notNull(),
+    toDate: date('to_date', { mode: 'string' }).notNull(),
+    halfDay: boolean('half_day').notNull().default(false),
+    /** Working days the request uses, worked out when it was made (weekends and client holidays excluded). */
+    daysUsed: numeric('days_used', { mode: 'number' }).notNull(),
+    note: text('note'),
+    status: leaveStatusEnum('status').notNull().default('pending'),
+    decidedById: uuid('decided_by_id').references(() => employees.id, { onDelete: 'set null' }),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    managerNote: text('manager_note'),
+    ...timestamps,
+  },
+  (t) => [index('leave_requests_employee_idx').on(t.employeeId)],
+);
+
+/** HR corrections to a balance: carry-over from last year, opening balances, fixes. Positive or negative. */
+export const leaveAdjustments = pgTable(
+  'leave_adjustments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    year: integer('year').notNull(),
+    type: leaveTypeEnum('type').notNull(),
+    days: numeric('days', { mode: 'number' }).notNull(),
+    reason: text('reason').notNull(),
+    createdById: uuid('created_by_id').references(() => employees.id, { onDelete: 'set null' }),
+    ...timestamps,
+  },
+  (t) => [index('leave_adjustments_employee_idx').on(t.employeeId, t.year)],
+);
+
 /** Small key/value settings: home calendar, overtime rates. */
 export const settings = pgTable('settings', {
   key: text('key').primaryKey(),
@@ -233,7 +277,13 @@ export const timesheetsRelations = relations(timesheets, ({ one }) => ({
   decidedBy: one(employees, { fields: [timesheets.decidedById], references: [employees.id] }),
 }));
 
+export const leaveRequestsRelations = relations(leaveRequests, ({ one }) => ({
+  employee: one(employees, { fields: [leaveRequests.employeeId], references: [employees.id] }),
+}));
+
 export type Employee = typeof employees.$inferSelect;
+export type LeaveRequestRow = typeof leaveRequests.$inferSelect;
+export type LeaveAdjustmentRow = typeof leaveAdjustments.$inferSelect;
 export type TimesheetRow = typeof timesheets.$inferSelect;
 export type DayEntryRow = typeof dayEntries.$inferSelect;
 export type Calendar = typeof calendars.$inferSelect;

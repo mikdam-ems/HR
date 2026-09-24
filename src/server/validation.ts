@@ -14,6 +14,11 @@ export type ErrorCode =
   | 'unknown_calendar'
   | 'calendar_in_use'
   | 'month_not_started'
+  | 'month_locked'
+  | 'cross_year'
+  | 'no_working_days'
+  | 'leave_overlap'
+  | 'insufficient_balance'
   | 'forbidden';
 
 export type Result<T = void> = { ok: true; value: T } | { ok: false; error: ErrorCode; detail?: string };

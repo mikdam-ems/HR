@@ -9,8 +9,9 @@ Each person's days off, work week and overtime follow the client they're assigne
 
 ## Status
 
-Phase 1, stages 1–3 done: sign-in, people, org chart, clients, calendars, assignments, schedules, Excel import,
-Arabic/English, the rules engine, and **timesheets with manager approval**. **Next:** stage 4, time off (leave requests and balances).
+Phase 1, stages 1–4 done: sign-in, people, org chart, clients, calendars, assignments, schedules, Excel import,
+Arabic/English, the rules engine, timesheets with manager approval, and **time off** (requests, balances, approval).
+**Next:** stage 5, Finance export and month lock.
 
 ## Run it locally
 
@@ -46,11 +47,11 @@ Only people added by HR can sign in, and only with a Google account on the allow
 | | Employee | Manager | HR | Finance | Admin |
 |---|---|---|---|---|---|
 | See own day, next 7 days, directory, org chart | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Fill in and submit own timesheet | ✓ | ✓ | ✓ | ✓ | ✓ |
-| See their team's status; approve or return their team's timesheets | | ✓ | | | |
+| Fill in and submit own timesheet; request time off; see own balances | ✓ | ✓ | ✓ | ✓ | ✓ |
+| See their team's status; approve or return their team's timesheets and leave | | ✓ | | | |
 | View anyone's timesheet (read-only) | | | ✓ | ✓ | ✓ |
 | Approve timesheets of people with no manager | | | | | ✓ |
-| Add/edit people, assignments, schedules; import Excel | | | ✓ | | ✓ |
+| Add/edit people, assignments, schedules; import Excel; adjust leave balances | | | ✓ | | ✓ |
 | Clients, calendars, holidays | | | ✓ | | ✓ |
 | Roles, home calendar, overtime rates | | | | | ✓ |
 

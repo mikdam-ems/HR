@@ -108,6 +108,22 @@ stateDiagram-v2
 - Leave is entered on the timesheet for now; stage 4 adds leave requests that place approved leave automatically.
 - **Open:** splitting one day's hours across two clients; locking a month for payroll (stage 5, with the Finance export).
 
+## Time off (implemented in `src/server/leave.ts`)
+
+- A request shows exactly which days it uses before it's sent: weekends and client holidays are skipped;
+  a Jordanian holiday while the client works is a workday, so it counts.
+- Refused: no working days in range, overlapping another pending/approved request, crossing into a new year,
+  and annual leave beyond the balance. Sick leave beyond the allowance still goes to the manager.
+- The direct manager approves or declines (reason optional), seeing teammates off on the same dates.
+- Approval writes the leave onto the timesheet (half day = half the scheduled hours). It's refused if that month
+  is already submitted or approved.
+- The person can cancel a pending request, or approved leave that hasn't started; cancelling removes it from the timesheet.
+- Balance = entitlement + HR adjustments − taken − pending, per calendar year, for annual and sick leave.
+  **Taken** is read from the timesheet, so leave entered there directly also counts.
+- Entitlement: annual 14 days, 21 once 5 years of service are completed by 1 January; sick 14 days.
+  Carry-over is an HR adjustment with a reason (no automatic carry-over).
+- **Open (HR):** confirm entitlements, leave year, carry-over rule, and whether reaching 5 years mid-year should count that year.
+
 ## Automatic checks
 
 `missing_hours` · `too_many_hours` (> 16h) · `leave_on_day_off` · `worked_on_full_leave` · `unassigned`.
@@ -120,6 +136,6 @@ These replace the manager's line-by-line review of the Excel sheet.
 | 1. Foundation | 1–2 | Next.js app, Google sign-in, roles, people/clients/assignments, Excel import | **Done** — plus calendars/holidays, schedules, org chart, settings, Arabic/English |
 | 2. Rules engine | 3–4 | Calendars, schedules, day rules, totals, checks, leave counting | **Done** — wired to the database; Home shows today and the next 7 days |
 | 3. Timesheets | 5–6 | Month view, edit day, submit/approve/return | **Done** — month calendar + day panel, approvals inbox, totals frozen at submit/approval |
-| 4. Time off | 7–8 | Requests, balances, approvals inbox | Not started |
+| 4. Time off | 7–8 | Requests, balances, approvals inbox | **Done** — preview before sending, approval writes to the timesheet, HR adjustments |
 | 5. Finish | 9–10 | Org chart, Finance export, Arabic RTL | Not started |
 | 6. Pilot | 11–12 | 3 people run it alongside Excel for a month | Not started |

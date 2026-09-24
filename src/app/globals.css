@@ -811,3 +811,39 @@ a.cell:hover {
     min-height: 64px;
   }
 }
+
+/* ---------- Time off ---------- */
+.balances {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.balance {
+  gap: 4px;
+  padding: 16px 20px;
+}
+.balance strong {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+.negative {
+  color: var(--danger-fg);
+}
+.preview-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.status-pending {
+  background: var(--special-bg);
+  color: var(--special-fg);
+}
+.status-declined {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+.status-cancelled {
+  background: var(--weekend-bg);
+  color: var(--faint);
+}
