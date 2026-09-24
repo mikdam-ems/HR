@@ -12,6 +12,8 @@ This file covers how it's built. Anything marked **Open** waits on a decision in
 | Database | PostgreSQL | Reliable, standard, easy to back up |
 | Sign-in | Google (company accounts only) | EMS already uses Google; no passwords to manage |
 | Excel | ExcelJS | Import people/holidays, export for Finance |
+| ORM | Drizzle | Typed SQL; plain migration files |
+| Local DB | PGlite | Embedded PostgreSQL: no setup for developers and tests |
 | Tests | Vitest | Fast; the rules engine is covered first |
 
 The rules engine (`src/domain/`) has no framework dependencies, so it stays valid whatever the app layer becomes.
@@ -19,6 +21,10 @@ The rules engine (`src/domain/`) has no framework dependencies, so it stays vali
 ## Code layout
 
 ```
+src/app/             Next.js pages and server actions (thin: check permission, call src/server, redirect)
+src/server/          database reads/writes, validation, Excel import, permissions, audit log
+src/db/              schema (Drizzle) and connection; migrations in drizzle/
+src/i18n/            English and Arabic text
 src/domain/          rules engine: pure functions, no database, no UI
   types.ts           core concepts (calendar, client, assignment, schedule, day types)
   dates.ts           time-zone-safe date and time helpers
@@ -91,8 +97,8 @@ These replace the manager's line-by-line review of the Excel sheet.
 
 | Stage | Weeks | Scope | Status |
 |---|---|---|---|
-| 1. Foundation | 1–2 | Next.js app, Google sign-in, roles, people/clients/assignments, Excel import | Not started |
-| 2. Rules engine | 3–4 | Calendars, schedules, day rules, totals, checks, leave counting | **Started** — engine + tests done; database wiring waits on stage 1 |
+| 1. Foundation | 1–2 | Next.js app, Google sign-in, roles, people/clients/assignments, Excel import | **Done** — plus calendars/holidays, schedules, org chart, settings, Arabic/English |
+| 2. Rules engine | 3–4 | Calendars, schedules, day rules, totals, checks, leave counting | **Done** — wired to the database; Home shows today and the next 7 days |
 | 3. Timesheets | 5–6 | Month view, edit day, submit/approve/return | Not started |
 | 4. Time off | 7–8 | Requests, balances, approvals inbox | Not started |
 | 5. Finish | 9–10 | Org chart, Finance export, Arabic RTL | Not started |

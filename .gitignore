@@ -5,3 +5,7 @@ coverage/
 .env.*
 !.env.example
 .DS_Store
+.data/
+.next/
+next-env.d.ts
+*.tsbuildinfo
