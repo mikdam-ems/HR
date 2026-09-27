@@ -63,7 +63,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
               </select>
               {demoMode ? null : <span className="muted small">{t.signIn.devHint}</span>}
             </div>
-            <button className="btn">{t.signIn.devButton}</button>
+            <button className="btn btn-primary">{t.signIn.devButton}</button>
           </form>
         ) : null}
 

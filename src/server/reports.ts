@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import { and, between, eq } from 'drizzle-orm';
 import type { DB } from '@/db';
-import { dayEntries, employees, monthClosures, timesheets, type Employee, type TimesheetRow } from '@/db/schema';
+import { dayEntries, departments, employees, monthClosures, timesheets, type Department, type Employee, type TimesheetRow } from '@/db/schema';
 import { type DayEntry, type MonthSummary, type MonthTotals, daysOfMonth, summarizeMonth } from '@/domain';
 import { audit } from './audit';
 import { can, type CurrentUser } from './permissions';
@@ -13,6 +13,7 @@ import { type Result, fail, ok } from './validation';
 export interface ReportRow {
   employee: Employee;
   manager: Employee | null;
+  department: Department | null;
   clients: string[];
   status: TimesheetRow['status'];
   /** Frozen totals once approved, so the report matches what the manager signed off. */
@@ -37,14 +38,16 @@ type Actor = Pick<CurrentUser, 'id' | 'roles'>;
 export async function monthReport(db: DB, actor: Actor, year: number, month: number): Promise<Result<MonthReport>> {
   if (!can(actor, 'reports.view')) return fail('forbidden');
   const days = daysOfMonth(year, month);
-  const [ctx, appSettings, people, entries, sheets, closures] = await Promise.all([
+  const [ctx, appSettings, people, entries, sheets, closures, depts] = await Promise.all([
     loadRulesContext(db),
     getSettings(db),
     db.select().from(employees),
     db.select().from(dayEntries).where(between(dayEntries.date, days[0]!, days[days.length - 1]!)),
     db.select().from(timesheets).where(and(eq(timesheets.year, year), eq(timesheets.month, month))),
     db.select().from(monthClosures).where(and(eq(monthClosures.year, year), eq(monthClosures.month, month))),
+    db.select().from(departments),
   ]);
+  const deptById = new Map(depts.map((d) => [d.id, d]));
   const byId = new Map(people.map((p) => [p.id, p]));
 
   const rows: ReportRow[] = [];
@@ -65,6 +68,7 @@ export async function monthReport(db: DB, actor: Actor, year: number, month: num
     rows.push({
       employee,
       manager: employee.managerId ? (byId.get(employee.managerId) ?? null) : null,
+      department: employee.departmentId ? (deptById.get(employee.departmentId) ?? null) : null,
       clients: clientIds.map((id) => ctx.clients[id]?.name ?? ''),
       status,
       totals: status === 'approved' && sheet?.totals ? (sheet.totals as MonthTotals) : summary.totals,
@@ -121,6 +125,7 @@ export async function buildMonthWorkbook(report: MonthReport): Promise<Buffer> {
     { header: 'Employee', key: 'name', width: 24 },
     { header: 'Email', key: 'email', width: 28 },
     { header: 'Job title', key: 'title', width: 20 },
+    { header: 'Department', key: 'department', width: 22 },
     { header: 'Manager', key: 'manager', width: 20 },
     { header: 'Client', key: 'client', width: 22 },
     { header: 'Status', key: 'status', width: 11 },
@@ -146,6 +151,7 @@ export async function buildMonthWorkbook(report: MonthReport): Promise<Buffer> {
       name: r.employee.nameEn,
       email: r.employee.email,
       title: r.employee.jobTitle ?? '',
+      department: r.department?.nameEn ?? '',
       manager: r.manager?.nameEn ?? '',
       client: r.clients.join(', '),
       status: r.status,

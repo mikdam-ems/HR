@@ -28,6 +28,16 @@ const timestamps = {
     .$onUpdate(() => new Date()),
 };
 
+/** A team inside EMS (Software & Development, UX/UI, QA, Application Support, Finance…). */
+export const departments = pgTable('departments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nameEn: text('name_en').notNull(),
+  nameAr: text('name_ar'),
+  /** The delivery manager (or head) of the department. */
+  headId: uuid('head_id'),
+  ...timestamps,
+});
+
 export const employees = pgTable(
   'employees',
   {
@@ -37,13 +47,18 @@ export const employees = pgTable(
     nameEn: text('name_en').notNull(),
     nameAr: text('name_ar'),
     jobTitle: text('job_title'),
+    departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'set null' }),
     managerId: uuid('manager_id').references((): AnyPgColumn => employees.id, { onDelete: 'set null' }),
     hireDate: date('hire_date', { mode: 'string' }),
     roles: roleEnum('roles').array().notNull().default(['employee']),
     active: boolean('active').notNull().default(true),
     ...timestamps,
   },
-  (t) => [uniqueIndex('employees_email_idx').on(t.email), index('employees_manager_idx').on(t.managerId)],
+  (t) => [
+    uniqueIndex('employees_email_idx').on(t.email),
+    index('employees_manager_idx').on(t.managerId),
+    index('employees_department_idx').on(t.departmentId),
+  ],
 );
 
 export const calendars = pgTable('calendars', {
@@ -256,6 +271,7 @@ export const auditLog = pgTable(
 );
 
 export const employeesRelations = relations(employees, ({ one, many }) => ({
+  department: one(departments, { fields: [employees.departmentId], references: [departments.id] }),
   manager: one(employees, { fields: [employees.managerId], references: [employees.id], relationName: 'reports' }),
   reports: many(employees, { relationName: 'reports' }),
   assignments: many(assignments),
@@ -294,7 +310,13 @@ export const leaveRequestsRelations = relations(leaveRequests, ({ one }) => ({
   employee: one(employees, { fields: [leaveRequests.employeeId], references: [employees.id] }),
 }));
 
+export const departmentsRelations = relations(departments, ({ one, many }) => ({
+  head: one(employees, { fields: [departments.headId], references: [employees.id] }),
+  members: many(employees),
+}));
+
 export type Employee = typeof employees.$inferSelect;
+export type Department = typeof departments.$inferSelect;
 export type LeaveRequestRow = typeof leaveRequests.$inferSelect;
 export type LeaveAdjustmentRow = typeof leaveAdjustments.$inferSelect;
 export type TimesheetRow = typeof timesheets.$inferSelect;

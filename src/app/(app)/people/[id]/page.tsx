@@ -59,7 +59,9 @@ export default async function ProfilePage({
             <DayBadge type={day.dayType} t={t} holiday={holidayLabel(locale, day)} />
           </div>
           <span className="muted">
-            {[person.jobTitle, person.email].filter(Boolean).join(' · ')}
+            {[person.jobTitle, person.department && localName(locale, person.department.nameEn, person.department.nameAr), person.email]
+              .filter(Boolean)
+              .join(' · ')}
           </span>
           <span>
             <span className="label">{t.people.manager}: </span>

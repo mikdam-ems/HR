@@ -1,17 +1,19 @@
 import Link from 'next/link';
 import { savePersonAction } from '@/app/(app)/people/actions';
-import { roleEnum, type Employee } from '@/db/schema';
+import { roleEnum, type Department, type Employee } from '@/db/schema';
 import type { Dict } from '@/i18n/en';
 
 export function EmployeeForm({
   t,
   person,
   managers,
+  departments,
   canEditRoles,
 }: {
   t: Dict;
   person?: Employee;
   managers: Pick<Employee, 'id' | 'nameEn'>[];
+  departments: Pick<Department, 'id' | 'nameEn'>[];
   canEditRoles: boolean;
 }) {
   return (
@@ -33,6 +35,17 @@ export function EmployeeForm({
         <div className="field">
           <label htmlFor="jobTitle">{t.form.jobTitle}</label>
           <input id="jobTitle" name="jobTitle" type="text" defaultValue={person?.jobTitle ?? ''} />
+        </div>
+        <div className="field">
+          <label htmlFor="departmentId">{t.form.department}</label>
+          <select id="departmentId" name="departmentId" defaultValue={person?.departmentId ?? ''}>
+            <option value="">{t.form.noDepartment}</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.nameEn}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="field">
           <label htmlFor="managerId">{t.form.manager}</label>

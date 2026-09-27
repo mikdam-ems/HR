@@ -37,37 +37,45 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="shell">
-      <nav className="sidebar" aria-label="Main">
-        <div className="brand">
-          <span className="wordmark" aria-label="ems">
-            <span>e</span>ms
-          </span>
-          <span className="divider" aria-hidden="true" />
-          <span>{t.appName}</span>
-        </div>
-        <NavLinks links={links} />
-        <div className="spacer" />
-        <form action={setLocaleAction} className="segmented" aria-label={t.nav.language}>
-          <BackField />
-          <button name="locale" value="en" aria-pressed={locale === 'en'} lang="en">
-            English
-          </button>
-          <button name="locale" value="ar" aria-pressed={locale === 'ar'} lang="ar">
-            العربية
-          </button>
-        </form>
-        <div className="me">
-          <span className="avatar" aria-hidden="true">
-            {initials}
-          </span>
-          <div className="stack" style={{ gap: 0, minWidth: 0 }}>
-            <strong style={{ fontWeight: 500 }}>{name}</strong>
-            <form action={signOutAction}>
-              <button className="btn-link small">{t.nav.signOut}</button>
+      <header className="topbar">
+        <div className="topbar-inner">
+          <div className="brand">
+            <span className="wordmark" aria-label="ems">
+              <span>e</span>ms
+            </span>
+            <span className="divider" aria-hidden="true" />
+            <span className="brand-name">{t.appName}</span>
+          </div>
+          <nav className="topnav" aria-label="Main">
+            <NavLinks links={links} />
+          </nav>
+          <div className="topbar-end">
+            <form action={setLocaleAction} className="segmented" aria-label={t.nav.language}>
+              <BackField />
+              <button name="locale" value="en" aria-pressed={locale === 'en'} lang="en">
+                EN
+              </button>
+              <button name="locale" value="ar" aria-pressed={locale === 'ar'} lang="ar">
+                عربي
+              </button>
             </form>
+            <details className="me">
+              <summary aria-label={name}>
+                <span className="avatar" aria-hidden="true">
+                  {initials}
+                </span>
+              </summary>
+              <div className="me-menu card">
+                <strong>{name}</strong>
+                <span className="muted small">{user.email}</span>
+                <form action={signOutAction}>
+                  <button className="btn btn-small">{t.nav.signOut}</button>
+                </form>
+              </div>
+            </details>
           </div>
         </div>
-      </nav>
+      </header>
       <main className="main">
         {demoMode ? (
           <div className="demo-banner" role="note">

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { DayBadge } from '@/components/DayBadge';
 import { Flash } from '@/components/Flash';
+import { PeopleTabs } from '@/components/PeopleTabs';
 import { getDb } from '@/db';
 import type { Employee } from '@/db/schema';
 import { resolveDay, type ResolvedDay } from '@/domain';
@@ -8,6 +9,7 @@ import { clientLabel, fmt, getDict, localName, type Locale } from '@/i18n';
 import type { Dict } from '@/i18n/en';
 import { todayISO } from '@/lib/format';
 import { listClients } from '@/server/clients';
+import { listDepartments } from '@/server/departments';
 import { buildOrgTree, type OrgNode } from '@/server/orgTree';
 import { listEmployees } from '@/server/people';
 import { can } from '@/server/permissions';
@@ -23,9 +25,16 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
   const view = search.view === 'chart' ? 'chart' : 'list';
   const q = (search.q ?? '').trim().toLowerCase();
   const clientFilter = search.client ?? '';
+  const deptFilter = search.dept ?? '';
 
   const db = await getDb();
-  const [people, ctx, clientRows] = await Promise.all([listEmployees(db), loadRulesContext(db), listClients(db)]);
+  const [people, ctx, clientRows, deptRows] = await Promise.all([
+    listEmployees(db),
+    loadRulesContext(db),
+    listClients(db),
+    listDepartments(db),
+  ]);
+  const deptName = new Map(deptRows.map((d) => [d.id, localName(locale, d.nameEn, d.nameAr)]));
   const today = todayISO();
   const days = new Map(people.map((p) => [p.id, resolveDay(ctx, p.id, today)]));
   const byId = new Map(people.map((p) => [p.id, p]));
@@ -34,13 +43,15 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
     const matchesText =
       !q || [p.nameEn, p.nameAr ?? '', p.email, p.jobTitle ?? ''].some((s) => s.toLowerCase().includes(q));
     const matchesClient = !clientFilter || days.get(p.id)!.clientIds.includes(clientFilter);
-    return matchesText && matchesClient;
+    const matchesDept = !deptFilter || p.departmentId === deptFilter;
+    return matchesText && matchesClient && matchesDept;
   });
 
-  const hrefFor = (v: string) => {
-    const params = new URLSearchParams({ ...(q ? { q } : {}), ...(clientFilter ? { client: clientFilter } : {}), view: v });
-    return `/people?${params}`;
-  };
+  const query = new URLSearchParams({
+    ...(q ? { q } : {}),
+    ...(clientFilter ? { client: clientFilter } : {}),
+    ...(deptFilter ? { dept: deptFilter } : {}),
+  }).toString();
 
   return (
     <>
@@ -81,22 +92,23 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
               </option>
             ))}
           </select>
+          <select name="dept" defaultValue={deptFilter} aria-label={t.people.department} style={{ width: 200 }}>
+            <option value="">{t.people.allDepartments}</option>
+            {deptRows.map((d) => (
+              <option key={d.id} value={d.id}>
+                {localName(locale, d.nameEn, d.nameAr)}
+              </option>
+            ))}
+          </select>
           <button className="btn">{t.people.filter}</button>
         </form>
-        <nav className="segmented" aria-label="View">
-          <Link href={hrefFor('list')} aria-current={view === 'list'}>
-            {t.people.list}
-          </Link>
-          <Link href={hrefFor('chart')} aria-current={view === 'chart'}>
-            {t.people.chart}
-          </Link>
-        </nav>
+        <PeopleTabs t={t} current={view} query={query} />
       </div>
 
       {view === 'chart' ? (
         <ul className="org" aria-label={t.people.chart}>
           {buildOrgTree(shown).map((n) => (
-            <OrgItem key={n.person.id} node={n} days={days} ctxClients={ctx.clients} locale={locale} t={t} />
+            <OrgItem key={n.person.id} node={n} days={days} ctxClients={ctx.clients} deptName={deptName} locale={locale} t={t} />
           ))}
         </ul>
       ) : (
@@ -106,6 +118,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
               <tr>
                 <th>{t.people.name}</th>
                 <th>{t.people.jobTitle}</th>
+                <th>{t.people.department}</th>
                 <th>{t.people.manager}</th>
                 <th>{t.people.currentClient}</th>
                 <th>{t.people.today}</th>
@@ -114,7 +127,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
             <tbody>
               {shown.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="muted">
+                  <td colSpan={6} className="muted">
                     {t.people.empty}
                   </td>
                 </tr>
@@ -129,6 +142,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                         <div className="muted small">{p.email}</div>
                       </td>
                       <td>{p.jobTitle ?? t.people.none}</td>
+                      <td>{(p.departmentId && deptName.get(p.departmentId)) || t.people.none}</td>
                       <td>{manager ? localName(locale, manager.nameEn, manager.nameAr) : t.people.none}</td>
                       <td>{clientNames(d, ctx.clients, locale) || t.people.none}</td>
                       <td>
@@ -154,12 +168,14 @@ function OrgItem({
   node,
   days,
   ctxClients,
+  deptName,
   locale,
   t,
 }: {
   node: OrgNode<Employee>;
   days: Map<string, ResolvedDay>;
   ctxClients: Record<string, { name: string; nameAr?: string }>;
+  deptName: Map<string, string>;
   locale: Locale;
   t: Dict;
 }) {
@@ -179,14 +195,14 @@ function OrgItem({
         <span className="stack" style={{ gap: 0 }}>
           <strong style={{ fontWeight: 600 }}>{localName(locale, p.nameEn, p.nameAr)}</strong>
           <span className="muted small">
-            {[p.jobTitle, clientNames(d, ctxClients, locale)].filter(Boolean).join(' · ') || t.people.none}
+            {[p.jobTitle, p.departmentId && deptName.get(p.departmentId), clientNames(d, ctxClients, locale)].filter(Boolean).join(' · ') || t.people.none}
           </span>
         </span>
       </Link>
       {node.reports.length ? (
         <ul>
           {node.reports.map((c) => (
-            <OrgItem key={c.person.id} node={c} days={days} ctxClients={ctxClients} locale={locale} t={t} />
+            <OrgItem key={c.person.id} node={c} days={days} ctxClients={ctxClients} deptName={deptName} locale={locale} t={t} />
           ))}
         </ul>
       ) : null}

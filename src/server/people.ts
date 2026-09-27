@@ -30,6 +30,7 @@ export async function getEmployeeProfile(db: DB, id: string) {
     where: eq(employees.id, id),
     with: {
       manager: true,
+      department: true,
       reports: { orderBy: asc(employees.nameEn) },
       assignments: { with: { client: true }, orderBy: asc(assignments.startDate) },
       schedules: { orderBy: asc(schedules.effectiveFrom) },

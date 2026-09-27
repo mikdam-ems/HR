@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { DB } from '@/db';
-import { employees, roleEnum, type Employee, type Role } from '@/db/schema';
+import { departments, employees, roleEnum, type Employee, type Role } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { toUtcMs } from '@/domain';
 import { audit } from './audit';
@@ -12,6 +12,7 @@ export const PEOPLE_COLUMNS = {
   nameEn: 'Name (English)',
   nameAr: 'Name (Arabic)',
   jobTitle: 'Job title',
+  department: 'Department',
   managerEmail: 'Manager email',
   hireDate: 'Hire date',
   roles: 'Roles',
@@ -26,6 +27,7 @@ export interface ImportRow {
   nameAr: string | null;
   jobTitle: string | null;
   managerEmail: string | null;
+  department: string | null;
   hireDate: string | null;
   roles: Role[] | null;
 }
@@ -141,6 +143,7 @@ export async function parsePeopleWorkbook(
       nameAr: text('nameAr'),
       jobTitle: text('jobTitle'),
       managerEmail,
+      department: text('department'),
       hireDate,
       roles,
     });
@@ -180,12 +183,24 @@ export async function applyPeopleImport(
   try {
     return await db.transaction(async (tx) => {
       const existing = await tx.select().from(employees);
+      const depts = await tx.select().from(departments);
+      const deptByName = new Map<string, string>();
+      for (const d of depts) {
+        deptByName.set(d.nameEn.trim().toLowerCase(), d.id);
+        if (d.nameAr) deptByName.set(d.nameAr.trim().toLowerCase(), d.id);
+      }
       const byEmail = new Map(existing.map((e) => [e.email, e]));
       const fileEmails = new Set(rows.map((r) => r.email));
       const errors: ImportError[] = [];
 
       for (const r of rows) {
         if (!byEmail.has(r.email) && !r.nameEn) errors.push({ row: r.row, message: `${r.email} is new, so it needs a name.` });
+        if (r.department && !deptByName.has(r.department.trim().toLowerCase())) {
+          errors.push({
+            row: r.row,
+            message: `Unknown department "${r.department}". Use one of: ${depts.map((d) => d.nameEn).join(', ') || '(none set up yet)'}.`,
+          });
+        }
         if (r.managerEmail && !fileEmails.has(r.managerEmail) && !byEmail.has(r.managerEmail)) {
           errors.push({ row: r.row, message: `Manager ${r.managerEmail} is not in the file or the system.` });
         }
@@ -204,6 +219,7 @@ export async function applyPeopleImport(
           ...(r.nameAr ? { nameAr: r.nameAr } : {}),
           ...(r.jobTitle ? { jobTitle: r.jobTitle } : {}),
           ...(r.hireDate ? { hireDate: r.hireDate } : {}),
+          ...(r.department ? { departmentId: deptByName.get(r.department.trim().toLowerCase())! } : {}),
           ...(r.roles ? { roles: r.roles } : {}),
         };
         if (before) {
@@ -251,13 +267,14 @@ export async function buildPeopleTemplate(): Promise<Buffer> {
   const sheet = wb.addWorksheet('People');
   sheet.columns = Object.values(PEOPLE_COLUMNS).map((header) => ({ header, width: 26 }));
   sheet.getRow(1).font = { bold: true };
-  sheet.addRow(['sara@ems-itech.com', 'Sara Ahmad', 'سارة أحمد', 'Support Engineer', 'khaled@ems-itech.com', '2023-04-02', 'employee']);
+  sheet.addRow(['sara@ems-itech.com', 'Sara Ahmad', 'سارة أحمد', 'Support Engineer', 'Application Support', 'khaled@ems-itech.com', '2023-04-02', 'employee']);
 
   const help = wb.addWorksheet('How to fill');
   help.columns = [{ width: 110 }];
   for (const line of [
     'One row per person. Email and Name (English) are required for new people.',
     'Email must be the person’s Google account; it is how they sign in.',
+    'Department must match a department set up in the system (English or Arabic name).',
     'Manager email must belong to someone in this file or already in the system.',
     'Hire date: YYYY-MM-DD or DD/MM/YYYY.',
     'Roles: employee (default), hr, finance, admin — separate several with commas.',

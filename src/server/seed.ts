@@ -1,7 +1,8 @@
 import { eq, sql } from 'drizzle-orm';
 import type { DB } from '@/db';
-import { calendars, employees } from '@/db/schema';
+import { calendars, departments, employees } from '@/db/schema';
 import { createCalendar, createClient, setHoliday } from './clients';
+import { createDepartment, updateDepartment } from './departments';
 import { addAssignment, createEmployee, setSchedule } from './people';
 import { getSettings, setSetting } from './settings';
 
@@ -51,6 +52,12 @@ export async function seedBase(db: DB, log: (m: string) => void = console.log) {
 
 }
 
+/** Base data for a fresh install: calendars, clients, settings and EMS's departments. */
+export async function seedAll(db: DB, log: (m: string) => void = console.log) {
+  await seedBase(db, log);
+  await seedDepartments(db, log);
+}
+
 /** Makes this email an admin, creating the person if needed. */
 export async function ensureAdmin(db: DB, email: string | undefined, log: (m: string) => void = console.log) {
   const adminEmail = email?.trim().toLowerCase();
@@ -73,54 +80,122 @@ export async function ensureAdmin(db: DB, email: string | undefined, log: (m: st
 
 }
 
-export async function seedDemo(db: DB, log: (m: string) => void = console.log) {
-  if ((await db.select().from(employees).where(eq(employees.email, 'khaled@example.com'))).length) {
-    log('• Demo people already exist — skipped.');
-    return;
-  }
-  const clients = await db.query.clients.findMany();
-  const jadwa = clients.find((c) => c.nameEn === 'Jadwa Investment')!.id;
-  const internal = clients.find((c) => c.nameEn === 'EMS Internal')!.id;
+/** EMS's departments: four delivery teams plus Finance and People & Culture. */
+export const EMS_DEPARTMENTS = [
+  { key: 'dev', nameEn: 'Software & Development', nameAr: 'تطوير البرمجيات' },
+  { key: 'ux', nameEn: 'UX/UI', nameAr: 'تجربة وواجهة المستخدم' },
+  { key: 'qa', nameEn: 'QA', nameAr: 'ضمان الجودة' },
+  { key: 'support', nameEn: 'Application Support', nameAr: 'دعم التطبيقات' },
+  { key: 'finance', nameEn: 'Finance', nameAr: 'المالية' },
+  { key: 'pc', nameEn: 'People & Culture', nameAr: 'الأفراد والثقافة' },
+] as const;
+type DeptKey = (typeof EMS_DEPARTMENTS)[number]['key'];
 
-  const add = async (email: string, nameEn: string, nameAr: string, jobTitle: string, managerId: string | null, roles: ('hr' | 'admin' | 'finance')[] = []) =>
-    must(await createEmployee(db, null, { email, nameEn, nameAr, jobTitle, managerId, roles, hireDate: '2022-03-01' }), email);
-
-  const global = await add('global@example.com', 'Rami Haddad', 'رامي حداد', 'Global Manager', null, ['admin']);
-  const khaled = await add('khaled@example.com', 'Khaled Nasser', 'خالد ناصر', 'Technical Manager', global.id);
-  const hr = await add('hr@example.com', 'Dana Saleh', 'دانا صالح', 'People & Culture', global.id, ['hr']);
-  const finance = await add('finance@example.com', 'Nour Khalil', 'نور خليل', 'Finance', global.id, ['finance']);
-  const lina = await add('lina@example.com', 'Lina Khoury', 'لينا خوري', 'Support Engineer', khaled.id);
-  const omar = await add('omar@example.com', 'Omar Haddad', 'عمر حداد', 'Support Engineer', khaled.id);
-  const rania = await add('rania@example.com', 'Rania Saleh', 'رانيا صالح', 'Software Engineer', khaled.id);
-
-  for (const p of [khaled, lina, omar, rania]) {
-    must(await addAssignment(db, null, { employeeId: p.id, clientId: jadwa, startDate: '2026-01-01' }), 'assign');
+/** Creates any missing departments (matched by English name) and returns their ids by key. */
+export async function seedDepartments(db: DB, log: (m: string) => void = console.log) {
+  const existing = await db.select().from(departments);
+  const ids = {} as Record<DeptKey, string>;
+  for (const d of EMS_DEPARTMENTS) {
+    const found = existing.find((e) => e.nameEn.toLowerCase() === d.nameEn.toLowerCase());
+    ids[d.key] = found ? found.id : must(await createDepartment(db, null, { nameEn: d.nameEn, nameAr: d.nameAr }), d.nameEn);
   }
-  for (const p of [global, hr, finance]) {
-    must(await addAssignment(db, null, { employeeId: p.id, clientId: internal, startDate: '2026-01-01' }), 'assign');
-  }
-  for (const p of [global, khaled, hr, finance, lina, rania]) {
-    must(await setSchedule(db, null, { employeeId: p.id, effectiveFrom: '2026-01-01', startTime: '09:00', endTime: '17:00' }), 'schedule');
-  }
-  must(
-    await setSchedule(db, null, { employeeId: omar.id, effectiveFrom: '2026-01-01', startTime: '12:00', endTime: '20:00', shiftCode: 'B' }),
-    'schedule',
-  );
-  log('✓ Demo people added (sign in with AUTH_DEV_LOGIN=true).');
+  if (existing.length < EMS_DEPARTMENTS.length) log('✓ Departments ready.');
+  return ids;
 }
 
+type DemoPerson = {
+  email: string;
+  nameEn: string;
+  nameAr: string;
+  jobTitle: string;
+  dept: DeptKey | null;
+  manager: string | null;
+  roles?: ('hr' | 'admin' | 'finance')[];
+  client: 'jadwa' | 'internal';
+  shift?: { start: string; end: string; code: string };
+};
+
+/**
+ * Sample organisation: a General Manager, a delivery manager per delivery department, their teams,
+ * Finance and People & Culture. Safe to run again: existing sample people are updated, not duplicated.
+ */
+const DEMO_PEOPLE: DemoPerson[] = [
+  { email: 'global@example.com', nameEn: 'Rami Haddad', nameAr: 'رامي حداد', jobTitle: 'General Manager', dept: null, manager: null, roles: ['admin'], client: 'internal' },
+  { email: 'khaled@example.com', nameEn: 'Khaled Nasser', nameAr: 'خالد ناصر', jobTitle: 'Delivery Manager', dept: 'dev', manager: 'global@example.com', client: 'jadwa' },
+  { email: 'hiba@example.com', nameEn: 'Hiba Mansour', nameAr: 'هبة منصور', jobTitle: 'Delivery Manager', dept: 'ux', manager: 'global@example.com', client: 'jadwa' },
+  { email: 'tariq@example.com', nameEn: 'Tariq Zoubi', nameAr: 'طارق الزعبي', jobTitle: 'Delivery Manager', dept: 'qa', manager: 'global@example.com', client: 'jadwa' },
+  { email: 'faris@example.com', nameEn: 'Faris Qasem', nameAr: 'فارس قاسم', jobTitle: 'Delivery Manager', dept: 'support', manager: 'global@example.com', client: 'jadwa' },
+  { email: 'finance@example.com', nameEn: 'Nour Khalil', nameAr: 'نور خليل', jobTitle: 'Finance Officer', dept: 'finance', manager: 'global@example.com', roles: ['finance'], client: 'internal' },
+  { email: 'hr@example.com', nameEn: 'Dana Saleh', nameAr: 'دانا صالح', jobTitle: 'People & Culture Lead', dept: 'pc', manager: 'global@example.com', roles: ['hr'], client: 'internal' },
+  { email: 'rania@example.com', nameEn: 'Rania Saleh', nameAr: 'رانيا صالح', jobTitle: 'Software Engineer', dept: 'dev', manager: 'khaled@example.com', client: 'jadwa' },
+  { email: 'yousef@example.com', nameEn: 'Yousef Barakat', nameAr: 'يوسف بركات', jobTitle: 'Backend Developer', dept: 'dev', manager: 'khaled@example.com', client: 'jadwa' },
+  { email: 'maya@example.com', nameEn: 'Maya Haddad', nameAr: 'مايا حداد', jobTitle: 'UX/UI Designer', dept: 'ux', manager: 'hiba@example.com', client: 'jadwa' },
+  { email: 'yazan@example.com', nameEn: 'Yazan Odeh', nameAr: 'يزن عودة', jobTitle: 'QA Engineer', dept: 'qa', manager: 'tariq@example.com', client: 'jadwa' },
+  { email: 'lina@example.com', nameEn: 'Lina Khoury', nameAr: 'لينا خوري', jobTitle: 'Support Engineer', dept: 'support', manager: 'faris@example.com', client: 'jadwa' },
+  { email: 'omar@example.com', nameEn: 'Omar Haddad', nameAr: 'عمر حداد', jobTitle: 'Support Engineer', dept: 'support', manager: 'faris@example.com', client: 'jadwa', shift: { start: '12:00', end: '20:00', code: 'B' } },
+];
+
+export async function seedDemo(db: DB, log: (m: string) => void = console.log) {
+  const deptIds = await seedDepartments(db, log);
+  const clients = await db.query.clients.findMany();
+  const clientId = { jadwa: clients.find((c) => c.nameEn === 'Jadwa Investment')!.id, internal: clients.find((c) => c.nameEn === 'EMS Internal')!.id };
+  const idByEmail = new Map((await db.select().from(employees)).map((e) => [e.email, e.id]));
+  let added = 0;
+
+  // Managers are listed before their teams, so each manager exists by the time it's referenced.
+  for (const p of DEMO_PEOPLE) {
+    const fields = {
+      nameEn: p.nameEn,
+      nameAr: p.nameAr,
+      jobTitle: p.jobTitle,
+      departmentId: p.dept ? deptIds[p.dept] : null,
+      managerId: p.manager ? (idByEmail.get(p.manager) ?? null) : null,
+    };
+    const existingId = idByEmail.get(p.email);
+    if (existingId) {
+      await db.update(employees).set(fields).where(eq(employees.id, existingId));
+      continue;
+    }
+    const e = must(await createEmployee(db, null, { email: p.email, ...fields, roles: p.roles ?? [], hireDate: '2022-03-01' }), p.email);
+    idByEmail.set(p.email, e.id);
+    must(await addAssignment(db, null, { employeeId: e.id, clientId: clientId[p.client], startDate: '2026-01-01' }), 'assign');
+    must(
+      await setSchedule(db, null, {
+        employeeId: e.id,
+        effectiveFrom: '2026-01-01',
+        startTime: p.shift?.start ?? '09:00',
+        endTime: p.shift?.end ?? '17:00',
+        shiftCode: p.shift?.code ?? null,
+      }),
+      'schedule',
+    );
+    added++;
+  }
+
+  // Delivery managers head their departments.
+  for (const p of DEMO_PEOPLE.filter((x) => x.jobTitle === 'Delivery Manager' || x.roles?.some((r) => r !== 'admin'))) {
+    if (!p.dept) continue;
+    const d = EMS_DEPARTMENTS.find((x) => x.key === p.dept)!;
+    await updateDepartment(db, null, deptIds[p.dept], { nameEn: d.nameEn, nameAr: d.nameAr, headId: idByEmail.get(p.email)! });
+  }
+  log(added ? `✓ ${added} demo people added (sign in with AUTH_DEV_LOGIN=true).` : '• Demo people updated.');
+}
 
 /**
  * Demo sites (DEMO_MODE=true) fill an empty database on first use, so hosts without a start
  * command (Vercel) need no manual seeding. A Postgres advisory lock stops two cold starts seeding twice.
  */
 export async function ensureDemoData(db: DB) {
-  if ((await db.select({ id: employees.id }).from(employees).limit(1)).length) return;
+  // Also upgrades an older demo that predates departments.
+  const ready = async (x: DB) =>
+    (await x.select({ id: departments.id }).from(departments).limit(1)).length > 0 &&
+    (await x.select({ id: employees.id }).from(employees).limit(1)).length > 0;
+  if (await ready(db)) return;
   await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(725001)`);
-    if ((await tx.select({ id: employees.id }).from(employees).limit(1)).length) return;
+    if (await ready(tx as unknown as DB)) return;
     const quiet = () => {};
-    await seedBase(tx as unknown as DB, quiet);
+    await seedAll(tx as unknown as DB, quiet);
     await seedDemo(tx as unknown as DB, quiet);
   });
 }

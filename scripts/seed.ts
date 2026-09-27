@@ -4,13 +4,13 @@
  *   npm run db:seed -- --demo      also adds sample people (for local development and demos)
  */
 import { createDb } from '@/db';
-import { ensureAdmin, seedBase, seedDemo } from '@/server/seed';
+import { ensureAdmin, seedAll, seedDemo } from '@/server/seed';
 
 const demo = process.argv.includes('--demo');
 
 async function main() {
   const db = await createDb();
-  await seedBase(db);
+  await seedAll(db);
   if (process.env.SEED_ADMIN_EMAIL) await ensureAdmin(db, process.env.SEED_ADMIN_EMAIL);
   else if (!demo) console.log('! Set SEED_ADMIN_EMAIL to create the first admin.');
   if (demo) await seedDemo(db);

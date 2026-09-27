@@ -4,6 +4,7 @@ import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { fmt, getDict } from '@/i18n';
 import { getEmployeeProfile, listEmployees } from '@/server/people';
+import { listDepartments } from '@/server/departments';
 import { can } from '@/server/permissions';
 import { requirePermission } from '@/server/session';
 
@@ -20,12 +21,12 @@ export default async function EditPersonPage({
   const { id } = await params;
   const person = await getEmployeeProfile(db, id);
   if (!person) notFound();
-  const managers = await listEmployees(db);
+  const [managers, departments] = await Promise.all([listEmployees(db), listDepartments(db)]);
   return (
     <>
       <Flash search={await searchParams} t={t} />
       <h1>{fmt(t.form.editPerson, { name: person.nameEn })}</h1>
-      <EmployeeForm t={t} person={person} managers={managers} canEditRoles={can(user, 'settings.manage')} />
+      <EmployeeForm t={t} person={person} managers={managers} departments={departments} canEditRoles={can(user, 'settings.manage')} />
     </>
   );
 }

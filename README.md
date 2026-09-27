@@ -10,8 +10,9 @@ Each person's days off, work week and overtime follow the client they're assigne
 ## Status
 
 **Phase 1 features are complete:** sign-in, people, org chart, clients, calendars, assignments, schedules, Excel import,
-Arabic/English, the rules engine, timesheets with manager approval, time off, and **month-end reports with the Finance
-Excel export and month closing**. **Next:** stage 6, the pilot — a few people run it alongside Excel for one month.
+Arabic/English, the rules engine, timesheets with manager approval, time off, **month-end reports with the Finance
+Excel export and month closing**, and **departments** (Software & Development, UX/UI, QA, Application Support, plus
+Finance and People & Culture), each with a head. The UI uses a soft, rounded "tactile minimalist" style with top navigation. **Next:** stage 6, the pilot — a few people run it alongside Excel for one month.
 
 ## Run it locally
 
@@ -72,10 +73,12 @@ Only people added by HR can sign in, and only with a Google account on the allow
 | See their team's status; approve or return their team's timesheets and leave | | ✓ | | | |
 | View anyone's timesheet (read-only) | | | ✓ | ✓ | ✓ |
 | Approve timesheets of people with no manager | | | | | ✓ |
-| Add/edit people, assignments, schedules; import Excel; adjust leave balances | | | ✓ | | ✓ |
+| Add/edit people, departments, assignments, schedules; import Excel; adjust leave balances | | | ✓ | | ✓ |
 | Clients, calendars, holidays | | | ✓ | | ✓ |
 | Reports and the Finance Excel export | | | ✓ | ✓ | ✓ |
 | Close a month once every timesheet is approved | | | ✓ | | ✓ |
 | Roles, home calendar, overtime rates; reopen a closed month | | | | | ✓ |
 
 "Manager" isn't a role you assign: anyone with direct reports is a manager.
+In the demo, the General Manager (admin) manages the four delivery managers, Finance and People & Culture; each delivery
+manager approves their own department's timesheets and leave.

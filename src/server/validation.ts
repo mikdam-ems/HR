@@ -59,6 +59,7 @@ export const employeeInput = z.object({
   nameAr: optionalText,
   jobTitle: optionalText,
   managerId: z.string().uuid().nullish().transform((v) => v ?? null),
+  departmentId: z.string().uuid().nullish().transform((v) => v ?? null),
   hireDate: isoDate.nullish().transform((v) => v ?? null),
   // Everyone is an employee; extra roles are added on top.
   roles: z

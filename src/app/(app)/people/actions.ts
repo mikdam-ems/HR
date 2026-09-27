@@ -16,6 +16,7 @@ import {
   setSchedule,
   updateEmployee,
 } from '@/server/people';
+import { createDepartment, updateDepartment } from '@/server/departments';
 import { can } from '@/server/permissions';
 import { requirePermission } from '@/server/session';
 
@@ -41,6 +42,7 @@ export async function savePersonAction(fd: FormData) {
     nameAr: str(fd, 'nameAr'),
     jobTitle: str(fd, 'jobTitle'),
     managerId: str(fd, 'managerId'),
+    departmentId: str(fd, 'departmentId'),
     hireDate: str(fd, 'hireDate'),
     roles,
     active: id ? bool(fd, 'active') : true,
@@ -113,4 +115,14 @@ export async function importPeopleAction(_prev: ImportResult | null, fd: FormDat
   });
   revalidatePath('/people');
   return result;
+}
+
+export async function saveDepartmentAction(fd: FormData) {
+  const actor = await requirePermission('people.manage');
+  const db = await getDb();
+  const id = str(fd, 'id');
+  const input = { nameEn: str(fd, 'nameEn') ?? '', nameAr: str(fd, 'nameAr'), headId: str(fd, 'headId') };
+  const result = id ? await updateDepartment(db, actor.id, id, input) : await createDepartment(db, actor.id, input);
+  revalidatePath('/people');
+  redirectWith('/people/departments', result, id ? 'saved' : 'created');
 }

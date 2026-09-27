@@ -26,6 +26,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const result = await monthReport(await getDb(), user, year, mon);
   if (!result.ok) return <div className="flash flash-error">{t.errors.forbidden}</div>;
   const report = result.value;
+  const deptFilter = search.dept ?? '';
+  const depts = [...new Map(report.rows.flatMap((r) => (r.department ? [[r.department.id, r.department]] : []))).values()]
+    .sort((a, b) => a.nameEn.localeCompare(b.nameEn));
+  const rows = deptFilter ? report.rows.filter((r) => r.department?.id === deptFilter) : report.rows;
   const approved = report.rows.length - report.notApproved.length;
   const leaveTotal = (r: (typeof report.rows)[number]) =>
     Object.entries(r.totals.leaveDaysByType)
@@ -46,6 +50,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               {t.reports.month}
             </label>
             <input id="month" name="month" type="month" defaultValue={month} style={{ width: 180 }} />
+            <select name="dept" defaultValue={deptFilter} aria-label={t.reports.department} style={{ width: 200 }}>
+              <option value="">{t.people.allDepartments}</option>
+              {depts.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {localName(locale, d.nameEn, d.nameAr)}
+                </option>
+              ))}
+            </select>
             <button className="btn">{t.reports.show}</button>
           </form>
           <a className="btn btn-primary" href={`/reports/export?month=${month}`} download>
@@ -105,20 +117,23 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             </tr>
           </thead>
           <tbody>
-            {report.rows.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
                 <td colSpan={8} className="muted">
                   {t.reports.none}
                 </td>
               </tr>
             ) : (
-              report.rows.map((r) => {
+              rows.map((r) => {
                 const tt = r.totals;
                 const ot = tt.regularOvertimeMinutes + tt.specialOvertimeMinutes + tt.offDayOvertimeMinutes;
                 return (
                   <tr key={r.employee.id}>
                     <td>
                       <Link href={`/timesheet/${r.employee.id}?month=${month}`}>{localName(locale, r.employee.nameEn, r.employee.nameAr)}</Link>
+                      {r.department ? (
+                        <div className="muted small">{localName(locale, r.department.nameEn, r.department.nameAr)}</div>
+                      ) : null}
                     </td>
                     <td>{r.clients.join(', ')}</td>
                     <td>
