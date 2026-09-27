@@ -43,6 +43,13 @@
       "when": 1790505644112,
       "tag": "0005_profiles_change_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790520568897,
+      "tag": "0006_attachments_department_description",
+      "breakpoints": true
     }
   ]
 }

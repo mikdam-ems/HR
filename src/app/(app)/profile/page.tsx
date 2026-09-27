@@ -47,6 +47,10 @@ export default async function MyProfilePage({ searchParams }: { searchParams: Pr
               <dd>{me.email}</dd>
             </div>
             <div>
+              <dt>{t.me.jobTitle}</dt>
+              <dd>{me.jobTitle ?? '—'}</dd>
+            </div>
+            <div>
               <dt>{t.me.department}</dt>
               <dd>{me.department ? localName(locale, me.department.nameEn, me.department.nameAr) : '—'}</dd>
             </div>
@@ -67,20 +71,6 @@ export default async function MyProfilePage({ searchParams }: { searchParams: Pr
               initials={initials(me.nameEn)}
               labels={{ change: t.me.changePhoto, remove: t.me.removePhoto, hint: t.me.photoHint, error: t.me.photoTooBig }}
             />
-          </div>
-          <div className="grid-form">
-            <div className="field">
-              <label htmlFor="nameEn">{t.me.nameEn}</label>
-              <input id="nameEn" name="nameEn" type="text" required maxLength={120} defaultValue={me.nameEn} />
-            </div>
-            <div className="field">
-              <label htmlFor="nameAr">{t.me.nameAr}</label>
-              <input id="nameAr" name="nameAr" type="text" dir="rtl" lang="ar" maxLength={120} defaultValue={me.nameAr ?? ''} />
-            </div>
-            <div className="field">
-              <label htmlFor="jobTitle">{t.me.jobTitle}</label>
-              <input id="jobTitle" name="jobTitle" type="text" maxLength={120} defaultValue={me.jobTitle ?? ''} />
-            </div>
           </div>
           <div className="field">
             <label htmlFor="bio">{t.me.bio}</label>

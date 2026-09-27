@@ -8,13 +8,23 @@ import { requirePermission, requireUser } from '@/server/session';
 
 export async function requestLeaveAction(fd: FormData) {
   const user = await requireUser();
-  const result = await createRequest(await getDb(), user, {
-    type: (str(fd, 'type') ?? 'annual') as never,
-    fromDate: str(fd, 'from') ?? '',
-    toDate: str(fd, 'to') ?? str(fd, 'from') ?? '',
-    halfDay: bool(fd, 'halfDay'),
-    note: str(fd, 'note'),
-  });
+  const file = fd.get('attachment');
+  const attachment =
+    file instanceof File && file.size > 0
+      ? { fileName: file.name, contentType: file.type, bytes: new Uint8Array(await file.arrayBuffer()) }
+      : null;
+  const result = await createRequest(
+    await getDb(),
+    user,
+    {
+      type: (str(fd, 'type') ?? 'annual') as never,
+      fromDate: str(fd, 'from') ?? '',
+      toDate: str(fd, 'to') ?? str(fd, 'from') ?? '',
+      halfDay: bool(fd, 'halfDay'),
+      note: str(fd, 'note'),
+    },
+    attachment,
+  );
   revalidatePath('/time-off');
   revalidatePath('/approvals');
   redirectWith('/time-off', result, 'requested');

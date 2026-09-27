@@ -19,8 +19,25 @@ export const departmentInput = z.object({
     .trim()
     .nullish()
     .transform((v) => (v ? v : null)),
+  description: z
+    .string()
+    .trim()
+    .max(1000)
+    .nullish()
+    .transform((v) => (v ? v : null)),
   headId: z.string().uuid().nullish().transform((v) => v ?? null),
 });
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** One department with its head and active members (and each member's manager). */
+export async function getDepartment(db: DB, id: string) {
+  if (!UUID.test(id)) return undefined;
+  return db.query.departments.findFirst({
+    where: eq(departments.id, id),
+    with: { head: true, members: { where: eq(employees.active, true), orderBy: asc(employees.nameEn), with: { manager: true } } },
+  });
+}
 
 async function checkHead(db: DB, headId: string | null): Promise<Result<void>> {
   if (!headId) return ok(undefined);

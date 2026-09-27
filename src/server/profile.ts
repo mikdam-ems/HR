@@ -14,11 +14,8 @@ const optional = (max: number) =>
     .nullish()
     .transform((v) => (v ? v : null));
 
-/** What people may change about themselves. Email, manager, department and roles stay with People & Culture. */
+/** What people may change about themselves: their bio (and photo, below). Name, title and the rest stay with People & Culture. */
 export const ownProfileInput = z.object({
-  nameEn: z.string().trim().min(1).max(120),
-  nameAr: optional(120),
-  jobTitle: optional(120),
   bio: optional(500),
 });
 

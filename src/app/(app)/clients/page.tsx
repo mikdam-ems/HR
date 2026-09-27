@@ -43,7 +43,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                 clientRows.map((c) => (
                   <tr key={c.id}>
                     <td>
-                      {localName(locale, c.nameEn, c.nameAr)}{' '}
+                      <Link href={`/clients/${c.id}`}>{localName(locale, c.nameEn, c.nameAr)}</Link>{' '}
                       {!c.active ? <span className="badge">{t.clients.inactive}</span> : null}
                     </td>
                     <td>
@@ -51,7 +51,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                     </td>
                     <td>{weekLabel(c.calendar.workWeek)}</td>
                     <td>
-                      <Link href={`/clients/${c.id}`}>{t.clients.editClient}</Link>
+                      <Link href={`/clients/${c.id}`}>{t.client.onClient}</Link>
                     </td>
                   </tr>
                 ))

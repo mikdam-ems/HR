@@ -20,14 +20,13 @@ async function me() {
 }
 
 describe('own profile', () => {
-  it('updates name, title and bio, but nothing else', async () => {
+  it('updates the bio, but never the name, title or roles', async () => {
     const p = await me();
-    const r = await updateOwnProfile(db, p.id, { nameEn: 'Maya H.', jobTitle: 'Senior Designer', bio: 'Loves type.', roles: ['admin'] } as never);
+    const r = await updateOwnProfile(db, p.id, { nameEn: 'Someone Else', jobTitle: 'CEO', bio: 'Loves type.', roles: ['admin'] } as never);
     expect(r.ok).toBe(true);
     const [after] = await db.select().from(employees).where(eq(employees.id, p.id));
-    expect(after).toMatchObject({ nameEn: 'Maya H.', jobTitle: 'Senior Designer', bio: 'Loves type.', email: 'maya@ems.com' });
+    expect(after).toMatchObject({ nameEn: 'Maya', jobTitle: 'Designer', bio: 'Loves type.', email: 'maya@ems.com' });
     expect(after!.roles).toEqual(['employee']);
-    expect(await updateOwnProfile(db, p.id, { nameEn: ' ' })).toMatchObject({ error: 'invalid_input' });
   });
 
   it('stores a small image photo and removes it', async () => {

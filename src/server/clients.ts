@@ -1,7 +1,7 @@
 import { and, asc, eq } from 'drizzle-orm';
 import type { z } from 'zod';
 import type { DB } from '@/db';
-import { calendars, clients, holidays } from '@/db/schema';
+import { assignments, calendars, clients, holidays } from '@/db/schema';
 import { audit } from './audit';
 import { type Result, calendarInput, clientInput, fail, holidayInput, ok, parse } from './validation';
 
@@ -22,6 +22,37 @@ export async function getCalendar(db: DB, id: string) {
 export async function listClients(db: DB) {
   return db.query.clients.findMany({ orderBy: asc(clients.nameEn), with: { calendar: true } });
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A client with its calendar (and holidays) and everyone assigned to it, split into who is on it
+ * today, who starts later, and who worked on it before. Inactive people are left out.
+ */
+export async function getClientProfile(db: DB, id: string, today: string) {
+  if (!UUID.test(id)) return undefined;
+  const client = await db.query.clients.findFirst({
+    where: eq(clients.id, id),
+    with: {
+      calendar: { with: { holidays: { orderBy: asc(holidays.date) } } },
+      assignments: { orderBy: asc(assignments.startDate), with: { employee: { with: { department: true } } } },
+    },
+  });
+  if (!client) return undefined;
+  const active = client.assignments.filter((a) => a.employee.active);
+  const current = active.filter((a) => a.startDate <= today && (!a.endDate || a.endDate >= today));
+  const upcoming = active.filter((a) => a.startDate > today);
+  const currentIds = new Set(current.map((a) => a.employeeId));
+  // Past: people whose every assignment here has ended (latest end first), once each.
+  const past = active
+    .filter((a) => a.endDate && a.endDate < today && !currentIds.has(a.employeeId))
+    .sort((a, b) => (b.endDate ?? '').localeCompare(a.endDate ?? ''))
+    .filter((a, i, all) => all.findIndex((x) => x.employeeId === a.employeeId) === i);
+  const upcomingHolidays = client.calendar.holidays.filter((h) => h.date >= today).slice(0, 4);
+  return { client, current, upcoming, past, upcomingHolidays };
+}
+
+export type ClientProfile = NonNullable<Awaited<ReturnType<typeof getClientProfile>>>;
 
 export async function createCalendar(
   db: DB,

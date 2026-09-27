@@ -70,11 +70,14 @@ Only people added by HR can sign in, and only with a Google account on the allow
 |---|---|---|---|---|---|
 | See own day, next 7 days, directory, org chart | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Request day changes, submit own timesheet; request time off; see own balances | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Edit own photo, name, title and bio; set a daily status | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Edit own photo and bio; set a daily status (name and title are kept by HR) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Attach a document (e.g. a medical report) to a leave request | ✓ | ✓ | ✓ | ✓ | ✓ |
+| See department and client pages, and the org chart (pyramid or outline) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Open leave attachments of their team | | ✓ | | | |
 | See their team's status; approve day changes; approve or return their team's timesheets and leave | | ✓ | | | |
 | View anyone's timesheet (read-only) | | | ✓ | ✓ | ✓ |
 | Approve timesheets of people with no manager | | | | | ✓ |
-| Add/edit people, departments, assignments, schedules; import Excel; adjust leave balances | | | ✓ | | ✓ |
+| Add/edit people, departments, assignments, schedules; import Excel; adjust leave balances; open any leave attachment | | | ✓ | | ✓ |
 | Clients, calendars, holidays | | | ✓ | | ✓ |
 | Reports and the Finance Excel export | | | ✓ | ✓ | ✓ |
 | Close a month once every timesheet is approved | | | ✓ | | ✓ |

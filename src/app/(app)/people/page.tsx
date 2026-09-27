@@ -25,6 +25,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
   const { t, locale } = await getDict();
   const search = await searchParams;
   const view = search.view === 'chart' ? 'chart' : 'list';
+  const layout = search.layout === 'outline' ? 'outline' : 'pyramid';
   const q = (search.q ?? '').trim().toLowerCase();
   const clientFilter = search.client ?? '';
   const deptFilter = search.dept ?? '';
@@ -108,11 +109,31 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
       </div>
 
       {view === 'chart' ? (
-        <ul className="org" aria-label={t.people.chart}>
-          {buildOrgTree(shown).map((n) => (
-            <OrgItem key={n.person.id} node={n} days={days} ctxClients={ctx.clients} deptName={deptName} locale={locale} t={t} />
-          ))}
-        </ul>
+        <>
+          <nav className="segmented segmented-light" aria-label={t.people.chart} style={{ alignSelf: 'flex-start' }}>
+            <Link href={`/people?view=chart&layout=pyramid${query ? `&${query}` : ''}`} aria-current={layout === 'pyramid'}>
+              {t.people.pyramid}
+            </Link>
+            <Link href={`/people?view=chart&layout=outline${query ? `&${query}` : ''}`} aria-current={layout === 'outline'}>
+              {t.people.outline}
+            </Link>
+          </nav>
+          {layout === 'pyramid' ? (
+            <div className="pyramid-wrap">
+              <ul className="pyramid" aria-label={t.people.chart}>
+                {buildOrgTree(shown).map((n) => (
+                  <PyramidItem key={n.person.id} node={n} deptName={deptName} locale={locale} />
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <ul className="org" aria-label={t.people.chart}>
+              {buildOrgTree(shown).map((n) => (
+                <OrgItem key={n.person.id} node={n} days={days} ctxClients={ctx.clients} deptName={deptName} locale={locale} t={t} />
+              ))}
+            </ul>
+          )}
+        </>
       ) : (
         <div className="table-wrap">
           <table>
@@ -151,7 +172,16 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                       <td>{p.jobTitle ?? t.people.none}</td>
                       <td>{(p.departmentId && deptName.get(p.departmentId)) || t.people.none}</td>
                       <td>{manager ? localName(locale, manager.nameEn, manager.nameAr) : t.people.none}</td>
-                      <td>{clientNames(d, ctx.clients, locale) || t.people.none}</td>
+                      <td>
+                        {d.clientIds.length
+                          ? d.clientIds.map((cid, i) => (
+                              <span key={cid}>
+                                {i ? ', ' : ''}
+                                <Link href={`/clients/${cid}`}>{clientLabel(locale, ctx.clients, [cid])}</Link>
+                              </span>
+                            ))
+                          : t.people.none}
+                      </td>
                       <td>
                         <DayBadge type={d.dayType} t={t} />
                       </td>
@@ -204,6 +234,46 @@ function OrgItem({
           {node.reports.map((c) => (
             <OrgItem key={c.person.id} node={c} days={days} ctxClients={ctxClients} deptName={deptName} locale={locale} t={t} />
           ))}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
+/**
+ * Top-down org chart. A manager whose reports have no reports of their own shows them as a
+ * vertical stack, so wide teams don't make the chart impossibly wide.
+ */
+function PyramidItem({ node, deptName, locale }: { node: OrgNode<Employee>; deptName: Map<string, string>; locale: Locale }) {
+  const p = node.person;
+  const leaves = node.reports.length > 1 && node.reports.every((r) => r.reports.length === 0);
+  const status = currentStatus(p);
+  return (
+    <li>
+      <Link className="pyr-card" href={`/people/${p.id}`}>
+        <Avatar person={p} size="lg" status={status} />
+        <strong>{localName(locale, p.nameEn, p.nameAr)}</strong>
+        <span className="muted small">{p.jobTitle}</span>
+        {p.departmentId && deptName.get(p.departmentId) ? <span className="pill pill-muted">{deptName.get(p.departmentId)}</span> : null}
+        {node.reports.length ? <span className="pyr-count">{node.reports.length}</span> : null}
+      </Link>
+      {node.reports.length ? (
+        <ul className={leaves ? 'pyr-stack' : undefined}>
+          {node.reports.map((c) =>
+            leaves ? (
+              <li key={c.person.id}>
+                <Link className="pyr-card pyr-card-sm" href={`/people/${c.person.id}`}>
+                  <Avatar person={c.person} size="sm" status={currentStatus(c.person)} />
+                  <span className="stack" style={{ gap: 0, minWidth: 0 }}>
+                    <strong>{localName(locale, c.person.nameEn, c.person.nameAr)}</strong>
+                    <span className="muted small">{c.person.jobTitle}</span>
+                  </span>
+                </Link>
+              </li>
+            ) : (
+              <PyramidItem key={c.person.id} node={c} deptName={deptName} locale={locale} />
+            ),
+          )}
         </ul>
       ) : null}
     </li>

@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { Avatar } from '@/components/Avatar';
 import { saveDepartmentAction } from '@/app/(app)/people/actions';
+import { Avatar } from '@/components/Avatar';
+import { DepartmentFields } from '@/components/DepartmentFields';
 import { Flash } from '@/components/Flash';
 import { PeopleTabs } from '@/components/PeopleTabs';
 import { getDb } from '@/db';
@@ -31,90 +32,47 @@ export default async function DepartmentsPage({ searchParams }: { searchParams: 
       {depts.length === 0 ? <p className="muted">{t.departments.empty}</p> : null}
       <div className="bento bento-3">
         {depts.map((d) => (
-          <section key={d.id} className="card dept-card">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
+          <Link key={d.id} href={`/people/departments/${d.id}`} className="card dept-card card-link">
+            <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'nowrap', alignItems: 'flex-start' }}>
               <h2>{localName(locale, d.nameEn, d.nameAr)}</h2>
               <span className="pill pill-muted">
                 {d.members.length === 1 ? t.departments.memberOne : fmt(t.departments.memberCount, { count: d.members.length })}
               </span>
             </div>
-            <div className="stack" style={{ gap: 2 }}>
-              <span className="label">{t.departments.head}</span>
-              {d.head ? (
-                <Link href={`/people/${d.head.id}`}>{localName(locale, d.head.nameEn, d.head.nameAr)}</Link>
-              ) : (
-                <span className="muted">{t.departments.noHead}</span>
-              )}
-            </div>
+            <p className="muted small dept-desc">{d.description ?? t.departments.noDescription}</p>
+            {d.head ? (
+              <span className="person">
+                <Avatar person={d.head} size="sm" />
+                <span className="stack" style={{ gap: 0 }}>
+                  {localName(locale, d.head.nameEn, d.head.nameAr)}
+                  <span className="muted small">{t.departments.head}</span>
+                </span>
+              </span>
+            ) : (
+              <span className="muted small">
+                {t.departments.head}: {t.departments.noHead}
+              </span>
+            )}
             <div className="avatars" aria-label={t.departments.members}>
               {d.members.slice(0, 8).map((m) => (
-                <Link key={m.id} href={`/people/${m.id}`} title={m.nameEn} className="avatar-link">
+                <span key={m.id} className="avatar-link" title={m.nameEn}>
                   <Avatar person={m} size="sm" />
-                </Link>
+                </span>
               ))}
             </div>
-            {manage ? (
-              <details>
-                <summary className="btn btn-small">{t.departments.edit}</summary>
-                <form action={saveDepartmentAction} className="stack" style={{ marginTop: 12 }}>
-                  <input type="hidden" name="id" value={d.id} />
-                  <DeptFields t={t} people={people} d={d} />
-                  <div>
-                    <button className="btn btn-primary btn-small">{t.departments.save}</button>
-                  </div>
-                </form>
-              </details>
-            ) : null}
-          </section>
+          </Link>
         ))}
       </div>
 
       {manage ? (
         <form action={saveDepartmentAction} className="card">
           <h2>{t.departments.add}</h2>
-          <div className="grid-form">
-            <DeptFields t={t} people={people} />
-          </div>
+          <DepartmentFields t={t} people={people} />
           <div>
             <button className="btn btn-primary">{t.departments.add}</button>
           </div>
         </form>
       ) : null}
-    </>
-  );
-}
-
-function DeptFields({
-  t,
-  people,
-  d,
-}: {
-  t: Awaited<ReturnType<typeof getDict>>['t'];
-  people: { id: string; nameEn: string }[];
-  d?: { id: string; nameEn: string; nameAr: string | null; headId: string | null };
-}) {
-  const p = d?.id ?? 'new';
-  return (
-    <>
-      <div className="field">
-        <label htmlFor={`name-${p}`}>{t.departments.name}</label>
-        <input id={`name-${p}`} name="nameEn" type="text" required defaultValue={d?.nameEn} />
-      </div>
-      <div className="field">
-        <label htmlFor={`name-ar-${p}`}>{t.departments.nameAr}</label>
-        <input id={`name-ar-${p}`} name="nameAr" type="text" dir="rtl" lang="ar" defaultValue={d?.nameAr ?? ''} />
-      </div>
-      <div className="field">
-        <label htmlFor={`head-${p}`}>{t.departments.head}</label>
-        <select id={`head-${p}`} name="headId" defaultValue={d?.headId ?? ''}>
-          <option value="">{t.departments.noHead}</option>
-          {people.map((x) => (
-            <option key={x.id} value={x.id}>
-              {x.nameEn}
-            </option>
-          ))}
-        </select>
-      </div>
     </>
   );
 }

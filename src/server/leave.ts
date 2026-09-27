@@ -5,6 +5,7 @@ import {
   dayEntries,
   employees,
   leaveAdjustments,
+  leaveAttachments,
   leaveRequests,
   leaveTypeEnum,
   monthClosures,
@@ -140,7 +141,32 @@ export async function previewRequest(db: DB, employeeId: string, input: RequestI
   return ok({ daysUsed, days, balance, balanceAfter: balance ? balance.available - daysUsed : null });
 }
 
-export async function createRequest(db: DB, actor: Actor, input: RequestInput): Promise<Result<string>> {
+/** A supporting document as uploaded. */
+export interface AttachmentInput {
+  fileName: string;
+  contentType: string;
+  bytes: Uint8Array;
+}
+
+export const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
+export const ATTACHMENT_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'] as const;
+
+function checkAttachment(file: AttachmentInput): Result<void> {
+  if (!(ATTACHMENT_TYPES as readonly string[]).includes(file.contentType)) return fail('invalid_input', 'attachment type');
+  if (file.bytes.length === 0 || file.bytes.length > MAX_ATTACHMENT_BYTES) return fail('invalid_input', 'attachment size');
+  return ok(undefined);
+}
+
+export async function createRequest(
+  db: DB,
+  actor: Actor,
+  input: RequestInput,
+  attachment: AttachmentInput | null = null,
+): Promise<Result<string>> {
+  if (attachment) {
+    const checked = checkAttachment(attachment);
+    if (!checked.ok) return checked;
+  }
   const preview = await previewRequest(db, actor.id, input);
   if (!preview.ok) return preview;
   // Sick leave beyond the allowance still goes to the manager (with a medical report); annual can't go negative.
@@ -154,7 +180,60 @@ export async function createRequest(db: DB, actor: Actor, input: RequestInput): 
     .values({ employeeId: actor.id, ...r.value, daysUsed: preview.value.daysUsed })
     .returning();
   await audit(db, { actorId: actor.id, action: 'create', entity: 'leave_request', entityId: row!.id, after: row });
+  if (attachment) {
+    const [file] = await db
+      .insert(leaveAttachments)
+      .values({
+        leaveRequestId: row!.id,
+        fileName: attachment.fileName.slice(0, 200) || 'attachment',
+        contentType: attachment.contentType,
+        sizeBytes: attachment.bytes.length,
+        data: Buffer.from(attachment.bytes).toString('base64'),
+      })
+      .returning({ id: leaveAttachments.id, fileName: leaveAttachments.fileName, sizeBytes: leaveAttachments.sizeBytes });
+    await audit(db, { actorId: actor.id, action: 'attach', entity: 'leave_request', entityId: row!.id, after: file });
+  }
   return ok(row!.id);
+}
+
+export interface AttachmentInfo {
+  id: string;
+  leaveRequestId: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
+/** Names and sizes (not contents) of the attachments on these requests. */
+export async function listAttachments(db: DB, requestIds: string[]): Promise<AttachmentInfo[]> {
+  if (!requestIds.length) return [];
+  return db
+    .select({
+      id: leaveAttachments.id,
+      leaveRequestId: leaveAttachments.leaveRequestId,
+      fileName: leaveAttachments.fileName,
+      contentType: leaveAttachments.contentType,
+      sizeBytes: leaveAttachments.sizeBytes,
+    })
+    .from(leaveAttachments)
+    .where(inArray(leaveAttachments.leaveRequestId, requestIds));
+}
+
+/** The file itself, for the person, whoever decides their requests, and HR/admin. */
+export async function getAttachment(
+  db: DB,
+  actor: Actor,
+  id: string,
+): Promise<Result<{ fileName: string; contentType: string; bytes: Uint8Array }>> {
+  const [file] = await db.select().from(leaveAttachments).where(eq(leaveAttachments.id, id));
+  if (!file) return fail('not_found');
+  const [req] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, file.leaveRequestId));
+  const [employee] = req ? await db.select().from(employees).where(eq(employees.id, req.employeeId)) : [];
+  if (!req || !employee) return fail('not_found');
+  const allowed =
+    actor.id === employee.id || canDecide(actor, employee) || actor.roles.some((r) => r === 'hr' || r === 'admin');
+  if (!allowed) return fail('forbidden');
+  return ok({ fileName: file.fileName, contentType: file.contentType, bytes: new Uint8Array(Buffer.from(file.data, 'base64')) });
 }
 
 function canDecide(actor: Actor, employee: Pick<Employee, 'id' | 'managerId'>) {

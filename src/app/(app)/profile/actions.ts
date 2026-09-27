@@ -7,16 +7,11 @@ import { redirectWith, safePath, str } from '@/lib/forms';
 import { setPhoto, setStatus, updateOwnProfile } from '@/server/profile';
 import { requireUser } from '@/server/session';
 
-/** People edit their own name, title, bio and photo. */
+/** People edit their own photo and bio. */
 export async function saveProfileAction(fd: FormData) {
   const user = await requireUser();
   const db = await getDb();
-  const result = await updateOwnProfile(db, user.id, {
-    nameEn: str(fd, 'nameEn') ?? '',
-    nameAr: str(fd, 'nameAr'),
-    jobTitle: str(fd, 'jobTitle'),
-    bio: str(fd, 'bio'),
-  });
+  const result = await updateOwnProfile(db, user.id, { bio: str(fd, 'bio') });
   if (!result.ok) redirectWith('/profile', result);
   const photo = str(fd, 'photo');
   if (photo || str(fd, 'removePhoto')) {

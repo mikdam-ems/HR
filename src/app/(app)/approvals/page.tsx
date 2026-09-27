@@ -7,7 +7,7 @@ import { getDb } from '@/db';
 import { fmt, getDict, holidayLabel, localName, type Locale } from '@/i18n';
 import type { Dict } from '@/i18n/en';
 import { formatDate, formatHours } from '@/lib/format';
-import { getBalances, listPendingLeave, teamOff } from '@/server/leave';
+import { getBalances, listAttachments, listPendingLeave, teamOff } from '@/server/leave';
 import { requireUser } from '@/server/session';
 import { getSettings } from '@/server/settings';
 import { getMonth, listPendingApprovals, listPendingDayChanges, type MonthView, type PendingChange } from '@/server/timesheets';
@@ -241,9 +241,10 @@ async function LeaveDetail({
   locale: Locale;
 }) {
   const db = await getDb();
-  const [balances, others] = await Promise.all([
+  const [balances, others, files] = await Promise.all([
     getBalances(db, leave.employeeId, Number(leave.fromDate.slice(0, 4))),
     teamOff(db, leave.employeeId, leave.fromDate, leave.toDate),
+    listAttachments(db, [leave.id]),
   ]);
   const balance = balances.find((b) => b.type === leave.type);
   const d = (iso: string) => formatDate(iso, locale, { weekday: 'short', day: 'numeric', month: 'short' });
@@ -282,7 +283,17 @@ async function LeaveDetail({
           <span>{leave.note}</span>
         </div>
       ) : null}
-      <div className="stack" style={{ gap: 6, padding: '12px 14px', borderRadius: 10, background: 'var(--bg)' }}>
+      {files.length ? (
+        <div className="stack" style={{ gap: 4 }}>
+          <span className="label">{t.timeOff.attachment}</span>
+          {files.map((a) => (
+            <a key={a.id} className="attachment" href={`/api/leave-attachment/${a.id}`} target="_blank" rel="noreferrer">
+              📎 {a.fileName} <span className="muted small">({Math.max(1, Math.round(a.sizeBytes / 1024))} KB)</span>
+            </a>
+          ))}
+        </div>
+      ) : null}
+      <div className="stack" style={{ gap: 6, padding: '12px 14px', borderRadius: 10, background: 'rgba(255, 255, 255, 0.6)' }}>
         <h3>{t.timeOff.teamOff}</h3>
         {others.length ? (
           <ul style={{ margin: 0, paddingInlineStart: 18 }}>

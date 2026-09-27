@@ -36,7 +36,7 @@ export async function updateClientAction(fd: FormData) {
     active: bool(fd, 'active'),
   });
   revalidatePath('/clients');
-  redirectWith(result.ok ? '/clients' : `/clients/${id}`, result);
+  redirectWith(`/clients/${id}`, result);
 }
 
 export async function createCalendarAction(fd: FormData) {

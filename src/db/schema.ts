@@ -33,6 +33,8 @@ export const departments = pgTable('departments', {
   id: uuid('id').primaryKey().defaultRandom(),
   nameEn: text('name_en').notNull(),
   nameAr: text('name_ar'),
+  /** What the department does, shown on its page. */
+  description: text('description'),
   /** The delivery manager (or head) of the department. */
   headId: uuid('head_id'),
   ...timestamps,
@@ -262,6 +264,23 @@ export const dayChangeRequests = pgTable(
     ...timestamps,
   },
   (t) => [index('day_change_requests_employee_idx').on(t.employeeId, t.date)],
+);
+
+/** A document supporting a leave request, e.g. a medical report for sick leave. Stored as base64. */
+export const leaveAttachments = pgTable(
+  'leave_attachments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    leaveRequestId: uuid('leave_request_id')
+      .notNull()
+      .references(() => leaveRequests.id, { onDelete: 'cascade' }),
+    fileName: text('file_name').notNull(),
+    contentType: text('content_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    data: text('data').notNull(),
+    ...timestamps,
+  },
+  (t) => [index('leave_attachments_request_idx').on(t.leaveRequestId)],
 );
 
 /** HR corrections to a balance: carry-over from last year, opening balances, fixes. Positive or negative. */

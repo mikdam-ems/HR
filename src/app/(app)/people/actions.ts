@@ -121,8 +121,8 @@ export async function saveDepartmentAction(fd: FormData) {
   const actor = await requirePermission('people.manage');
   const db = await getDb();
   const id = str(fd, 'id');
-  const input = { nameEn: str(fd, 'nameEn') ?? '', nameAr: str(fd, 'nameAr'), headId: str(fd, 'headId') };
+  const input = { nameEn: str(fd, 'nameEn') ?? '', nameAr: str(fd, 'nameAr'), description: str(fd, 'description'), headId: str(fd, 'headId') };
   const result = id ? await updateDepartment(db, actor.id, id, input) : await createDepartment(db, actor.id, input);
   revalidatePath('/people');
-  redirectWith('/people/departments', result, id ? 'saved' : 'created');
+  redirectWith(id ? `/people/departments/${id}` : '/people/departments', result, id ? 'saved' : 'created');
 }

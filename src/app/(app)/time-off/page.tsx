@@ -7,7 +7,7 @@ import { isWorkday } from '@/domain';
 import { fmt, getDict, holidayLabel } from '@/i18n';
 import type { Dict } from '@/i18n/en';
 import { formatDate, todayISO } from '@/lib/format';
-import { getBalances, listRequests, previewRequest } from '@/server/leave';
+import { getBalances, listAttachments, listRequests, previewRequest } from '@/server/leave';
 import { requireUser } from '@/server/session';
 
 type LeaveType = (typeof leaveTypeEnum.enumValues)[number];
@@ -31,6 +31,7 @@ export default async function TimeOffPage({ searchParams }: { searchParams: Prom
     listRequests(db, user.id),
     from ? previewRequest(db, user.id, { type, fromDate: from, toDate: to, halfDay, note }) : Promise.resolve(null),
   ]);
+  const attachments = await listAttachments(db, requests.map((r) => r.id));
   const range = (a: string, b: string) =>
     a === b
       ? formatDate(a, locale, { weekday: 'short', day: 'numeric', month: 'short' })
@@ -118,13 +119,20 @@ export default async function TimeOffPage({ searchParams }: { searchParams: Prom
             {type === 'sick' && preview.value.balanceAfter !== null && preview.value.balanceAfter < 0 ? (
               <span className="muted small">{t.timeOff.overSick}</span>
             ) : null}
-            <form action={requestLeaveAction}>
+            <form action={requestLeaveAction} className="stack">
+              <div className="field">
+                <label htmlFor="attachment">{t.timeOff.attachmentOptional}</label>
+                <input id="attachment" name="attachment" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" />
+                <span className="muted small">{type === 'sick' ? t.timeOff.sickAttachmentHint : t.timeOff.attachmentHint}</span>
+              </div>
               <input type="hidden" name="type" value={type} />
               <input type="hidden" name="from" value={from} />
               <input type="hidden" name="to" value={to} />
               {halfDay ? <input type="hidden" name="halfDay" value="on" /> : null}
               <input type="hidden" name="note" value={note} />
-              <button className="btn btn-primary">{t.timeOff.send}</button>
+              <div>
+                <button className="btn btn-primary">{t.timeOff.send}</button>
+              </div>
             </form>
           </div>
         ) : null}
@@ -159,6 +167,13 @@ export default async function TimeOffPage({ searchParams }: { searchParams: Prom
                       <td>
                         {range(r.fromDate, r.toDate)}
                         {r.note ? <div className="muted small">{r.note}</div> : null}
+                        {attachments
+                          .filter((a) => a.leaveRequestId === r.id)
+                          .map((a) => (
+                            <a key={a.id} className="attachment small" href={`/api/leave-attachment/${a.id}`} target="_blank" rel="noreferrer">
+                              📎 {a.fileName}
+                            </a>
+                          ))}
                       </td>
                       <td>{r.daysUsed}</td>
                       <td>

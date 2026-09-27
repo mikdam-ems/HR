@@ -7,7 +7,9 @@ import {
   cancelRequest,
   createRequest,
   decideRequest,
+  getAttachment,
   getBalances,
+  listAttachments,
   listPendingLeave,
   previewRequest,
   teamOff,
@@ -162,5 +164,41 @@ describe('cancelling', () => {
     if (!id.ok) throw new Error(id.error);
     await decideRequest(db, khaled, id.value, 'approve', null);
     expect((await cancelRequest(db, lina, id.value, '2026-09-24')).ok).toBe(false);
+  });
+});
+
+describe('attachments', () => {
+  it('keeps a medical report with a sick request, readable by the person, their manager and HR only', async () => {
+    const { lina, khaled, omar } = await setup();
+    const hrRow = await createEmployee(db, null, { email: 'hr@x.com', nameEn: 'HR', roles: ['hr'] });
+    if (!hrRow.ok) throw new Error(hrRow.error);
+    const hr = { id: hrRow.value.id, roles: hrRow.value.roles } as Actor;
+    const pdf = new TextEncoder().encode('%PDF-1.4 medical report');
+    const id = await createRequest(
+      db,
+      lina,
+      { type: 'sick', fromDate: '2026-09-15', toDate: '2026-09-15' },
+      { fileName: 'report.pdf', contentType: 'application/pdf', bytes: pdf },
+    );
+    if (!id.ok) throw new Error(id.error);
+    const [file] = await listAttachments(db, [id.value]);
+    expect(file).toMatchObject({ fileName: 'report.pdf', sizeBytes: pdf.length });
+
+    const own = await getAttachment(db, lina, file!.id);
+    expect(own.ok && new TextDecoder().decode(own.value.bytes)).toBe('%PDF-1.4 medical report');
+    expect((await getAttachment(db, khaled, file!.id)).ok).toBe(true);
+    expect((await getAttachment(db, hr, file!.id)).ok).toBe(true);
+    expect(await getAttachment(db, omar, file!.id)).toMatchObject({ error: 'forbidden' });
+  });
+
+  it('refuses other file types and files over 4 MB', async () => {
+    const { lina } = await setup();
+    const req = { type: 'sick' as const, fromDate: '2026-09-15', toDate: '2026-09-15' };
+    expect(
+      await createRequest(db, lina, req, { fileName: 'x.html', contentType: 'text/html', bytes: new Uint8Array(10) }),
+    ).toMatchObject({ error: 'invalid_input' });
+    expect(
+      await createRequest(db, lina, req, { fileName: 'big.pdf', contentType: 'application/pdf', bytes: new Uint8Array(5 * 1024 * 1024) }),
+    ).toMatchObject({ error: 'invalid_input' });
   });
 });

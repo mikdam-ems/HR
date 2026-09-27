@@ -82,12 +82,12 @@ export async function ensureAdmin(db: DB, email: string | undefined, log: (m: st
 
 /** EMS's departments: four delivery teams plus Finance and People & Culture. */
 export const EMS_DEPARTMENTS = [
-  { key: 'dev', nameEn: 'Software & Development', nameAr: 'تطوير البرمجيات' },
-  { key: 'ux', nameEn: 'UX/UI', nameAr: 'تجربة وواجهة المستخدم' },
-  { key: 'qa', nameEn: 'QA', nameAr: 'ضمان الجودة' },
-  { key: 'support', nameEn: 'Application Support', nameAr: 'دعم التطبيقات' },
-  { key: 'finance', nameEn: 'Finance', nameAr: 'المالية' },
-  { key: 'pc', nameEn: 'People & Culture', nameAr: 'الأفراد والثقافة' },
+  { key: 'dev', nameEn: 'Software & Development', nameAr: 'تطوير البرمجيات', description: 'Designs, builds and ships the software our clients run their business on.' },
+  { key: 'ux', nameEn: 'UX/UI', nameAr: 'تجربة وواجهة المستخدم', description: 'Research, user experience and interface design across client products.' },
+  { key: 'qa', nameEn: 'QA', nameAr: 'ضمان الجودة', description: 'Quality assurance and automated testing, so every release is stable.' },
+  { key: 'support', nameEn: 'Application Support', nameAr: 'دعم التطبيقات', description: '24/7 production support and incident management for client systems.' },
+  { key: 'finance', nameEn: 'Finance', nameAr: 'المالية', description: 'Payroll, invoicing and month-end checks of timesheets.' },
+  { key: 'pc', nameEn: 'People & Culture', nameAr: 'الأفراد والثقافة', description: 'Hiring, onboarding, leave and everything that makes EMS a good place to work.' },
 ] as const;
 type DeptKey = (typeof EMS_DEPARTMENTS)[number]['key'];
 
@@ -97,7 +97,10 @@ export async function seedDepartments(db: DB, log: (m: string) => void = console
   const ids = {} as Record<DeptKey, string>;
   for (const d of EMS_DEPARTMENTS) {
     const found = existing.find((e) => e.nameEn.toLowerCase() === d.nameEn.toLowerCase());
-    ids[d.key] = found ? found.id : must(await createDepartment(db, null, { nameEn: d.nameEn, nameAr: d.nameAr }), d.nameEn);
+    ids[d.key] = found
+      ? found.id
+      : must(await createDepartment(db, null, { nameEn: d.nameEn, nameAr: d.nameAr, description: d.description }), d.nameEn);
+    if (found && !found.description) await db.update(departments).set({ description: d.description }).where(eq(departments.id, found.id));
   }
   if (existing.length < EMS_DEPARTMENTS.length) log('✓ Departments ready.');
   return ids;

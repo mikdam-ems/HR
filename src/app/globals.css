@@ -1723,3 +1723,369 @@ html[dir='rtl'] .status-fab {
     padding-bottom: 96px;
   }
 }
+
+/* ---------- Top bar: language + me in one light pill, like the navigation ---------- */
+.topbar {
+  background: rgba(250, 249, 244, 0.72);
+}
+.topbar-end {
+  gap: 4px;
+  padding: 5px;
+  border-radius: var(--r-pill);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow), inset 0 0 0 1px var(--glass-edge);
+}
+.topbar-end .segmented {
+  background: transparent;
+  padding: 0;
+}
+.topbar-end .segmented button {
+  min-height: 38px;
+}
+.me summary {
+  display: block;
+  line-height: 0;
+  border-radius: 50%;
+}
+.me summary .avatar {
+  width: 38px;
+  height: 38px;
+}
+.me-menu {
+  width: max-content;
+  min-width: 280px;
+  max-width: min(380px, calc(100vw - 32px));
+  top: calc(100% + 14px);
+}
+.me-menu .muted {
+  overflow-wrap: anywhere;
+}
+.attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  font-weight: 500;
+}
+.attachment:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Light segmented control (like the main navigation) ---------- */
+.segmented-light {
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow), inset 0 0 0 1px var(--glass-edge);
+}
+
+/* ---------- Pyramid org chart ---------- */
+.pyramid-wrap {
+  overflow-x: auto;
+  padding: 8px 4px 24px;
+}
+.pyramid,
+.pyramid ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+}
+.pyramid {
+  min-width: max-content;
+}
+.pyramid ul {
+  position: relative;
+  padding-top: 28px;
+}
+.pyramid li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 10px 0;
+}
+.pyramid > li {
+  padding-top: 0;
+}
+/* Connectors: a line up from each child, joined by a horizontal line across siblings. */
+.pyramid li::before,
+.pyramid li::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  inset-inline-end: 50%;
+  width: 50%;
+  height: 28px;
+  border-top: 2px solid var(--canvas-3);
+}
+.pyramid li::after {
+  inset-inline-end: auto;
+  inset-inline-start: 50%;
+  border-inline-start: 2px solid var(--canvas-3);
+}
+.pyramid > li::before,
+.pyramid > li::after,
+.pyramid li:only-child::before {
+  display: none;
+}
+.pyramid li:only-child::after {
+  border-top: 0;
+}
+.pyramid li:first-child::before,
+.pyramid li:last-child::after {
+  border-top: 0;
+}
+.pyramid li:last-child::before {
+  border-inline-end: 2px solid var(--canvas-3);
+  border-start-end-radius: 14px;
+}
+.pyramid li:first-child::after {
+  border-start-start-radius: 14px;
+}
+.pyramid ul::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  inset-inline-start: 50%;
+  height: 28px;
+  border-inline-start: 2px solid var(--canvas-3);
+}
+.pyr-card {
+  position: relative;
+  z-index: 1;
+  width: 190px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 18px 14px 16px;
+  border-radius: 24px;
+  text-align: center;
+  text-decoration: none;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow), inset 0 0 0 1px var(--glass-edge);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.pyr-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift), inset 0 0 0 1px var(--glass-edge);
+  color: var(--ink);
+}
+.pyr-card .avatar {
+  margin-bottom: 6px;
+}
+.pyramid > li > .pyr-card {
+  background: linear-gradient(145deg, #2b4404 0%, var(--hero) 70%);
+  color: #fff;
+}
+.pyramid > li > .pyr-card .muted {
+  color: rgba(255, 255, 255, 0.7);
+}
+.pyr-count {
+  position: absolute;
+  bottom: -11px;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 11px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+html[dir='rtl'] .pyr-count {
+  transform: translateX(50%);
+}
+/* A team with no sub-teams: a vertical stack under its manager. */
+.pyramid ul.pyr-stack {
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.pyramid ul.pyr-stack::before {
+  height: 100%;
+  max-height: calc(100% - 30px);
+}
+.pyramid ul.pyr-stack > li {
+  padding: 0;
+}
+.pyramid ul.pyr-stack > li::before,
+.pyramid ul.pyr-stack > li::after {
+  display: none;
+}
+.pyr-card-sm {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 8px;
+  border-radius: var(--r-pill);
+  text-align: start;
+  width: 210px;
+}
+html[dir='rtl'] .pyr-card-sm {
+  padding: 8px 8px 8px 14px;
+}
+.pyr-card-sm .avatar {
+  margin: 0;
+}
+.pyr-card-sm strong {
+  font-weight: 500;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Department and client pages ---------- */
+.back-link {
+  align-self: flex-start;
+  text-decoration: none;
+  color: var(--muted);
+}
+.back-link:hover {
+  color: var(--ink);
+}
+.card-link {
+  text-decoration: none;
+  color: var(--ink);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.card-link:hover {
+  transform: translateY(-2px);
+  color: var(--ink);
+  box-shadow: var(--shadow-lift), inset 0 0 0 1px var(--glass-edge);
+}
+.dept-desc {
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.dept-hero {
+  justify-content: space-between;
+  min-height: 260px;
+}
+.dept-hero h1 {
+  font-size: 34px;
+  color: #fff;
+}
+.dept-hero-desc {
+  font-size: 17px;
+  font-weight: 400;
+  max-width: 60ch;
+  color: rgba(255, 255, 255, 0.85);
+}
+.dept-hero .person {
+  color: #fff;
+}
+a.chip {
+  color: #fff;
+  text-decoration: none;
+}
+a.chip:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+.pill-link {
+  text-decoration: none;
+}
+.pill-link:hover {
+  background: #fff;
+  color: var(--ink);
+}
+.member-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.member-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.65);
+  text-decoration: none;
+  color: var(--ink);
+  transition: background 0.15s, transform 0.15s;
+  height: 100%;
+}
+.member-card:hover {
+  background: #fff;
+  transform: translateY(-1px);
+  color: var(--ink);
+}
+.member-meta {
+  margin-inline-start: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  text-align: end;
+}
+.holiday-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.holiday-list li {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+.holiday-list strong {
+  min-width: 56px;
+  font-weight: 600;
+}
+
+.dept-card .pill {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pyr-card .pill {
+  height: auto;
+  min-height: 24px;
+  padding: 3px 10px;
+  text-align: center;
+  line-height: 1.3;
+}
+input[type='file']::file-selector-button {
+  margin-inline-end: 12px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--canvas-2);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+input[type='file']::file-selector-button:hover {
+  background: var(--brand-100);
+}
+
+/* Centre the chart when it fits; scroll from its start when it doesn't. */
+.pyramid {
+  width: max-content;
+  margin-inline: auto;
+}
+.member-card strong {
+  overflow-wrap: anywhere;
+}
