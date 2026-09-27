@@ -32,6 +32,16 @@ npm run typecheck
 npm run build
 ```
 
+## Demo site (Vercel + Neon, free)
+
+1. Sign in at [vercel.com](https://vercel.com) with GitHub → **Add New → Project** → import `mikdam-ems/HR`.
+2. Before deploying, add two **Environment Variables**: `DEMO_MODE` = `true`, and `AUTH_SECRET` = any long random text.
+   Click **Deploy** (the first deploy fails without a database; that's expected).
+3. In the project: **Storage → Create Database → Neon** (free) → connect it to the project. This sets `DATABASE_URL`.
+4. **Deployments → ⋯ → Redeploy.** Open the `…vercel.app` link.
+
+The first visit creates the tables and loads the sample people automatically. Unlike Render, the demo data persists.
+
 ## Demo site (Render, free)
 
 The repo includes `render.yaml`, which deploys a **demo** with sample people and pick-a-person sign-in:

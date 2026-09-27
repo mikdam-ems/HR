@@ -34,7 +34,14 @@ const globalForDb = globalThis as unknown as { __emsDb?: Promise<DB> };
 
 /** One shared connection per server process (survives Next.js hot reloads in dev). */
 export function getDb(): Promise<DB> {
-  globalForDb.__emsDb ??= createDb();
+  globalForDb.__emsDb ??= createDb().then(async (db) => {
+    if (process.env.DEMO_MODE === 'true') {
+      // Loaded lazily to keep the database module free of app logic.
+      const { ensureDemoData } = await import('@/server/seed');
+      await ensureDemoData(db);
+    }
+    return db;
+  });
   return globalForDb.__emsDb;
 }
 
