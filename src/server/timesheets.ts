@@ -1,7 +1,17 @@
 import { and, asc, between, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DB } from '@/db';
-import { dayEntries, employees, monthClosures, timesheets, type Employee, type Role, type TimesheetRow } from '@/db/schema';
+import {
+  dayChangeRequests,
+  dayEntries,
+  employees,
+  monthClosures,
+  timesheets,
+  type DayChangeRow,
+  type Employee,
+  type Role,
+  type TimesheetRow,
+} from '@/db/schema';
 import {
   type DayEntry,
   type LeaveType,
@@ -69,6 +79,8 @@ export interface MonthView {
   summary: MonthSummary;
   notes: Record<string, string>;
   times: Record<string, { start: string | null; end: string | null }>;
+  /** Day changes waiting for the manager, by date. */
+  pending: Record<string, DayChangeRow>;
   access: TimesheetAccess;
 }
 
@@ -103,7 +115,7 @@ export async function getMonth(
   if (!access.view) return fail('forbidden');
 
   const [from, to] = monthRange(year, month);
-  const [ctx, appSettings, rows] = await Promise.all([
+  const [ctx, appSettings, rows, requests] = await Promise.all([
     loadRulesContext(db),
     getSettings(db),
     db
@@ -111,7 +123,18 @@ export async function getMonth(
       .from(dayEntries)
       .where(and(eq(dayEntries.employeeId, employeeId), between(dayEntries.date, from, to)))
       .orderBy(asc(dayEntries.date)),
+    db
+      .select()
+      .from(dayChangeRequests)
+      .where(
+        and(
+          eq(dayChangeRequests.employeeId, employeeId),
+          eq(dayChangeRequests.status, 'pending'),
+          between(dayChangeRequests.date, from, to),
+        ),
+      ),
   ]);
+  const pending = Object.fromEntries(requests.map((r) => [r.date, r]));
 
   const entries: DayEntry[] = rows.map((r) => ({
     date: r.date,
@@ -124,7 +147,7 @@ export async function getMonth(
   // A note alone is worth the manager's attention, even if the hours match.
   for (const d of summary.days) if (notes[d.day.date]) d.changed = true;
 
-  return ok({ employee, year, month, timesheet, status, closed, summary, notes, times, access });
+  return ok({ employee, year, month, timesheet, status, closed, summary, notes, times, pending, access });
 }
 
 export const dayInput = z.object({
@@ -147,8 +170,83 @@ export const dayInput = z.object({
 });
 export type DayInput = z.input<typeof dayInput>;
 
-/** Records how a day went. Saving a day back to exactly its schedule (no leave, no note) removes the change. */
-export async function saveDay(db: DB, actor: Actor, employeeId: string, input: DayInput): Promise<Result<void>> {
+/** Who decides a person's requests: their direct manager, or an admin when they have no manager — never themselves. */
+export function canDecideFor(actor: Actor, employee: Pick<Employee, 'id' | 'managerId'>): boolean {
+  if (actor.id === employee.id) return false;
+  return employee.managerId === actor.id || (!employee.managerId && actor.roles.includes('admin'));
+}
+
+type DayValues = Pick<DayChangeRow, 'workedMinutes' | 'startTime' | 'endTime' | 'leaveType' | 'leavePortion' | 'note'>;
+
+const sameDay = (a: DayValues, b: DayValues) =>
+  a.workedMinutes === b.workedMinutes &&
+  a.startTime === b.startTime &&
+  a.endTime === b.endTime &&
+  a.leaveType === b.leaveType &&
+  (a.leavePortion ?? null) === (b.leavePortion ?? null) &&
+  a.note === b.note;
+
+/** Writes a day's change onto the timesheet, or (values = null) takes the day back to its schedule. */
+async function applyDay(db: DB, actorId: string, employeeId: string, date: string, values: DayValues | null) {
+  const where = and(eq(dayEntries.employeeId, employeeId), eq(dayEntries.date, date));
+  const [before] = await db.select().from(dayEntries).where(where);
+  if (!values) {
+    if (before) {
+      await db.delete(dayEntries).where(where);
+      await audit(db, { actorId, action: 'reset', entity: 'day_entry', entityId: before.id, before });
+    }
+    return;
+  }
+  const [after] = before
+    ? await db.update(dayEntries).set(values).where(where).returning()
+    : await db.insert(dayEntries).values({ employeeId, date, ...values }).returning();
+  await audit(db, { actorId, action: before ? 'update' : 'create', entity: 'day_entry', entityId: after!.id, before, after });
+}
+
+async function findPendingChange(db: DB, employeeId: string, date: string) {
+  const [row] = await db
+    .select()
+    .from(dayChangeRequests)
+    .where(and(eq(dayChangeRequests.employeeId, employeeId), eq(dayChangeRequests.date, date), eq(dayChangeRequests.status, 'pending')));
+  return row;
+}
+
+/** Files (or replaces, or withdraws) the one pending request for this day. */
+async function requestChange(
+  db: DB,
+  actorId: string,
+  employeeId: string,
+  date: string,
+  change: { action: 'set' | 'reset'; values: DayValues } | null,
+): Promise<string | null> {
+  const pending = await findPendingChange(db, employeeId, date);
+  if (!change) {
+    if (pending) {
+      const [after] = await db.update(dayChangeRequests).set({ status: 'cancelled' }).where(eq(dayChangeRequests.id, pending.id)).returning();
+      await audit(db, { actorId, action: 'cancel', entity: 'day_change', entityId: pending.id, before: pending, after });
+    }
+    return null;
+  }
+  const values = { action: change.action, ...change.values };
+  const [after] = pending
+    ? await db.update(dayChangeRequests).set(values).where(eq(dayChangeRequests.id, pending.id)).returning()
+    : await db.insert(dayChangeRequests).values({ employeeId, date, ...values }).returning();
+  await audit(db, { actorId, action: pending ? 'update' : 'request', entity: 'day_change', entityId: after!.id, before: pending, after });
+  return after!.id;
+}
+
+export interface SaveOutcome {
+  /** True when the change went straight onto the timesheet (people with no manager). */
+  applied: boolean;
+  /** The pending request for the manager, if one was filed. */
+  requestId: string | null;
+}
+
+/**
+ * Records how a day went. For anyone with a manager this files a change request; the timesheet changes
+ * only once the manager approves it. Saving a day back to exactly how it stands withdraws the request.
+ */
+export async function saveDay(db: DB, actor: Actor, employeeId: string, input: DayInput): Promise<Result<SaveOutcome>> {
   const parsed = parse(dayInput, input);
   if (!parsed.ok) return parsed;
   const d = parsed.value;
@@ -173,22 +271,10 @@ export async function saveDay(db: DB, actor: Actor, employeeId: string, input: D
     worked = day.expectedMinutes;
   }
 
-  const where = and(eq(dayEntries.employeeId, employeeId), eq(dayEntries.date, d.date));
-  const [before] = await db.select().from(dayEntries).where(where);
+  const [before] = await db.select().from(dayEntries).where(and(eq(dayEntries.employeeId, employeeId), eq(dayEntries.date, d.date)));
   const scheduled = day.dayType === 'working' || day.dayType === 'special_overtime' ? day.expectedMinutes : 0;
   const asScheduled = worked === scheduled && !d.leaveType && !d.note;
-
-  if (asScheduled) {
-    if (before) {
-      await db.delete(dayEntries).where(where);
-      await audit(db, { actorId: actor.id, action: 'reset', entity: 'day_entry', entityId: before.id, before });
-    }
-    return ok(undefined);
-  }
-
-  const values = {
-    employeeId,
-    date: d.date,
+  const values: DayValues = {
     workedMinutes: worked,
     startTime: fullLeave ? null : d.startTime,
     endTime: fullLeave ? null : d.endTime,
@@ -196,24 +282,110 @@ export async function saveDay(db: DB, actor: Actor, employeeId: string, input: D
     leavePortion: d.leaveType ? d.leavePortion : null,
     note: d.note,
   };
-  const [after] = before
-    ? await db.update(dayEntries).set(values).where(where).returning()
-    : await db.insert(dayEntries).values(values).returning();
-  await audit(db, { actorId: actor.id, action: before ? 'update' : 'create', entity: 'day_entry', entityId: after!.id, before, after });
-  return ok(undefined);
+
+  if (!view.value.employee.managerId) {
+    await applyDay(db, actor.id, employeeId, d.date, asScheduled ? null : values);
+    return ok({ applied: true, requestId: null });
+  }
+  // Nothing would change: withdraw any request for this day.
+  const unchanged = asScheduled ? !before : !!before && sameDay(before, values);
+  const requestId = await requestChange(
+    db,
+    actor.id,
+    employeeId,
+    d.date,
+    unchanged ? null : { action: asScheduled ? 'reset' : 'set', values },
+  );
+  return ok({ applied: false, requestId });
 }
 
-export async function resetDay(db: DB, actor: Actor, employeeId: string, date: string): Promise<Result<void>> {
+/** Asks to take a day back to its schedule (or withdraws a pending change). */
+export async function resetDay(db: DB, actor: Actor, employeeId: string, date: string): Promise<Result<SaveOutcome>> {
   const d = parse(isoDate, date);
   if (!d.ok) return d;
   const view = await getMonth(db, actor, employeeId, Number(date.slice(0, 4)), Number(date.slice(5, 7)));
   if (!view.ok) return view;
   if (!view.value.access.edit) return fail('forbidden');
-  const [before] = await db
-    .delete(dayEntries)
-    .where(and(eq(dayEntries.employeeId, employeeId), eq(dayEntries.date, date)))
-    .returning();
-  if (before) await audit(db, { actorId: actor.id, action: 'reset', entity: 'day_entry', entityId: before.id, before });
+  if (!view.value.employee.managerId) {
+    await applyDay(db, actor.id, employeeId, date, null);
+    return ok({ applied: true, requestId: null });
+  }
+  const [entry] = await db.select().from(dayEntries).where(and(eq(dayEntries.employeeId, employeeId), eq(dayEntries.date, date)));
+  const empty: DayValues = { workedMinutes: 0, startTime: null, endTime: null, leaveType: null, leavePortion: null, note: null };
+  const requestId = await requestChange(db, actor.id, employeeId, date, entry ? { action: 'reset', values: empty } : null);
+  return ok({ applied: false, requestId });
+}
+
+/** The manager approves (the day changes on the timesheet) or declines (nothing changes) a day change. */
+export async function decideDayChange(
+  db: DB,
+  actor: Actor,
+  requestId: string,
+  outcome: 'approve' | 'decline',
+  note: string | null = null,
+): Promise<Result<void>> {
+  const [req] = await db.select().from(dayChangeRequests).where(eq(dayChangeRequests.id, requestId));
+  if (!req) return fail('not_found');
+  const [employee] = await db.select().from(employees).where(eq(employees.id, req.employeeId));
+  if (!employee || !canDecideFor(actor, employee)) return fail('forbidden');
+  if (req.status !== 'pending') return fail('already_decided');
+  const year = Number(req.date.slice(0, 4));
+  const month = Number(req.date.slice(5, 7));
+  const sheet = await findTimesheet(db, req.employeeId, year, month);
+  if ((sheet && !EDITABLE.has(sheet.status)) || (await isMonthClosed(db, year, month))) return fail('month_locked');
+
+  await db.transaction(async (tx) => {
+    const t = tx as unknown as DB;
+    if (outcome === 'approve') {
+      const { workedMinutes, startTime, endTime, leaveType, leavePortion, note: dayNote } = req;
+      await applyDay(t, actor.id, req.employeeId, req.date, req.action === 'reset' ? null : { workedMinutes, startTime, endTime, leaveType, leavePortion, note: dayNote });
+    }
+    const [after] = await t
+      .update(dayChangeRequests)
+      .set({ status: outcome === 'approve' ? 'approved' : 'declined', decidedById: actor.id, decidedAt: new Date(), managerNote: note })
+      .where(eq(dayChangeRequests.id, requestId))
+      .returning();
+    await audit(t, { actorId: actor.id, action: outcome, entity: 'day_change', entityId: requestId, before: req, after });
+  });
+  return ok(undefined);
+}
+
+export interface PendingChange {
+  request: DayChangeRow;
+  employee: Employee;
+  /** How the day stands on the timesheet now (null = as scheduled). */
+  current: { workedMinutes: number; leaveType: LeaveType | null } | null;
+}
+
+/** Day changes waiting for this person to decide, oldest first. */
+export async function listPendingDayChanges(db: DB, actor: Actor): Promise<PendingChange[]> {
+  const people = (await db.select().from(employees)).filter((p) => canDecideFor(actor, p));
+  if (!people.length) return [];
+  const ids = people.map((p) => p.id);
+  const rows = await db
+    .select()
+    .from(dayChangeRequests)
+    .where(and(eq(dayChangeRequests.status, 'pending'), inArray(dayChangeRequests.employeeId, ids)))
+    .orderBy(asc(dayChangeRequests.date));
+  if (!rows.length) return [];
+  const entries = await db.select().from(dayEntries).where(inArray(dayEntries.employeeId, ids));
+  return rows.map((r) => {
+    const e = entries.find((x) => x.employeeId === r.employeeId && x.date === r.date);
+    return {
+      request: r,
+      employee: people.find((p) => p.id === r.employeeId)!,
+      current: e ? { workedMinutes: e.workedMinutes, leaveType: e.leaveType } : null,
+    };
+  });
+}
+
+/** The person withdraws their own pending day change. */
+export async function cancelDayChange(db: DB, actor: Actor, requestId: string): Promise<Result<void>> {
+  const [req] = await db.select().from(dayChangeRequests).where(eq(dayChangeRequests.id, requestId));
+  if (!req) return fail('not_found');
+  if (req.employeeId !== actor.id) return fail('forbidden');
+  if (req.status !== 'pending') return fail('already_decided');
+  await requestChange(db, actor.id, req.employeeId, req.date, null);
   return ok(undefined);
 }
 
@@ -229,6 +401,7 @@ export async function submitMonth(
   if (!view.ok) return view;
   if (!view.value.access.edit) return fail('forbidden');
   if (monthRange(year, month)[0] > today) return fail('month_not_started');
+  if (Object.keys(view.value.pending).length) return fail('pending_changes');
 
   const values = {
     status: 'submitted' as const,
@@ -292,9 +465,7 @@ export interface PendingItem {
 /** Submitted timesheets waiting for this person: their direct reports (plus, for admins, people with no manager). */
 export async function listPendingApprovals(db: DB, actor: Actor): Promise<PendingItem[]> {
   const people = await db.select().from(employees);
-  const mine = people.filter(
-    (p) => p.id !== actor.id && (p.managerId === actor.id || (!p.managerId && actor.roles.includes('admin'))),
-  );
+  const mine = people.filter((p) => canDecideFor(actor, p));
   if (!mine.length) return [];
   const rows = await db
     .select()
@@ -322,16 +493,17 @@ export async function monthStatus(db: DB, employeeId: string, year: number, mont
 }
 
 
-/** How many submitted timesheets wait for this person — cheap enough for the navigation badge. */
+/** How many submitted timesheets and day changes wait for this person — cheap enough for the navigation badge. */
 export async function countPendingApprovals(db: DB, actor: Actor): Promise<number> {
   const people = await db.select({ id: employees.id, managerId: employees.managerId }).from(employees);
-  const ids = people
-    .filter((p) => p.id !== actor.id && (p.managerId === actor.id || (!p.managerId && actor.roles.includes('admin'))))
-    .map((p) => p.id);
+  const ids = people.filter((p) => canDecideFor(actor, p)).map((p) => p.id);
   if (!ids.length) return 0;
-  const rows = await db
-    .select({ id: timesheets.id })
-    .from(timesheets)
-    .where(and(eq(timesheets.status, 'submitted'), inArray(timesheets.employeeId, ids)));
-  return rows.length;
+  const [sheets, changes] = await Promise.all([
+    db.select({ id: timesheets.id }).from(timesheets).where(and(eq(timesheets.status, 'submitted'), inArray(timesheets.employeeId, ids))),
+    db
+      .select({ id: dayChangeRequests.id })
+      .from(dayChangeRequests)
+      .where(and(eq(dayChangeRequests.status, 'pending'), inArray(dayChangeRequests.employeeId, ids))),
+  ]);
+  return sheets.length + changes.length;
 }

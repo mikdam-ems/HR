@@ -7,7 +7,8 @@ import { createRequest, decideRequest } from '../leave';
 import { addAssignment, createEmployee, setSchedule } from '../people';
 import { buildMonthWorkbook, closeMonth, monthReport, reopenMonth } from '../reports';
 import { setSetting } from '../settings';
-import { approveMonth, getMonth, listPendingApprovals, returnMonth, saveDay, submitMonth, type Actor } from '../timesheets';
+import { approveMonth, getMonth, listPendingApprovals, returnMonth, submitMonth, type Actor } from '../timesheets';
+import { saveDay } from './approve';
 
 let db: DB;
 beforeAll(async () => {

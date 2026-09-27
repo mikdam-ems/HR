@@ -1,12 +1,14 @@
 import Link from 'next/link';
+import { Avatar } from '@/components/Avatar';
 import { DayBadge } from '@/components/DayBadge';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { addDays, resolveDay } from '@/domain';
 import { clientLabel, fmt, getDict, holidayLabel, localName } from '@/i18n';
-import { formatDate, formatHours, initials, todayISO } from '@/lib/format';
+import { formatDate, formatHours, todayISO } from '@/lib/format';
 import { listDepartments } from '@/server/departments';
 import { getEmployeeProfile, listEmployees } from '@/server/people';
+import { currentStatus } from '@/server/profile';
 import { can } from '@/server/permissions';
 import { loadRulesContext } from '@/server/rulesContext';
 import { requireUser } from '@/server/session';
@@ -173,9 +175,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             <span className="label">{t.home.manager}</span>
             {profile?.manager ? (
               <Link className="person" href={`/people/${profile.manager.id}`}>
-                <span className="avatar avatar-sm" aria-hidden="true">
-                  {initials(profile.manager.nameEn)}
-                </span>
+                <Avatar person={profile.manager} size="sm" status={currentStatus(profile.manager)} />
                 {localName(locale, profile.manager.nameEn, profile.manager.nameAr)}
               </Link>
             ) : (
@@ -191,12 +191,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               {team.map((r) => (
                 <li key={r.id}>
                   <Link className="person" href={`/people/${r.id}`}>
-                    <span className="avatar avatar-sm" aria-hidden="true">
-                      {initials(r.nameEn)}
-                    </span>
+                    <Avatar person={r} size="sm" status={currentStatus(r)} />
                     <span className="stack" style={{ gap: 0 }}>
                       {localName(locale, r.nameEn, r.nameAr)}
-                      <span className="muted small">{r.jobTitle}</span>
+                      <span className="muted small">
+                        {currentStatus(r) ? `${currentStatus(r)!.emoji} ${currentStatus(r)!.text ?? r.jobTitle ?? ''}` : r.jobTitle}
+                      </span>
                     </span>
                   </Link>
                   <DayBadge type={resolveDay(ctx, r.id, today).dayType} t={t} />

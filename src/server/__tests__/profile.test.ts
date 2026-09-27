@@ -1,0 +1,54 @@
+import { eq, sql } from 'drizzle-orm';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { createDb, type DB } from '@/db';
+import { employees } from '@/db/schema';
+import { createEmployee } from '../people';
+import { currentStatus, getPhoto, setPhoto, setStatus, updateOwnProfile } from '../profile';
+
+let db: DB;
+beforeAll(async () => {
+  db = await createDb('memory');
+});
+beforeEach(async () => {
+  await db.execute(sql`TRUNCATE audit_log, employees CASCADE`);
+});
+
+async function me() {
+  const r = await createEmployee(db, null, { email: 'maya@ems.com', nameEn: 'Maya', jobTitle: 'Designer' });
+  if (!r.ok) throw new Error(r.error);
+  return r.value;
+}
+
+describe('own profile', () => {
+  it('updates name, title and bio, but nothing else', async () => {
+    const p = await me();
+    const r = await updateOwnProfile(db, p.id, { nameEn: 'Maya H.', jobTitle: 'Senior Designer', bio: 'Loves type.', roles: ['admin'] } as never);
+    expect(r.ok).toBe(true);
+    const [after] = await db.select().from(employees).where(eq(employees.id, p.id));
+    expect(after).toMatchObject({ nameEn: 'Maya H.', jobTitle: 'Senior Designer', bio: 'Loves type.', email: 'maya@ems.com' });
+    expect(after!.roles).toEqual(['employee']);
+    expect(await updateOwnProfile(db, p.id, { nameEn: ' ' })).toMatchObject({ error: 'invalid_input' });
+  });
+
+  it('stores a small image photo and removes it', async () => {
+    const p = await me();
+    const png = 'data:image/png;base64,iVBORw0KGgo=';
+    expect((await setPhoto(db, p.id, png)).ok).toBe(true);
+    expect(await getPhoto(db, p.id)).toBe(png);
+    expect((await db.select().from(employees).where(eq(employees.id, p.id)))[0]!.photoUpdatedAt).not.toBeNull();
+    expect(await setPhoto(db, p.id, 'data:text/html;base64,PHNjcmlwdD4=')).toMatchObject({ error: 'invalid_input' });
+    expect((await setPhoto(db, p.id, null)).ok).toBe(true);
+    expect(await getPhoto(db, p.id)).toBeNull();
+  });
+
+  it('a status lasts for the day it was set', async () => {
+    const p = await me();
+    await setStatus(db, p.id, { emoji: '💻', text: 'Deep in the release' }, '2026-09-27');
+    const [row] = await db.select().from(employees).where(eq(employees.id, p.id));
+    expect(currentStatus(row!, '2026-09-27')).toEqual({ emoji: '💻', text: 'Deep in the release' });
+    expect(currentStatus(row!, '2026-09-28')).toBeNull();
+    await setStatus(db, p.id, null);
+    const [cleared] = await db.select().from(employees).where(eq(employees.id, p.id));
+    expect(currentStatus(cleared!, '2026-09-27')).toBeNull();
+  });
+});

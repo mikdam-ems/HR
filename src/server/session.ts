@@ -5,6 +5,7 @@ import { auth } from '@/auth';
 import { getDb } from '@/db';
 import { employees } from '@/db/schema';
 import { can, type CurrentUser, type Permission } from './permissions';
+import { currentStatus } from './profile';
 
 /**
  * The signed-in employee, read fresh from the database on every request, so deactivating someone
@@ -24,7 +25,16 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     .where(and(eq(employees.managerId, me.id), eq(employees.active, true)))
     .limit(1);
 
-  return { id: me.id, email: me.email, nameEn: me.nameEn, nameAr: me.nameAr, roles: me.roles, isManager: reports.length > 0 };
+  return {
+    id: me.id,
+    email: me.email,
+    nameEn: me.nameEn,
+    nameAr: me.nameAr,
+    roles: me.roles,
+    isManager: reports.length > 0,
+    photoVersion: me.photoUpdatedAt?.getTime() ?? null,
+    status: currentStatus(me),
+  };
 });
 
 export async function requireUser(): Promise<CurrentUser> {

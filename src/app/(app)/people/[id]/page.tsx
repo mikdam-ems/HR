@@ -1,27 +1,29 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import {
   addAssignmentAction,
   endAssignmentAction,
   removeAssignmentAction,
   removeScheduleAction,
   setScheduleAction,
-} from '@/app/(app)/people/actions';
-import { DayBadge } from '@/components/DayBadge';
-import { Flash } from '@/components/Flash';
-import { getDb } from '@/db';
-import { resolveDay, scheduledMinutes } from '@/domain';
-import { getDict, holidayLabel, localName } from '@/i18n';
-import { formatDate, formatHours, todayISO } from '@/lib/format';
-import { listClients } from '@/server/clients';
-import { getEmployeeProfile } from '@/server/people';
-import { can } from '@/server/permissions';
-import { loadRulesContext } from '@/server/rulesContext';
-import { requireUser } from '@/server/session';
-import { accessFor } from '@/server/timesheets';
-import { getBalances, listAdjustments } from '@/server/leave';
-import { addAdjustmentAction } from '@/app/(app)/time-off/actions';
-import { Balances } from '@/components/Balances';
+} from "@/app/(app)/people/actions";
+import { Avatar } from "@/components/Avatar";
+import { DayBadge } from "@/components/DayBadge";
+import { Flash } from "@/components/Flash";
+import { getDb } from "@/db";
+import { resolveDay, scheduledMinutes } from "@/domain";
+import { getDict, holidayLabel, localName } from "@/i18n";
+import { formatDate, formatHours, todayISO } from "@/lib/format";
+import { listClients } from "@/server/clients";
+import { getEmployeeProfile } from "@/server/people";
+import { can } from "@/server/permissions";
+import { currentStatus } from "@/server/profile";
+import { loadRulesContext } from "@/server/rulesContext";
+import { requireUser } from "@/server/session";
+import { accessFor } from "@/server/timesheets";
+import { getBalances, listAdjustments } from "@/server/leave";
+import { addAdjustmentAction } from "@/app/(app)/time-off/actions";
+import { Balances } from "@/components/Balances";
 
 export default async function ProfilePage({
   params,
@@ -37,45 +39,94 @@ export default async function ProfilePage({
   const person = await getEmployeeProfile(db, id);
   if (!person) notFound();
 
-  const manage = can(user, 'people.manage');
-  const [ctx, clientRows] = await Promise.all([loadRulesContext(db), manage ? listClients(db) : Promise.resolve([])]);
+  const manage = can(user, "people.manage");
+  const [ctx, clientRows] = await Promise.all([
+    loadRulesContext(db),
+    manage ? listClients(db) : Promise.resolve([]),
+  ]);
   const today = todayISO();
   const day = resolveDay(ctx, person.id, today);
   const name = localName(locale, person.nameEn, person.nameAr);
   const year = Number(today.slice(0, 4));
-  const seesLeave = accessFor(user, person, 'draft').view;
+  const seesLeave = accessFor(user, person, "draft").view;
   const [balances, adjustments] = seesLeave
-    ? await Promise.all([getBalances(db, person.id, year), listAdjustments(db, person.id, year)])
+    ? await Promise.all([
+        getBalances(db, person.id, year),
+        listAdjustments(db, person.id, year),
+      ])
     : [[], []];
 
   return (
     <>
       <Flash search={await searchParams} t={t} />
       <div className="page-head">
-        <div className="stack" style={{ gap: 4 }}>
-          <div className="row">
-            <h1>{name}</h1>
-            {!person.active ? <span className="badge badge-danger">{t.people.inactive}</span> : null}
-            <DayBadge type={day.dayType} t={t} holiday={holidayLabel(locale, day)} />
+        <div className="row" style={{ gap: 18, alignItems: "center" }}>
+          <Avatar person={person} size="xl" status={currentStatus(person)} />
+          <div className="stack" style={{ gap: 4 }}>
+            <div className="row">
+              <h1>{name}</h1>
+              {!person.active ? (
+                <span className="badge badge-danger">{t.people.inactive}</span>
+              ) : null}
+              <DayBadge
+                type={day.dayType}
+                t={t}
+                holiday={holidayLabel(locale, day)}
+              />
+            </div>
+            <span className="muted">
+              {[
+                person.jobTitle,
+                person.department &&
+                  localName(
+                    locale,
+                    person.department.nameEn,
+                    person.department.nameAr,
+                  ),
+                person.email,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+            <span>
+              <span className="label">{t.people.manager}: </span>
+              {person.manager ? (
+                <Link href={`/people/${person.manager.id}`}>
+                  {localName(
+                    locale,
+                    person.manager.nameEn,
+                    person.manager.nameAr,
+                  )}
+                </Link>
+              ) : (
+                t.people.none
+              )}
+            </span>
+            {currentStatus(person) ? (
+              <span className="status-chip">
+                <span aria-hidden="true">{currentStatus(person)!.emoji}</span>{" "}
+                {currentStatus(person)!.text ??
+                  t.status.presets[
+                    currentStatus(person)!
+                      .emoji as keyof typeof t.status.presets
+                  ] ??
+                  ""}
+              </span>
+            ) : null}
+            {person.bio ? (
+              <p className="profile-bio" style={{ textAlign: "start" }}>
+                {person.bio}
+              </p>
+            ) : null}
           </div>
-          <span className="muted">
-            {[person.jobTitle, person.department && localName(locale, person.department.nameEn, person.department.nameAr), person.email]
-              .filter(Boolean)
-              .join(' · ')}
-          </span>
-          <span>
-            <span className="label">{t.people.manager}: </span>
-            {person.manager ? (
-              <Link href={`/people/${person.manager.id}`}>
-                {localName(locale, person.manager.nameEn, person.manager.nameAr)}
-              </Link>
-            ) : (
-              t.people.none
-            )}
-          </span>
         </div>
         <div className="row">
-          {accessFor(user, person, 'draft').view ? (
+          {person.id === user.id ? (
+            <Link className="btn" href="/profile">
+              {t.me.edit}
+            </Link>
+          ) : null}
+          {accessFor(user, person, "draft").view ? (
             <Link className="btn" href={`/timesheet/${person.id}`}>
               {t.nav.timesheet}
             </Link>
@@ -110,10 +161,13 @@ export default async function ProfilePage({
           </h2>
           <Balances balances={balances} t={t} />
           {adjustments.length ? (
-            <ul className="muted small" style={{ margin: 0, paddingInlineStart: 18 }}>
+            <ul
+              className="muted small"
+              style={{ margin: 0, paddingInlineStart: 18 }}
+            >
               {adjustments.map((a) => (
                 <li key={a.id}>
-                  {t.timesheet.leaveTypes[a.type]}: {a.days > 0 ? '+' : ''}
+                  {t.timesheet.leaveTypes[a.type]}: {a.days > 0 ? "+" : ""}
                   {a.days} · {a.reason}
                 </li>
               ))}
@@ -128,20 +182,38 @@ export default async function ProfilePage({
                 <div className="field">
                   <label htmlFor="adj-type">{t.timeOff.type}</label>
                   <select id="adj-type" name="type">
-                    <option value="annual">{t.timesheet.leaveTypes.annual}</option>
+                    <option value="annual">
+                      {t.timesheet.leaveTypes.annual}
+                    </option>
                     <option value="sick">{t.timesheet.leaveTypes.sick}</option>
                   </select>
                 </div>
                 <div className="field">
                   <label htmlFor="adj-days">{t.timeOff.adjustDays}</label>
-                  <input id="adj-days" name="days" type="number" step="0.5" min={-100} max={100} required />
+                  <input
+                    id="adj-days"
+                    name="days"
+                    type="number"
+                    step="0.5"
+                    min={-100}
+                    max={100}
+                    required
+                  />
                 </div>
                 <div className="field">
                   <label htmlFor="adj-reason">{t.timeOff.reason}</label>
-                  <input id="adj-reason" name="reason" type="text" required maxLength={200} />
+                  <input
+                    id="adj-reason"
+                    name="reason"
+                    type="text"
+                    required
+                    maxLength={200}
+                  />
                 </div>
                 <div>
-                  <button className="btn btn-primary">{t.timeOff.addAdjustment}</button>
+                  <button className="btn btn-primary">
+                    {t.timeOff.addAdjustment}
+                  </button>
                 </div>
               </div>
               <span className="muted small">{t.timeOff.adjustHint}</span>
@@ -173,17 +245,29 @@ export default async function ProfilePage({
               ) : (
                 person.assignments.map((a) => (
                   <tr key={a.id}>
-                    <td>{localName(locale, a.client.nameEn, a.client.nameAr)}</td>
+                    <td>
+                      {localName(locale, a.client.nameEn, a.client.nameAr)}
+                    </td>
                     <td>{formatDate(a.startDate, locale)}</td>
-                    <td>{a.endDate ? formatDate(a.endDate, locale) : t.profile.open}</td>
-                    <td>{a.primary ? t.profile.primary : t.profile.secondary}</td>
+                    <td>
+                      {a.endDate
+                        ? formatDate(a.endDate, locale)
+                        : t.profile.open}
+                    </td>
+                    <td>
+                      {a.primary ? t.profile.primary : t.profile.secondary}
+                    </td>
                     {manage ? (
                       <td>
                         <div className="row">
                           {!a.endDate ? (
                             <form action={endAssignmentAction} className="row">
                               <input type="hidden" name="id" value={a.id} />
-                              <input type="hidden" name="employeeId" value={person.id} />
+                              <input
+                                type="hidden"
+                                name="employeeId"
+                                value={person.id}
+                              />
                               <input
                                 type="date"
                                 name="endDate"
@@ -191,13 +275,21 @@ export default async function ProfilePage({
                                 aria-label={t.profile.end}
                                 style={{ width: 160, minHeight: 32 }}
                               />
-                              <button className="btn btn-small">{t.profile.end}</button>
+                              <button className="btn btn-small">
+                                {t.profile.end}
+                              </button>
                             </form>
                           ) : null}
                           <form action={removeAssignmentAction}>
                             <input type="hidden" name="id" value={a.id} />
-                            <input type="hidden" name="employeeId" value={person.id} />
-                            <button className="btn btn-small btn-danger">{t.profile.remove}</button>
+                            <input
+                              type="hidden"
+                              name="employeeId"
+                              value={person.id}
+                            />
+                            <button className="btn btn-small btn-danger">
+                              {t.profile.remove}
+                            </button>
                           </form>
                         </div>
                       </td>
@@ -227,20 +319,34 @@ export default async function ProfilePage({
               </div>
               <div className="field">
                 <label htmlFor="startDate">{t.profile.from}</label>
-                <input id="startDate" name="startDate" type="date" required defaultValue={today} />
+                <input
+                  id="startDate"
+                  name="startDate"
+                  type="date"
+                  required
+                  defaultValue={today}
+                />
               </div>
               <div className="field">
                 <label htmlFor="endDate">{t.profile.to}</label>
                 <input id="endDate" name="endDate" type="date" />
               </div>
               <label className="check">
-                <input type="checkbox" name="primary" defaultChecked={person.assignments.every((a) => a.endDate && a.endDate < today)} />
+                <input
+                  type="checkbox"
+                  name="primary"
+                  defaultChecked={person.assignments.every(
+                    (a) => a.endDate && a.endDate < today,
+                  )}
+                />
                 {t.profile.primary}
               </label>
             </div>
             <span className="muted small">{t.profile.primaryHint}</span>
             <div>
-              <button className="btn btn-primary">{t.profile.addAssignment}</button>
+              <button className="btn btn-primary">
+                {t.profile.addAssignment}
+              </button>
             </div>
           </form>
         ) : null}
@@ -289,8 +395,14 @@ export default async function ProfilePage({
                       <td>
                         <form action={removeScheduleAction}>
                           <input type="hidden" name="id" value={s.id} />
-                          <input type="hidden" name="employeeId" value={person.id} />
-                          <button className="btn btn-small btn-danger">{t.profile.remove}</button>
+                          <input
+                            type="hidden"
+                            name="employeeId"
+                            value={person.id}
+                          />
+                          <button className="btn btn-small btn-danger">
+                            {t.profile.remove}
+                          </button>
                         </form>
                       </td>
                     ) : null}
@@ -306,28 +418,60 @@ export default async function ProfilePage({
             <div className="grid-form">
               <div className="field">
                 <label htmlFor="effectiveFrom">{t.profile.effectiveFrom}</label>
-                <input id="effectiveFrom" name="effectiveFrom" type="date" required defaultValue={today} />
+                <input
+                  id="effectiveFrom"
+                  name="effectiveFrom"
+                  type="date"
+                  required
+                  defaultValue={today}
+                />
               </div>
               <div className="field">
                 <label htmlFor="startTime">{t.profile.start}</label>
-                <input id="startTime" name="startTime" type="time" required defaultValue="09:00" />
+                <input
+                  id="startTime"
+                  name="startTime"
+                  type="time"
+                  required
+                  defaultValue="09:00"
+                />
               </div>
               <div className="field">
                 <label htmlFor="endTime">{t.profile.endTime}</label>
-                <input id="endTime" name="endTime" type="time" required defaultValue="17:00" />
+                <input
+                  id="endTime"
+                  name="endTime"
+                  type="time"
+                  required
+                  defaultValue="17:00"
+                />
               </div>
               <div className="field">
                 <label htmlFor="breakMinutes">{t.profile.break}</label>
-                <input id="breakMinutes" name="breakMinutes" type="number" min={0} max={240} defaultValue={0} />
+                <input
+                  id="breakMinutes"
+                  name="breakMinutes"
+                  type="number"
+                  min={0}
+                  max={240}
+                  defaultValue={0}
+                />
               </div>
               <div className="field">
                 <label htmlFor="shiftCode">{t.profile.shift}</label>
-                <input id="shiftCode" name="shiftCode" type="text" placeholder="A / B / C" />
+                <input
+                  id="shiftCode"
+                  name="shiftCode"
+                  type="text"
+                  placeholder="A / B / C"
+                />
               </div>
             </div>
             <span className="muted small">{t.profile.scheduleHint}</span>
             <div>
-              <button className="btn btn-primary">{t.profile.addSchedule}</button>
+              <button className="btn btn-primary">
+                {t.profile.addSchedule}
+              </button>
             </div>
           </form>
         ) : null}

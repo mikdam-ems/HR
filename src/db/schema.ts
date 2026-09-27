@@ -52,6 +52,14 @@ export const employees = pgTable(
     hireDate: date('hire_date', { mode: 'string' }),
     roles: roleEnum('roles').array().notNull().default(['employee']),
     active: boolean('active').notNull().default(true),
+    /** Written by the person themselves. */
+    bio: text('bio'),
+    /** Today's status, e.g. 💻 "Deep in the release". Only shown on the day it was set. */
+    statusEmoji: text('status_emoji'),
+    statusText: text('status_text'),
+    statusDate: date('status_date', { mode: 'string' }),
+    /** Set when the person has a photo (stored in employee_photos); also busts the image cache. */
+    photoUpdatedAt: timestamp('photo_updated_at', { withTimezone: true }),
     ...timestamps,
   },
   (t) => [
@@ -217,6 +225,45 @@ export const leaveRequests = pgTable(
   (t) => [index('leave_requests_employee_idx').on(t.employeeId)],
 );
 
+/** Profile photos, kept apart so employee lists stay small. A small JPEG/PNG/WebP data URL. */
+export const employeePhotos = pgTable('employee_photos', {
+  employeeId: uuid('employee_id')
+    .primaryKey()
+    .references(() => employees.id, { onDelete: 'cascade' }),
+  dataUrl: text('data_url').notNull(),
+  ...timestamps,
+});
+
+export const changeActionEnum = pgEnum('change_action', ['set', 'reset']);
+
+/**
+ * A person's change to one day of their timesheet, waiting for their manager.
+ * Approving it writes it to day_entries ('set') or removes the day's change ('reset').
+ */
+export const dayChangeRequests = pgTable(
+  'day_change_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    date: date('date', { mode: 'string' }).notNull(),
+    action: changeActionEnum('action').notNull(),
+    workedMinutes: integer('worked_minutes').notNull().default(0),
+    startTime: text('start_time'),
+    endTime: text('end_time'),
+    leaveType: leaveTypeEnum('leave_type'),
+    leavePortion: numeric('leave_portion', { mode: 'number' }),
+    note: text('note'),
+    status: leaveStatusEnum('status').notNull().default('pending'),
+    decidedById: uuid('decided_by_id').references(() => employees.id, { onDelete: 'set null' }),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    managerNote: text('manager_note'),
+    ...timestamps,
+  },
+  (t) => [index('day_change_requests_employee_idx').on(t.employeeId, t.date)],
+);
+
 /** HR corrections to a balance: carry-over from last year, opening balances, fixes. Positive or negative. */
 export const leaveAdjustments = pgTable(
   'leave_adjustments',
@@ -321,6 +368,7 @@ export type LeaveRequestRow = typeof leaveRequests.$inferSelect;
 export type LeaveAdjustmentRow = typeof leaveAdjustments.$inferSelect;
 export type TimesheetRow = typeof timesheets.$inferSelect;
 export type DayEntryRow = typeof dayEntries.$inferSelect;
+export type DayChangeRow = typeof dayChangeRequests.$inferSelect;
 export type Calendar = typeof calendars.$inferSelect;
 export type HolidayRow = typeof holidays.$inferSelect;
 export type ClientRow = typeof clients.$inferSelect;

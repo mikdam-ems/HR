@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { decideLeaveAction } from '@/app/(app)/time-off/actions';
-import { decideAction } from '@/app/(app)/timesheet/actions';
+import { decideAction, decideDayChangeAction } from '@/app/(app)/timesheet/actions';
+import { Avatar } from '@/components/Avatar';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { fmt, getDict, holidayLabel, localName, type Locale } from '@/i18n';
@@ -9,22 +10,24 @@ import { formatDate, formatHours } from '@/lib/format';
 import { getBalances, listPendingLeave, teamOff } from '@/server/leave';
 import { requireUser } from '@/server/session';
 import { getSettings } from '@/server/settings';
-import { getMonth, listPendingApprovals, type MonthView } from '@/server/timesheets';
+import { getMonth, listPendingApprovals, listPendingDayChanges, type MonthView, type PendingChange } from '@/server/timesheets';
 
 export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const user = await requireUser();
   const { t, locale } = await getDict();
   const search = await searchParams;
   const db = await getDb();
-  const [items, leaveItems, appSettings] = await Promise.all([
+  const [items, leaveItems, appSettings, changes] = await Promise.all([
     listPendingApprovals(db, user),
     listPendingLeave(db, user),
     getSettings(db),
+    listPendingDayChanges(db, user),
   ]);
   // One item is open at a time: a timesheet (?t=) or a leave request (?l=).
   const leave = leaveItems.find((l) => l.id === search.l) ?? (search.t || items.length ? undefined : leaveItems[0]);
   const current = leave ? undefined : (items.find((i) => i.timesheet.id === search.t) ?? items[0]);
-  const total = items.length + leaveItems.length;
+  const total = items.length + leaveItems.length + changes.length;
+  const monthly = items.length + leaveItems.length;
   const view = current ? await getMonth(db, user, current.employee.id, current.timesheet.year, current.timesheet.month) : null;
   const month = view?.ok ? view.value : null;
   const monthLabel = (y: number, m: number) =>
@@ -39,7 +42,9 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         <span className="muted">{total ? fmt(t.approvals.waiting, { count: total }) : t.approvals.none}</span>
       </div>
 
-      {total ? (
+      {changes.length ? <DayChanges changes={changes} t={t} locale={locale} /> : null}
+
+      {monthly ? (
         <div className="approvals">
           <nav className="inbox" aria-label={t.approvals.title}>
             {items.map((i) => (
@@ -51,7 +56,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                   </span>
                 </span>
                 <span className="small">{monthLabel(i.timesheet.year, i.timesheet.month)}</span>
-                <span className="small" style={{ fontWeight: 600, color: i.changedDays ? 'var(--special-fg)' : 'var(--brand-900)' }}>
+                <span className="small" style={{ fontWeight: 600, color: i.changedDays ? 'var(--warn-fg)' : 'var(--brand-900)' }}>
                   {i.changedDays ? fmt(t.approvals.changedDays, { count: i.changedDays }) : t.approvals.matches}
                   {i.issues ? ` · ${fmt(t.approvals.toCheck, { count: i.issues })}` : ''}
                 </span>
@@ -69,7 +74,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                   {t.timesheet.leaveTypes[l.type]} · {formatDate(l.fromDate, locale, { day: 'numeric', month: 'short' })}
                   {l.toDate !== l.fromDate ? ` – ${formatDate(l.toDate, locale, { day: 'numeric', month: 'short' })}` : ''}
                 </span>
-                <span className="small" style={{ fontWeight: 600, color: 'var(--leave-fg)' }}>
+                <span className="small" style={{ fontWeight: 600, color: 'var(--info-fg)' }}>
                   {fmt(t.timesheet.days, { n: l.daysUsed })}
                 </span>
               </Link>
@@ -303,6 +308,62 @@ async function LeaveDetail({
           <button className="btn">{t.timeOff.decline}</button>
         </div>
       </form>
+    </section>
+  );
+}
+
+function DayChanges({ changes, t, locale }: { changes: PendingChange[]; t: Dict; locale: Locale }) {
+  const describe = (v: { workedMinutes: number; leaveType: string | null; leavePortion?: number | null } | null) =>
+    !v
+      ? t.approvals.asScheduled
+      : [
+          v.leaveType
+            ? t.timesheet.leaveTypes[v.leaveType as keyof Dict['timesheet']['leaveTypes']] +
+              (v.leavePortion === 0.5 ? ` · ${t.timesheet.day.half}` : '')
+            : null,
+          v.workedMinutes || !v.leaveType ? formatHours(v.workedMinutes) : null,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+  return (
+    <section className="card" aria-labelledby="day-changes">
+      <div className="stack" style={{ gap: 2 }}>
+        <h2 id="day-changes">
+          {t.approvals.changes} <span className="pill pill-muted">{changes.length}</span>
+        </h2>
+        <span className="muted small">{t.approvals.changesHint}</span>
+      </div>
+      <ul className="list-rows change-rows">
+        {changes.map(({ request: r, employee, current }) => (
+          <li key={r.id}>
+            <Link className="person" href={`/timesheet/${employee.id}?month=${r.date.slice(0, 7)}&day=${r.date}`}>
+              <Avatar person={employee} size="sm" />
+              <span className="stack" style={{ gap: 0 }}>
+                {localName(locale, employee.nameEn, employee.nameAr)}
+                <span className="muted small">{formatDate(r.date, locale, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+              </span>
+            </Link>
+            <span className="change-diff small">
+              <span className="muted">{describe(current)}</span>
+              <span aria-hidden="true" className="flip">→</span>
+              <strong>{r.action === 'reset' ? t.approvals.backToSchedule : describe(r)}</strong>
+              {r.note ? <span className="muted">“{r.note}”</span> : null}
+            </span>
+            <span className="row">
+              <form action={decideDayChangeAction}>
+                <input type="hidden" name="id" value={r.id} />
+                <input type="hidden" name="outcome" value="decline" />
+                <button className="btn btn-small">{t.approvals.decline}</button>
+              </form>
+              <form action={decideDayChangeAction}>
+                <input type="hidden" name="id" value={r.id} />
+                <input type="hidden" name="outcome" value="approve" />
+                <button className="btn btn-small btn-primary">{t.approvals.approve}</button>
+              </form>
+            </span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

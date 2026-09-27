@@ -8,6 +8,9 @@ export interface CurrentUser {
   roles: Role[];
   /** True when at least one active employee reports to this person. */
   isManager: boolean;
+  /** Bumps when the photo changes; absent = no photo. */
+  photoVersion?: number | null;
+  status?: { emoji: string; text: string | null } | null;
 }
 
 export type Permission =

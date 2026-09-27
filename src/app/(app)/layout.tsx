@@ -1,5 +1,8 @@
 import { setLocaleAction, signOutAction } from '@/app/actions';
+import Link from 'next/link';
+import { Avatar } from '@/components/Avatar';
 import { BackField, NavLinks } from '@/components/NavLinks';
+import { StatusBubble } from '@/components/StatusBubble';
 import { demoMode } from '@/auth';
 import { getDict, localName } from '@/i18n';
 import { can } from '@/server/permissions';
@@ -12,13 +15,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   const { t, locale } = await getDict();
   const name = localName(locale, user.nameEn, user.nameAr);
-  const initials = user.nameEn
-    .split(/\s+/)
-    .map((p) => p[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-
   const approver = user.isManager || user.roles.includes('admin');
   const db = approver ? await getDb() : null;
   const pending = db ? (await countPendingApprovals(db, user)) + (await countPendingLeave(db, user)) : 0;
@@ -61,13 +57,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </form>
             <details className="me">
               <summary aria-label={name}>
-                <span className="avatar" aria-hidden="true">
-                  {initials}
-                </span>
+                <Avatar person={user} status={user.status} />
               </summary>
               <div className="me-menu card">
                 <strong>{name}</strong>
                 <span className="muted small">{user.email}</span>
+                <Link className="btn btn-small" href="/profile">
+                  {t.nav.profile}
+                </Link>
                 <form action={signOutAction}>
                   <button className="btn btn-small">{t.nav.signOut}</button>
                 </form>
@@ -84,6 +81,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ) : null}
         {children}
       </main>
+      <StatusBubble status={user.status ?? null} labels={t.status} />
     </div>
   );
 }

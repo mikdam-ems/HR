@@ -8,12 +8,12 @@ import {
   approveMonth,
   getMonth,
   listPendingApprovals,
-  resetDay,
   returnMonth,
-  saveDay,
   submitMonth,
   type Actor,
 } from '../timesheets';
+import * as ts from '../timesheets';
+import { resetDay, saveDay } from './approve';
 
 let db: DB;
 beforeAll(async () => {
@@ -21,7 +21,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`TRUNCATE audit_log, day_entries, timesheets, assignments, schedules, holidays, clients, calendars, settings, employees CASCADE`,
+    sql`TRUNCATE audit_log, day_change_requests, day_entries, timesheets, assignments, schedules, holidays, clients, calendars, settings, employees CASCADE`,
   );
 });
 
@@ -189,5 +189,83 @@ describe('submit → approve / return', () => {
     const { boss } = await setup();
     await submitMonth(db, boss, boss.id, 2026, 9, '2026-09-24');
     expect(await listPendingApprovals(db, boss)).toHaveLength(0);
+  });
+});
+
+describe('day changes need the manager', () => {
+  it('a change waits as a request, and lands on the timesheet only once approved', async () => {
+    const { lina, khaled, omar } = await setup();
+    const r = await ts.saveDay(db, lina, lina.id, { date: '2026-09-15', workedMinutes: h(10), note: 'Release' });
+    if (!r.ok) throw new Error(r.error);
+    expect(r.value).toMatchObject({ applied: false });
+
+    let m = await getMonth(db, lina, lina.id, 2026, 9);
+    if (!m.ok) throw new Error(m.error);
+    expect(m.value.summary.totals.regularOvertimeMinutes).toBe(0);
+    expect(m.value.pending['2026-09-15']).toMatchObject({ action: 'set', workedMinutes: h(10) });
+
+    // Only her manager sees and decides it.
+    expect(await ts.listPendingDayChanges(db, khaled)).toHaveLength(1);
+    expect(await ts.listPendingDayChanges(db, omar)).toHaveLength(0);
+    expect(await ts.countPendingApprovals(db, khaled)).toBe(1);
+    expect(await ts.decideDayChange(db, omar, r.value.requestId!, 'approve')).toMatchObject({ error: 'forbidden' });
+    expect(await ts.decideDayChange(db, lina, r.value.requestId!, 'approve')).toMatchObject({ error: 'forbidden' });
+
+    // Can't submit the month while a change is pending.
+    expect(await submitMonth(db, lina, lina.id, 2026, 9, '2026-09-24')).toMatchObject({ error: 'pending_changes' });
+
+    expect((await ts.decideDayChange(db, khaled, r.value.requestId!, 'approve')).ok).toBe(true);
+    expect(await ts.decideDayChange(db, khaled, r.value.requestId!, 'approve')).toMatchObject({ error: 'already_decided' });
+    m = await getMonth(db, lina, lina.id, 2026, 9);
+    if (!m.ok) throw new Error(m.error);
+    expect(m.value.summary.totals.regularOvertimeMinutes).toBe(h(2));
+    expect(m.value.pending).toEqual({});
+    expect((await submitMonth(db, lina, lina.id, 2026, 9, '2026-09-24')).ok).toBe(true);
+  });
+
+  it('a declined change leaves the timesheet as it was; editing again replaces the pending request', async () => {
+    const { lina, khaled } = await setup();
+    const first = await ts.saveDay(db, lina, lina.id, { date: '2026-09-15', workedMinutes: h(9) });
+    const second = await ts.saveDay(db, lina, lina.id, { date: '2026-09-15', workedMinutes: h(11) });
+    if (!first.ok || !second.ok) throw new Error('save');
+    expect(second.value.requestId).toBe(first.value.requestId);
+    expect(await ts.listPendingDayChanges(db, khaled)).toHaveLength(1);
+
+    expect((await ts.decideDayChange(db, khaled, second.value.requestId!, 'decline', 'Not agreed')).ok).toBe(true);
+    const m = await getMonth(db, lina, lina.id, 2026, 9);
+    if (!m.ok) throw new Error(m.error);
+    expect(m.value.summary.days.find((d) => d.day.date === '2026-09-15')!.entry.workedMinutes).toBe(h(8));
+  });
+
+  it('saving the day back to how it stands withdraws the request; the person can also cancel it', async () => {
+    const { lina, khaled } = await setup();
+    await ts.saveDay(db, lina, lina.id, { date: '2026-09-15', workedMinutes: h(9) });
+    await ts.saveDay(db, lina, lina.id, { date: '2026-09-15', startTime: '09:00', endTime: '17:00' });
+    expect(await ts.listPendingDayChanges(db, khaled)).toHaveLength(0);
+
+    const r = await ts.saveDay(db, lina, lina.id, { date: '2026-09-16', leaveType: 'sick' });
+    if (!r.ok) throw new Error(r.error);
+    expect(await ts.cancelDayChange(db, khaled, r.value.requestId!)).toMatchObject({ error: 'forbidden' });
+    expect((await ts.cancelDayChange(db, lina, r.value.requestId!)).ok).toBe(true);
+    expect(await ts.listPendingDayChanges(db, khaled)).toHaveLength(0);
+  });
+
+  it('asking to undo an approved change is a request too', async () => {
+    const { lina, khaled } = await setup();
+    await saveDay(db, lina, lina.id, { date: '2026-09-15', workedMinutes: h(10) });
+    const r = await ts.resetDay(db, lina, lina.id, '2026-09-15');
+    if (!r.ok) throw new Error(r.error);
+    const [p] = await ts.listPendingDayChanges(db, khaled);
+    expect(p).toMatchObject({ request: { action: 'reset' }, current: { workedMinutes: h(10) } });
+    await ts.decideDayChange(db, khaled, r.value.requestId!, 'approve');
+    const m = await getMonth(db, lina, lina.id, 2026, 9);
+    if (!m.ok) throw new Error(m.error);
+    expect(m.value.summary.days.find((d) => d.day.date === '2026-09-15')!.changed).toBe(false);
+  });
+
+  it('the General Manager (no manager) changes their own days directly', async () => {
+    const { boss } = await setup();
+    const r = await ts.saveDay(db, boss, boss.id, { date: '2026-09-15', workedMinutes: h(10) });
+    expect(r).toMatchObject({ ok: true, value: { applied: true } });
   });
 });

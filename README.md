@@ -69,8 +69,9 @@ Only people added by HR can sign in, and only with a Google account on the allow
 | | Employee | Manager | HR | Finance | Admin |
 |---|---|---|---|---|---|
 | See own day, next 7 days, directory, org chart | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Fill in and submit own timesheet; request time off; see own balances | ✓ | ✓ | ✓ | ✓ | ✓ |
-| See their team's status; approve or return their team's timesheets and leave | | ✓ | | | |
+| Request day changes, submit own timesheet; request time off; see own balances | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Edit own photo, name, title and bio; set a daily status | ✓ | ✓ | ✓ | ✓ | ✓ |
+| See their team's status; approve day changes; approve or return their team's timesheets and leave | | ✓ | | | |
 | View anyone's timesheet (read-only) | | | ✓ | ✓ | ✓ |
 | Approve timesheets of people with no manager | | | | | ✓ |
 | Add/edit people, departments, assignments, schedules; import Excel; adjust leave balances | | | ✓ | | ✓ |
@@ -80,6 +81,10 @@ Only people added by HR can sign in, and only with a Google account on the allow
 | Roles, home calendar, overtime rates; reopen a closed month | | | | | ✓ |
 
 "Manager" isn't a role you assign: anyone with direct reports is a manager.
+
+**Changing a day is a request.** When someone changes a day (hours, leave on the day, a note) it goes to their manager;
+the timesheet only changes once it's approved. At month end the person still submits the whole month for a final
+sign-off, which waits until no day changes are pending. People with no manager (the General Manager) change days directly.
 The demo loads EMS's real team (`EMS_ROSTER` in `src/server/seed.ts`): the General Manager (admin) manages the delivery
 managers of QA, Software & Development and Application Support, and each delivery manager approves their own team's
 timesheets and leave. Names come from the email addresses; correct them (and add Arabic names) on each person's page.

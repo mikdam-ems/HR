@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { resetDayAction, saveDayAction, submitMonthAction } from '@/app/(app)/timesheet/actions';
+import { cancelDayChangeAction, resetDayAction, saveDayAction, submitMonthAction } from '@/app/(app)/timesheet/actions';
 import { DayBadge } from '@/components/DayBadge';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { type MonthDay, weekdayOf } from '@/domain';
 import { clientLabel, fmt, getDict, holidayLabel, localName, type Locale } from '@/i18n';
 import type { Dict } from '@/i18n/en';
+import type { DayChangeRow } from '@/db/schema';
 import { formatDate, formatHours, todayISO } from '@/lib/format';
 import { loadRulesContext } from '@/server/rulesContext';
 import { requireUser } from '@/server/session';
@@ -65,6 +66,11 @@ export default async function TimesheetPage({
   const monthLabel = formatDate(`${monthKey}-01`, locale, { month: 'long', year: 'numeric' });
   const lead = (weekdayOf(`${monthKey}-01`) as number) % 7;
   const primary = view.summary.days.find((d) => d.day.primaryClientId)?.day;
+  const approverRow = view.employee.managerId
+    ? await db.query.employees.findFirst({ where: (e, { eq }) => eq(e.id, view.employee.managerId!) })
+    : undefined;
+  const approver = approverRow ? localName(locale, approverRow.nameEn, approverRow.nameAr) : null;
+  const pendingCount = Object.keys(view.pending).length;
   const decidedBy = view.timesheet?.decidedById ? await db.query.employees.findFirst({ where: (e, { eq }) => eq(e.id, view.timesheet!.decidedById!) }) : undefined;
 
   return (
@@ -108,6 +114,11 @@ export default async function TimesheetPage({
           {t.timesheet.intro}
         </p>
       ) : null}
+      {pendingCount ? (
+        <div className="flash flash-info" role="status">
+          {fmt(t.timesheet.pendingCount, { count: pendingCount })}
+        </div>
+      ) : null}
 
       <div className="stats">
         <Stat label={t.timesheet.workingDays} value={String(totals.workingDays)} />
@@ -143,7 +154,7 @@ export default async function TimesheetPage({
               <div key={`lead-${i}`} className="cell cell-empty" aria-hidden="true" />
             ))}
             {view.summary.days.map((d) => (
-              <DayCell key={d.day.date} d={d} t={t} locale={locale} monthKey={monthKey} today={today} selected={d.day.date === selected?.day.date} />
+              <DayCell key={d.day.date} d={d} t={t} locale={locale} monthKey={monthKey} today={today} selected={d.day.date === selected?.day.date} pending={!!view.pending[d.day.date]} />
             ))}
           </div>
           <div className="legend">
@@ -166,7 +177,7 @@ export default async function TimesheetPage({
 
         <aside className="card day-panel" aria-label={selected ? formatDate(selected.day.date, locale) : t.timesheet.checks}>
           {selected ? (
-            <DayPanel d={selected} view={view} t={t} locale={locale} clientNames={(ids) => clientLabel(locale, ctx.clients, ids)} rate={appSettings.overtimeRates.special} />
+            <DayPanel d={selected} view={view} t={t} locale={locale} clientNames={(ids) => clientLabel(locale, ctx.clients, ids)} rate={appSettings.overtimeRates.special} approver={approver} />
           ) : (
             <>
               <p className="muted" style={{ margin: 0 }}>
@@ -230,6 +241,7 @@ function DayCell({
   monthKey,
   today,
   selected,
+  pending,
 }: {
   d: MonthDay;
   t: Dict;
@@ -237,6 +249,7 @@ function DayCell({
   monthKey: string;
   today: string;
   selected: boolean;
+  pending: boolean;
 }) {
   const date = d.day.date;
   const kind = cellKind(d);
@@ -249,13 +262,17 @@ function DayCell({
   return (
     <Link
       href={`?month=${monthKey}&day=${date}`}
-      className={`cell day-${kind}${selected ? ' cell-selected' : ''}`}
+      className={`cell day-${kind}${selected ? ' cell-selected' : ''}${pending ? ' cell-has-pending' : ''}`}
       aria-current={selected ? 'date' : undefined}
       scroll={false}
     >
       <span className="cell-top">
         <span className={date === today ? 'cell-num cell-today' : 'cell-num'}>{Number(date.slice(8))}</span>
-        {d.changed ? <span className="cell-edited">{t.timesheet.edited}</span> : null}
+        {pending ? (
+          <span className="cell-pending">{t.timesheet.pending}</span>
+        ) : d.changed ? (
+          <span className="cell-edited">{t.timesheet.edited}</span>
+        ) : null}
       </span>
       <span className="cell-label">{label}</span>
       <span className="cell-hours">
@@ -274,6 +291,7 @@ function DayPanel({
   locale,
   clientNames,
   rate,
+  approver,
 }: {
   d: MonthDay;
   view: MonthView;
@@ -281,13 +299,18 @@ function DayPanel({
   locale: Locale;
   clientNames: (ids: string[]) => string;
   rate: number;
+  approver: string | null;
 }) {
   const date = d.day.date;
+  const pending = view.pending[date];
   const time = view.times[date];
   const sched = d.day.schedule;
   const isWorkday = d.day.dayType === 'working' || d.day.dayType === 'special_overtime';
-  const start = time?.start ?? (isWorkday && sched ? sched.start : '');
-  const end = time?.end ?? (isWorkday && sched ? sched.end : '');
+  const start = (pending?.action === 'set' ? pending.startTime : time?.start) ?? (isWorkday && sched ? sched.start : '');
+  const end = (pending?.action === 'set' ? pending.endTime : time?.end) ?? (isWorkday && sched ? sched.end : '');
+  const leaveNow = pending?.action === 'set' ? pending.leaveType : (d.entry.leave?.type ?? null);
+  const portionNow = pending?.action === 'set' ? pending.leavePortion : (d.entry.leave?.portion ?? null);
+  const noteNow = pending?.action === 'set' ? pending.note : view.notes[date];
   const ot = d.totals;
   const otText = ot.regularOvertimeMinutes
     ? `${formatHours(ot.regularOvertimeMinutes)} · ${t.timesheet.day.regular}`
@@ -334,8 +357,11 @@ function DayPanel({
         </div>
       </dl>
 
+      {pending ? <PendingNote req={pending} t={t} approver={approver} canWithdraw={view.access.edit} /> : null}
+
       {view.access.edit ? (
         <>
+          {approver ? <span className="muted small">{fmt(t.timesheet.day.approvalHint, { name: approver })}</span> : null}
           <form action={saveDayAction} className="stack" key={date}>
             <input type="hidden" name="date" value={date} />
             <div className="grid-2" style={{ gap: 12 }}>
@@ -350,7 +376,7 @@ function DayPanel({
             </div>
             <div className="field">
               <label htmlFor="leaveType">{t.timesheet.day.leave}</label>
-              <select id="leaveType" name="leaveType" defaultValue={d.entry.leave?.type ?? ''}>
+              <select id="leaveType" name="leaveType" defaultValue={leaveNow ?? ''}>
                 <option value="">{t.timesheet.day.noLeave}</option>
                 {LEAVE_TYPES.map((l) => (
                   <option key={l} value={l}>
@@ -362,25 +388,25 @@ function DayPanel({
             <fieldset className="row" style={{ gap: 16 }}>
               <legend className="sr-only">{t.timesheet.day.leave}</legend>
               <label className="check">
-                <input type="radio" name="leavePortion" value="1" defaultChecked={d.entry.leave?.portion !== 0.5} />
+                <input type="radio" name="leavePortion" value="1" defaultChecked={portionNow !== 0.5} />
                 {t.timesheet.day.full}
               </label>
               <label className="check">
-                <input type="radio" name="leavePortion" value="0.5" defaultChecked={d.entry.leave?.portion === 0.5} />
+                <input type="radio" name="leavePortion" value="0.5" defaultChecked={portionNow === 0.5} />
                 {t.timesheet.day.half}
               </label>
             </fieldset>
             <div className="field">
               <label htmlFor="note">{t.timesheet.day.note}</label>
-              <textarea id="note" name="note" rows={3} maxLength={500} defaultValue={view.notes[date] ?? ''} placeholder={t.timesheet.day.notePlaceholder} />
+              <textarea id="note" name="note" rows={3} maxLength={500} defaultValue={noteNow ?? ''} placeholder={t.timesheet.day.notePlaceholder} />
             </div>
-            <button className="btn btn-primary">{t.timesheet.day.save}</button>
+            <button className="btn btn-primary">{approver ? t.timesheet.day.send : t.timesheet.day.save}</button>
           </form>
-          {d.changed ? (
+          {d.changed && pending?.action !== 'reset' ? (
             <form action={resetDayAction}>
               <input type="hidden" name="date" value={date} />
               <button className="btn" style={{ width: '100%' }}>
-                {t.timesheet.day.reset}
+                {approver ? t.timesheet.day.askReset : t.timesheet.day.reset}
               </button>
             </form>
           ) : null}
@@ -394,5 +420,31 @@ function DayPanel({
         </>
       )}
     </>
+  );
+}
+
+function PendingNote({ req, t, approver, canWithdraw }: { req: DayChangeRow; t: Dict; approver: string | null; canWithdraw: boolean }) {
+  const what =
+    req.action === 'reset'
+      ? t.timesheet.day.pendingReset
+      : [
+          req.leaveType ? t.timesheet.leaveTypes[req.leaveType] + (req.leavePortion === 0.5 ? ` · ${t.timesheet.day.half}` : '') : null,
+          req.workedMinutes || !req.leaveType ? formatHours(req.workedMinutes) : null,
+          req.note ? `“${req.note}”` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+  return (
+    <div className="pending-note">
+      <strong>{fmt(t.timesheet.day.pendingTitle, { name: approver ?? '' })}</strong>
+      <span className="small">{fmt(t.timesheet.day.pendingBody, { what })}</span>
+      {canWithdraw ? (
+        <form action={cancelDayChangeAction}>
+          <input type="hidden" name="id" value={req.id} />
+          <input type="hidden" name="date" value={req.date} />
+          <button className="btn btn-small">{t.timesheet.day.withdraw}</button>
+        </form>
+      ) : null}
+    </div>
   );
 }

@@ -1,10 +1,10 @@
 import Link from 'next/link';
+import { Avatar } from '@/components/Avatar';
 import { saveDepartmentAction } from '@/app/(app)/people/actions';
 import { Flash } from '@/components/Flash';
 import { PeopleTabs } from '@/components/PeopleTabs';
 import { getDb } from '@/db';
 import { fmt, getDict, localName } from '@/i18n';
-import { initials } from '@/lib/format';
 import { listDepartments } from '@/server/departments';
 import { listEmployees } from '@/server/people';
 import { can } from '@/server/permissions';
@@ -48,8 +48,8 @@ export default async function DepartmentsPage({ searchParams }: { searchParams: 
             </div>
             <div className="avatars" aria-label={t.departments.members}>
               {d.members.slice(0, 8).map((m) => (
-                <Link key={m.id} href={`/people/${m.id}`} className="avatar" title={m.nameEn}>
-                  {initials(m.nameEn)}
+                <Link key={m.id} href={`/people/${m.id}`} title={m.nameEn} className="avatar-link">
+                  <Avatar person={m} size="sm" />
                 </Link>
               ))}
             </div>

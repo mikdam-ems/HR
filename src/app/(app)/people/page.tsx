@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Avatar } from '@/components/Avatar';
 import { DayBadge } from '@/components/DayBadge';
 import { Flash } from '@/components/Flash';
 import { PeopleTabs } from '@/components/PeopleTabs';
@@ -12,6 +13,7 @@ import { listClients } from '@/server/clients';
 import { listDepartments } from '@/server/departments';
 import { buildOrgTree, type OrgNode } from '@/server/orgTree';
 import { listEmployees } from '@/server/people';
+import { currentStatus } from '@/server/profile';
 import { can } from '@/server/permissions';
 import { loadRulesContext } from '@/server/rulesContext';
 import { requireUser } from '@/server/session';
@@ -138,8 +140,13 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                   return (
                     <tr key={p.id}>
                       <td>
-                        <Link href={`/people/${p.id}`}>{localName(locale, p.nameEn, p.nameAr)}</Link>
-                        <div className="muted small">{p.email}</div>
+                        <Link className="person" href={`/people/${p.id}`}>
+                          <Avatar person={p} size="sm" status={currentStatus(p)} />
+                          <span className="stack" style={{ gap: 0 }}>
+                            {localName(locale, p.nameEn, p.nameAr)}
+                            <span className="muted small">{p.email}</span>
+                          </span>
+                        </Link>
                       </td>
                       <td>{p.jobTitle ?? t.people.none}</td>
                       <td>{(p.departmentId && deptName.get(p.departmentId)) || t.people.none}</td>
@@ -184,14 +191,7 @@ function OrgItem({
   return (
     <li>
       <Link className="org-card" href={`/people/${p.id}`}>
-        <span className="avatar" aria-hidden="true">
-          {p.nameEn
-            .split(/\s+/)
-            .map((s) => s[0])
-            .join('')
-            .slice(0, 2)
-            .toUpperCase()}
-        </span>
+        <Avatar person={p} status={currentStatus(p)} />
         <span className="stack" style={{ gap: 0 }}>
           <strong style={{ fontWeight: 600 }}>{localName(locale, p.nameEn, p.nameAr)}</strong>
           <span className="muted small">

@@ -21,6 +21,7 @@ export type ErrorCode =
   | 'insufficient_balance'
   | 'not_all_approved'
   | 'already_decided'
+  | 'pending_changes'
   | 'forbidden';
 
 export type Result<T = void> = { ok: true; value: T } | { ok: false; error: ErrorCode; detail?: string };
