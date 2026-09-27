@@ -325,6 +325,10 @@ export const en = {
     none: 'No one had a client assignment this month.',
     frozenNote: 'Approved months show the totals the manager approved.',
   },
+  demo: {
+    banner: 'Demo site with sample people and data. Anyone with the link can sign in as anyone — don’t enter real information.',
+    signin: 'This is a demo. Pick any sample person below to try their view: employee, manager, HR, Finance or admin.',
+  },
   weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
   flash: {
     closed: 'Month closed.',

@@ -1,5 +1,6 @@
 import { setLocaleAction, signOutAction } from '@/app/actions';
 import { BackField, NavLinks } from '@/components/NavLinks';
+import { demoMode } from '@/auth';
 import { getDict, localName } from '@/i18n';
 import { can } from '@/server/permissions';
 import { getDb } from '@/db';
@@ -67,7 +68,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </nav>
-      <main className="main">{children}</main>
+      <main className="main">
+        {demoMode ? (
+          <div className="demo-banner" role="note">
+            {t.demo.banner}
+          </div>
+        ) : null}
+        {children}
+      </main>
     </div>
   );
 }

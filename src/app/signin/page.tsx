@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { setLocaleAction, signInDevAction, signInGoogleAction } from '@/app/actions';
-import { devLoginEnabled } from '@/auth';
+import { demoMode, devLoginEnabled, googleEnabled } from '@/auth';
 import { getDb } from '@/db';
 import { getDict } from '@/i18n';
 import type { Dict } from '@/i18n/en';
@@ -37,11 +37,18 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
             {errorText}
           </div>
         ) : null}
-        <form action={signInGoogleAction}>
-          <button className="btn btn-primary" style={{ width: '100%' }}>
-            {t.signIn.google}
-          </button>
-        </form>
+        {demoMode ? (
+          <div className="flash flash-info" role="note">
+            {t.demo.signin}
+          </div>
+        ) : null}
+        {googleEnabled ? (
+          <form action={signInGoogleAction}>
+            <button className="btn btn-primary" style={{ width: '100%' }}>
+              {t.signIn.google}
+            </button>
+          </form>
+        ) : null}
 
         {devLoginEnabled ? (
           <form action={signInDevAction} className="stack" style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
@@ -54,7 +61,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
                   </option>
                 ))}
               </select>
-              <span className="muted small">{t.signIn.devHint}</span>
+              {demoMode ? null : <span className="muted small">{t.signIn.devHint}</span>}
             </div>
             <button className="btn">{t.signIn.devButton}</button>
           </form>

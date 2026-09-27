@@ -32,6 +32,17 @@ npm run typecheck
 npm run build
 ```
 
+## Demo site (Render, free)
+
+The repo includes `render.yaml`, which deploys a **demo** with sample people and pick-a-person sign-in:
+
+1. Sign in at [render.com](https://render.com) with GitHub (allow access to `mikdam-ems/HR`).
+2. **New → Blueprint**, pick this repo, branch `claude/practical-volta-vfybbj`, then **Apply**.
+3. After the build (about 5 minutes) open the `…onrender.com` link.
+
+Demo data resets whenever the site restarts. The free plan sleeps after 15 minutes idle, so the first visit takes about a minute.
+`DEMO_MODE=true` lets anyone with the link sign in as anyone — never use it with real data.
+
 ## Going live
 
 1. PostgreSQL database → set `DATABASE_URL=postgres://…`. Migrations run automatically on start.

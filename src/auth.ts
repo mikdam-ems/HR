@@ -8,8 +8,18 @@ import { employees } from '@/db/schema';
 /** Only Google accounts on this domain can sign in. */
 export const allowedDomain = (process.env.AUTH_ALLOWED_DOMAIN ?? 'ems-itech.com').toLowerCase();
 
-/** Pick-a-person sign-in for local development only. Never on in production. */
-export const devLoginEnabled = process.env.AUTH_DEV_LOGIN === 'true' && process.env.NODE_ENV !== 'production';
+/**
+ * A public demo with sample people (DEMO_MODE=true): anyone can sign in as anyone, and every page says so.
+ * Never set it where real data lives.
+ */
+export const demoMode = process.env.DEMO_MODE === 'true';
+
+/** Pick-a-person sign-in: local development, or a demo site. Never on for a real production site. */
+export const devLoginEnabled =
+  demoMode || (process.env.AUTH_DEV_LOGIN === 'true' && process.env.NODE_ENV !== 'production');
+
+/** Google sign-in only shows once a Google OAuth client is configured. */
+export const googleEnabled = !!process.env.AUTH_GOOGLE_ID;
 
 async function findActiveEmployee(email: string) {
   const db = await getDb();

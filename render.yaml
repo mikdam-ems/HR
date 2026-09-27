@@ -1,0 +1,22 @@
+# One-click demo on Render (render.com → New → Blueprint → pick this repo).
+# DEMO_MODE shows sample people and lets anyone sign in as anyone. For the real pilot, remove DEMO_MODE,
+# set DATABASE_URL to a PostgreSQL database and add the Google sign-in variables (see README).
+services:
+  - type: web
+    name: ems-people-culture-demo
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    # The demo database lives on the server's disk and resets on each deploy or restart, so the
+    # sample people are loaded again every time it starts.
+    startCommand: npm run db:seed -- --demo && npm start
+    healthCheckPath: /signin
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DEMO_MODE
+        value: "true"
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"

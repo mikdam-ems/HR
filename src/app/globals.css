@@ -183,6 +183,16 @@ h3 {
   max-width: 1200px;
 }
 
+/* ---------- Demo ---------- */
+.demo-banner {
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--special-bg);
+  color: var(--special-fg);
+  font-size: 13px;
+  font-weight: 500;
+}
+
 /* ---------- Building blocks ---------- */
 .page-head {
   display: flex;
