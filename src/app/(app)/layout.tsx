@@ -1,6 +1,7 @@
 import { setLocaleAction, signOutAction } from '@/app/actions';
 import Link from 'next/link';
 import { Avatar } from '@/components/Avatar';
+import { EmsLogo } from '@/components/EmsLogo';
 import { BackField, NavLinks } from '@/components/NavLinks';
 import { StatusBubble } from '@/components/StatusBubble';
 import { demoMode } from '@/auth';
@@ -35,13 +36,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="shell">
       <header className="topbar">
         <div className="topbar-inner">
-          <div className="brand">
-            <span className="wordmark" aria-label="ems">
-              <span>e</span>ms
-            </span>
+          <Link href="/" className="brand">
+            <EmsLogo />
             <span className="divider" aria-hidden="true" />
             <span className="brand-name">{t.appName}</span>
-          </div>
+          </Link>
           <nav className="topnav" aria-label="Main">
             <NavLinks links={links} />
           </nav>

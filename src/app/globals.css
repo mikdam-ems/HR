@@ -2089,3 +2089,27 @@ input[type='file']::file-selector-button:hover {
 .member-card strong {
   overflow-wrap: anywhere;
 }
+
+/* ---------- EMS logo ---------- */
+.ems-logo {
+  display: block;
+  width: 73px;
+  height: 32px;
+  flex-shrink: 0;
+}
+a.brand {
+  color: var(--ink);
+  text-decoration: none;
+}
+.pyr-card .ems-logo {
+  margin-bottom: 10px;
+}
+.nav-link {
+  padding: 0 13px;
+}
+@media (max-width: 1280px) {
+  .brand-name,
+  .brand .divider {
+    display: none;
+  }
+}

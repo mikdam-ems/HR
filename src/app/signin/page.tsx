@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { EmsLogo } from '@/components/EmsLogo';
 import { setLocaleAction, signInDevAction, signInGoogleAction } from '@/app/actions';
 import { demoMode, devLoginEnabled, googleEnabled } from '@/auth';
 import { getDb } from '@/db';
@@ -20,9 +21,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
     <div className="signin">
       <div className="card">
         <div className="brand" style={{ padding: 0 }}>
-          <span className="wordmark" aria-label="ems">
-            <span>e</span>ms
-          </span>
+          <EmsLogo />
           <span className="divider" aria-hidden="true" />
           <span>{t.appName}</span>
         </div>

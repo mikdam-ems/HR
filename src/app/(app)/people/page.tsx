@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Avatar } from '@/components/Avatar';
+import { EmsLogo } from '@/components/EmsLogo';
 import { DayBadge } from '@/components/DayBadge';
 import { Flash } from '@/components/Flash';
 import { PeopleTabs } from '@/components/PeopleTabs';
@@ -122,7 +123,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
             <div className="pyramid-wrap">
               <ul className="pyramid" aria-label={t.people.chart}>
                 {buildOrgTree(shown).map((n) => (
-                  <PyramidItem key={n.person.id} node={n} deptName={deptName} locale={locale} />
+                  <PyramidItem key={n.person.id} node={n} deptName={deptName} locale={locale} root />
                 ))}
               </ul>
             </div>
@@ -244,13 +245,24 @@ function OrgItem({
  * Top-down org chart. A manager whose reports have no reports of their own shows them as a
  * vertical stack, so wide teams don't make the chart impossibly wide.
  */
-function PyramidItem({ node, deptName, locale }: { node: OrgNode<Employee>; deptName: Map<string, string>; locale: Locale }) {
+function PyramidItem({
+  node,
+  deptName,
+  locale,
+  root = false,
+}: {
+  node: OrgNode<Employee>;
+  deptName: Map<string, string>;
+  locale: Locale;
+  root?: boolean;
+}) {
   const p = node.person;
   const leaves = node.reports.length > 1 && node.reports.every((r) => r.reports.length === 0);
   const status = currentStatus(p);
   return (
     <li>
       <Link className="pyr-card" href={`/people/${p.id}`}>
+        {root ? <EmsLogo variant="white" /> : null}
         <Avatar person={p} size="lg" status={status} />
         <strong>{localName(locale, p.nameEn, p.nameAr)}</strong>
         <span className="muted small">{p.jobTitle}</span>
