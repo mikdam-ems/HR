@@ -357,8 +357,8 @@ export const en = {
     frozenNote: 'Approved months show the totals the manager approved.',
   },
   demo: {
-    banner: 'Demo site with sample people and data. Anyone with the link can sign in as anyone — don’t enter real information.',
-    signin: 'This is a demo. Pick any sample person below to try their view: employee, manager, HR, Finance or admin.',
+    banner: 'Demo site. Anyone with the link can sign in as anyone — don’t enter real hours, leave or personal details yet.',
+    signin: 'This is a demo. Pick anyone below to try their view: team member, delivery manager or General Manager.',
   },
   weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
   flash: {

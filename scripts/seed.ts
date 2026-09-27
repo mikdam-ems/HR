@@ -1,7 +1,7 @@
 /**
  * First-run setup: calendars, the EMS Internal and Jadwa clients, default settings and the first admin.
  *   SEED_ADMIN_EMAIL=you@ems-itech.com npm run db:seed
- *   npm run db:seed -- --demo      also adds sample people (for local development and demos)
+ *   npm run db:seed -- --demo      also adds EMS's people (for local development and demos)
  */
 import { createDb } from '@/db';
 import { ensureAdmin, seedAll, seedDemo } from '@/server/seed';

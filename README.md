@@ -12,7 +12,7 @@ Each person's days off, work week and overtime follow the client they're assigne
 **Phase 1 features are complete:** sign-in, people, org chart, clients, calendars, assignments, schedules, Excel import,
 Arabic/English, the rules engine, timesheets with manager approval, time off, **month-end reports with the Finance
 Excel export and month closing**, and **departments** (Software & Development, UX/UI, QA, Application Support, plus
-Finance and People & Culture), each with a head. The UI uses a soft, rounded "tactile minimalist" style with top navigation. **Next:** stage 6, the pilot — a few people run it alongside Excel for one month.
+Finance and People & Culture), each with a head. The UI uses the EMS brand palette in a soft, rounded style with top navigation. **Next:** stage 6, the pilot — a few people run it alongside Excel for one month.
 
 ## Run it locally
 
@@ -80,5 +80,6 @@ Only people added by HR can sign in, and only with a Google account on the allow
 | Roles, home calendar, overtime rates; reopen a closed month | | | | | ✓ |
 
 "Manager" isn't a role you assign: anyone with direct reports is a manager.
-In the demo, the General Manager (admin) manages the four delivery managers, Finance and People & Culture; each delivery
-manager approves their own department's timesheets and leave.
+The demo loads EMS's real team (`EMS_ROSTER` in `src/server/seed.ts`): the General Manager (admin) manages the delivery
+managers of QA, Software & Development and Application Support, and each delivery manager approves their own team's
+timesheets and leave. Names come from the email addresses; correct them (and add Arabic names) on each person's page.

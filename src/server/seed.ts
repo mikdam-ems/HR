@@ -1,8 +1,8 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq, like, sql } from 'drizzle-orm';
 import type { DB } from '@/db';
 import { calendars, departments, employees } from '@/db/schema';
 import { createCalendar, createClient, setHoliday } from './clients';
-import { createDepartment, updateDepartment } from './departments';
+import { createDepartment } from './departments';
 import { addAssignment, createEmployee, setSchedule } from './people';
 import { getSettings, setSetting } from './settings';
 
@@ -103,50 +103,70 @@ export async function seedDepartments(db: DB, log: (m: string) => void = console
   return ids;
 }
 
-type DemoPerson = {
+type RosterPerson = {
   email: string;
-  nameEn: string;
-  nameAr: string;
   jobTitle: string;
   dept: DeptKey | null;
   manager: string | null;
   roles?: ('hr' | 'admin' | 'finance')[];
   client: 'jadwa' | 'internal';
-  shift?: { start: string; end: string; code: string };
+  /** Heads this department. */
+  heads?: DeptKey;
 };
 
+/** "moath.alhamshari@ems-itech.com" → "Moath Alhamshari". People & Culture can correct names later. */
+export function nameFromEmail(email: string): string {
+  return email
+    .split('@')[0]!
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((w) => w[0]!.toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+const GM = 'suma.abdullah@ems-itech.com';
+const QA_DM = 'dania.alrashed@ems-itech.com';
+const DEV_DM = 'faisal.abuzaid@ems-itech.com';
+const SUPPORT_DM = 'anas.ahmad@ems-itech.com';
+
 /**
- * Sample organisation: a General Manager, a delivery manager per delivery department, their teams,
- * Finance and People & Culture. Safe to run again: existing sample people are updated, not duplicated.
+ * EMS's people: the General Manager, a delivery manager per delivery department, and their teams.
+ * Managers are listed before their teams. Everyone on a delivery team works for Jadwa Investment.
  */
-const DEMO_PEOPLE: DemoPerson[] = [
-  { email: 'global@example.com', nameEn: 'Rami Haddad', nameAr: 'رامي حداد', jobTitle: 'General Manager', dept: null, manager: null, roles: ['admin'], client: 'internal' },
-  { email: 'khaled@example.com', nameEn: 'Khaled Nasser', nameAr: 'خالد ناصر', jobTitle: 'Delivery Manager', dept: 'dev', manager: 'global@example.com', client: 'jadwa' },
-  { email: 'hiba@example.com', nameEn: 'Hiba Mansour', nameAr: 'هبة منصور', jobTitle: 'Delivery Manager', dept: 'ux', manager: 'global@example.com', client: 'jadwa' },
-  { email: 'tariq@example.com', nameEn: 'Tariq Zoubi', nameAr: 'طارق الزعبي', jobTitle: 'Delivery Manager', dept: 'qa', manager: 'global@example.com', client: 'jadwa' },
-  { email: 'faris@example.com', nameEn: 'Faris Qasem', nameAr: 'فارس قاسم', jobTitle: 'Delivery Manager', dept: 'support', manager: 'global@example.com', client: 'jadwa' },
-  { email: 'finance@example.com', nameEn: 'Nour Khalil', nameAr: 'نور خليل', jobTitle: 'Finance Officer', dept: 'finance', manager: 'global@example.com', roles: ['finance'], client: 'internal' },
-  { email: 'hr@example.com', nameEn: 'Dana Saleh', nameAr: 'دانا صالح', jobTitle: 'People & Culture Lead', dept: 'pc', manager: 'global@example.com', roles: ['hr'], client: 'internal' },
-  { email: 'rania@example.com', nameEn: 'Rania Saleh', nameAr: 'رانيا صالح', jobTitle: 'Software Engineer', dept: 'dev', manager: 'khaled@example.com', client: 'jadwa' },
-  { email: 'yousef@example.com', nameEn: 'Yousef Barakat', nameAr: 'يوسف بركات', jobTitle: 'Backend Developer', dept: 'dev', manager: 'khaled@example.com', client: 'jadwa' },
-  { email: 'maya@example.com', nameEn: 'Maya Haddad', nameAr: 'مايا حداد', jobTitle: 'UX/UI Designer', dept: 'ux', manager: 'hiba@example.com', client: 'jadwa' },
-  { email: 'yazan@example.com', nameEn: 'Yazan Odeh', nameAr: 'يزن عودة', jobTitle: 'QA Engineer', dept: 'qa', manager: 'tariq@example.com', client: 'jadwa' },
-  { email: 'lina@example.com', nameEn: 'Lina Khoury', nameAr: 'لينا خوري', jobTitle: 'Support Engineer', dept: 'support', manager: 'faris@example.com', client: 'jadwa' },
-  { email: 'omar@example.com', nameEn: 'Omar Haddad', nameAr: 'عمر حداد', jobTitle: 'Support Engineer', dept: 'support', manager: 'faris@example.com', client: 'jadwa', shift: { start: '12:00', end: '20:00', code: 'B' } },
+export const EMS_ROSTER: RosterPerson[] = [
+  { email: GM, jobTitle: 'General Manager', dept: null, manager: null, roles: ['admin'], client: 'internal' },
+
+  { email: QA_DM, jobTitle: 'Delivery Manager', dept: 'qa', manager: GM, client: 'jadwa', heads: 'qa' },
+  ...['abdullah.alhajjaj', 'moath.alhamshari', 'sheraz.hasan', 'jazzaa.almohameed'].map((u) => ({
+    email: `${u}@ems-itech.com`, jobTitle: 'QA Engineer', dept: 'qa' as const, manager: QA_DM, client: 'jadwa' as const,
+  })),
+
+  { email: DEV_DM, jobTitle: 'Delivery Manager', dept: 'dev', manager: GM, client: 'jadwa', heads: 'dev' },
+  ...['laith.alnajjar', 'mohammad.alghzawi'].map((u) => ({
+    email: `${u}@ems-itech.com`, jobTitle: 'Software Engineer', dept: 'dev' as const, manager: DEV_DM, client: 'jadwa' as const,
+  })),
+  { email: 'mikdam.qandil@ems-itech.com', jobTitle: 'Senior UX/UI Designer', dept: 'dev', manager: DEV_DM, client: 'jadwa' },
+
+  { email: SUPPORT_DM, jobTitle: 'Delivery Manager', dept: 'support', manager: GM, client: 'jadwa', heads: 'support' },
+  ...['rama.shararah', 'alksandra.aljabery', 'ahmad.alheresh', 'ashjan.iqilan', 'saleh.ahmad'].map((u) => ({
+    email: `${u}@ems-itech.com`, jobTitle: 'Support Engineer', dept: 'support' as const, manager: SUPPORT_DM, client: 'jadwa' as const,
+  })),
 ];
 
+/**
+ * Loads EMS's people. Safe to run again: existing people are updated, not duplicated.
+ * Demo sites also drop the old made-up sample people (…@example.com).
+ */
 export async function seedDemo(db: DB, log: (m: string) => void = console.log) {
   const deptIds = await seedDepartments(db, log);
+  await db.delete(employees).where(like(employees.email, '%@example.com'));
   const clients = await db.query.clients.findMany();
   const clientId = { jadwa: clients.find((c) => c.nameEn === 'Jadwa Investment')!.id, internal: clients.find((c) => c.nameEn === 'EMS Internal')!.id };
   const idByEmail = new Map((await db.select().from(employees)).map((e) => [e.email, e.id]));
   let added = 0;
 
-  // Managers are listed before their teams, so each manager exists by the time it's referenced.
-  for (const p of DEMO_PEOPLE) {
+  for (const p of EMS_ROSTER) {
     const fields = {
-      nameEn: p.nameEn,
-      nameAr: p.nameAr,
       jobTitle: p.jobTitle,
       departmentId: p.dept ? deptIds[p.dept] : null,
       managerId: p.manager ? (idByEmail.get(p.manager) ?? null) : null,
@@ -156,29 +176,25 @@ export async function seedDemo(db: DB, log: (m: string) => void = console.log) {
       await db.update(employees).set(fields).where(eq(employees.id, existingId));
       continue;
     }
-    const e = must(await createEmployee(db, null, { email: p.email, ...fields, roles: p.roles ?? [], hireDate: '2022-03-01' }), p.email);
+    const e = must(
+      await createEmployee(db, null, { email: p.email, nameEn: nameFromEmail(p.email), ...fields, roles: p.roles ?? [] }),
+      p.email,
+    );
     idByEmail.set(p.email, e.id);
     must(await addAssignment(db, null, { employeeId: e.id, clientId: clientId[p.client], startDate: '2026-01-01' }), 'assign');
-    must(
-      await setSchedule(db, null, {
-        employeeId: e.id,
-        effectiveFrom: '2026-01-01',
-        startTime: p.shift?.start ?? '09:00',
-        endTime: p.shift?.end ?? '17:00',
-        shiftCode: p.shift?.code ?? null,
-      }),
-      'schedule',
-    );
+    must(await setSchedule(db, null, { employeeId: e.id, effectiveFrom: '2026-01-01', startTime: '09:00', endTime: '17:00' }), 'schedule');
     added++;
   }
 
-  // Delivery managers head their departments.
-  for (const p of DEMO_PEOPLE.filter((x) => x.jobTitle === 'Delivery Manager' || x.roles?.some((r) => r !== 'admin'))) {
-    if (!p.dept) continue;
-    const d = EMS_DEPARTMENTS.find((x) => x.key === p.dept)!;
-    await updateDepartment(db, null, deptIds[p.dept], { nameEn: d.nameEn, nameAr: d.nameAr, headId: idByEmail.get(p.email)! });
+  // Delivery managers head their departments; heads who no longer exist are cleared.
+  const ids = new Set(idByEmail.values());
+  for (const d of EMS_DEPARTMENTS) {
+    const head = EMS_ROSTER.find((p) => p.heads === d.key);
+    const [row] = await db.select().from(departments).where(eq(departments.id, deptIds[d.key]));
+    const headId = head ? idByEmail.get(head.email)! : row?.headId && ids.has(row.headId) ? row.headId : null;
+    if (row && row.headId !== headId) await db.update(departments).set({ headId }).where(eq(departments.id, row.id));
   }
-  log(added ? `✓ ${added} demo people added (sign in with AUTH_DEV_LOGIN=true).` : '• Demo people updated.');
+  log(added ? `✓ ${added} people added.` : '• People updated.');
 }
 
 /**
@@ -186,10 +202,10 @@ export async function seedDemo(db: DB, log: (m: string) => void = console.log) {
  * command (Vercel) need no manual seeding. A Postgres advisory lock stops two cold starts seeding twice.
  */
 export async function ensureDemoData(db: DB) {
-  // Also upgrades an older demo that predates departments.
+  // Also upgrades an older demo (no departments, or the made-up sample people).
   const ready = async (x: DB) =>
     (await x.select({ id: departments.id }).from(departments).limit(1)).length > 0 &&
-    (await x.select({ id: employees.id }).from(employees).limit(1)).length > 0;
+    (await x.select({ id: employees.id }).from(employees).where(eq(employees.email, GM)).limit(1)).length > 0;
   if (await ready(db)) return;
   await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(725001)`);

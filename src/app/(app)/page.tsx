@@ -122,7 +122,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </section>
 
         {approver ? (
-          <section className={`card kpi span-3 ${pending ? 'card-butter' : ''}`}>
+          <section className={`card kpi span-3 ${pending ? 'card-accent' : ''}`}>
             <span className="label">{t.home.waiting}</span>
             <strong className="kpi-value">{pending}</strong>
             <Link className="btn btn-small btn-primary" href="/approvals" style={{ alignSelf: 'flex-start' }}>
