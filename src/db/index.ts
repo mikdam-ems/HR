@@ -13,15 +13,28 @@ export type DB = NodePgDatabase<typeof schema>;
 
 const MIGRATIONS = path.join(process.cwd(), 'drizzle');
 
+/** The connection string, under any of the names hosts use (Vercel's Neon integration sets several). */
+export function databaseUrl(): string | undefined {
+  return process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL || undefined;
+}
+
+/** Serverless hosts have no lasting disk, so the embedded database can't work there. */
+const serverless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+
 /**
  * DATABASE_URL=postgres://… uses a real PostgreSQL server (production, shared dev).
  * Anything else (or unset) uses PGlite, an embedded PostgreSQL stored in PGLITE_DIR — zero setup for local dev.
  */
-export async function createDb(url = process.env.DATABASE_URL): Promise<DB> {
+export async function createDb(url = databaseUrl()): Promise<DB> {
   if (url?.startsWith('postgres')) {
     const db = drizzlePg(new Pool({ connectionString: url }), { schema });
     await migratePg(db, { migrationsFolder: MIGRATIONS });
     return db;
+  }
+  if (serverless && url !== 'memory') {
+    throw new Error(
+      'No database connected. In Vercel: Storage → connect a Neon (Postgres) database to this project, then redeploy.',
+    );
   }
   const dir = url === 'memory' ? undefined : (process.env.PGLITE_DIR ?? path.join(process.cwd(), '.data', 'pglite'));
   if (dir) mkdirSync(dir, { recursive: true });
@@ -34,14 +47,20 @@ const globalForDb = globalThis as unknown as { __emsDb?: Promise<DB> };
 
 /** One shared connection per server process (survives Next.js hot reloads in dev). */
 export function getDb(): Promise<DB> {
-  globalForDb.__emsDb ??= createDb().then(async (db) => {
-    if (process.env.DEMO_MODE === 'true') {
-      // Loaded lazily to keep the database module free of app logic.
-      const { ensureDemoData } = await import('@/server/seed');
-      await ensureDemoData(db);
-    }
-    return db;
-  });
+  globalForDb.__emsDb ??= createDb()
+    .then(async (db) => {
+      if (process.env.DEMO_MODE === 'true') {
+        // Loaded lazily to keep the database module free of app logic.
+        const { ensureDemoData } = await import('@/server/seed');
+        await ensureDemoData(db);
+      }
+      return db;
+    })
+    .catch((e) => {
+      // Don't cache a failure: the next request tries again (e.g. after the database is connected).
+      globalForDb.__emsDb = undefined;
+      throw e;
+    });
   return globalForDb.__emsDb;
 }
 
