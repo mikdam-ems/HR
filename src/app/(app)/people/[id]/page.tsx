@@ -246,7 +246,9 @@ export default async function ProfilePage({
                 person.assignments.map((a) => (
                   <tr key={a.id}>
                     <td>
-                      <Link href={`/clients/${a.client.id}`}>{localName(locale, a.client.nameEn, a.client.nameAr)}</Link>
+                      <Link href={`/clients/${a.client.id}`}>
+                        {localName(locale, a.client.nameEn, a.client.nameAr)}
+                      </Link>
                     </td>
                     <td>{formatDate(a.startDate, locale)}</td>
                     <td>
@@ -388,6 +390,7 @@ export default async function ProfilePage({
                           end: s.endTime,
                           breakMinutes: s.breakMinutes,
                         }),
+                        locale,
                       )}
                     </td>
                     <td>{s.shiftCode ?? t.people.none}</td>

@@ -124,8 +124,8 @@ export default async function TimesheetPage({
         <Stat label={t.timesheet.workingDays} value={String(totals.workingDays)} />
         <Stat
           label={t.timesheet.hoursWorked}
-          value={formatHours(totals.workedMinutes)}
-          sub={fmt(t.timesheet.ofExpected, { n: formatHours(totals.expectedMinutes) })}
+          value={formatHours(totals.workedMinutes, locale)}
+          sub={fmt(t.timesheet.ofExpected, { n: formatHours(totals.expectedMinutes, locale) })}
         />
         <Stat
           label={t.timesheet.leave}
@@ -136,8 +136,8 @@ export default async function TimesheetPage({
         />
         <Stat
           label={t.timesheet.overtime}
-          value={formatHours(overtime)}
-          sub={overtime ? fmt(t.timesheet.weighted, { n: formatHours(Math.round(totals.weightedOvertimeMinutes)) }) : undefined}
+          value={formatHours(overtime, locale)}
+          sub={overtime ? fmt(t.timesheet.weighted, { n: formatHours(Math.round(totals.weightedOvertimeMinutes), locale) }) : undefined}
         />
         <Stat label={t.timesheet.changed} value={String(changedCount)} highlight={changedCount > 0} />
       </div>
@@ -276,9 +276,9 @@ function DayCell({
       </span>
       <span className="cell-label">{label}</span>
       <span className="cell-hours">
-        {worked ? formatHours(worked) : '—'}
+        {worked ? formatHours(worked, locale) : '—'}
         {future && worked && !d.changed ? <span className="muted small"> {t.timesheet.planned}</span> : null}
-        {extra ? <span className="cell-extra"> +{formatHours(extra)}</span> : null}
+        {extra ? <span className="cell-extra"> +{formatHours(extra, locale)}</span> : null}
       </span>
     </Link>
   );
@@ -313,11 +313,11 @@ function DayPanel({
   const noteNow = pending?.action === 'set' ? pending.note : view.notes[date];
   const ot = d.totals;
   const otText = ot.regularOvertimeMinutes
-    ? `${formatHours(ot.regularOvertimeMinutes)} · ${t.timesheet.day.regular}`
+    ? `${formatHours(ot.regularOvertimeMinutes, locale)} · ${t.timesheet.day.regular}`
     : ot.specialOvertimeMinutes
-      ? `${formatHours(ot.specialOvertimeMinutes)} · ${fmt(t.timesheet.day.special, { rate })}`
+      ? `${formatHours(ot.specialOvertimeMinutes, locale)} · ${fmt(t.timesheet.day.special, { rate })}`
       : ot.offDayOvertimeMinutes
-        ? `${formatHours(ot.offDayOvertimeMinutes)} · ${t.timesheet.day.offDay}`
+        ? `${formatHours(ot.offDayOvertimeMinutes, locale)} · ${t.timesheet.day.offDay}`
         : t.timesheet.day.none;
 
   return (
@@ -345,7 +345,7 @@ function DayPanel({
         </div>
         <div>
           <dt>{t.timesheet.day.worked}</dt>
-          <dd>{formatHours(d.entry.workedMinutes)}</dd>
+          <dd>{formatHours(d.entry.workedMinutes, locale)}</dd>
         </div>
         <div>
           <dt>{t.timesheet.day.overtime}</dt>
@@ -357,7 +357,7 @@ function DayPanel({
         </div>
       </dl>
 
-      {pending ? <PendingNote req={pending} t={t} approver={approver} canWithdraw={view.access.edit} /> : null}
+      {pending ? <PendingNote req={pending} t={t} locale={locale} approver={approver} canWithdraw={view.access.edit} /> : null}
 
       {view.access.edit ? (
         <>
@@ -423,13 +423,25 @@ function DayPanel({
   );
 }
 
-function PendingNote({ req, t, approver, canWithdraw }: { req: DayChangeRow; t: Dict; approver: string | null; canWithdraw: boolean }) {
+function PendingNote({
+  req,
+  t,
+  locale,
+  approver,
+  canWithdraw,
+}: {
+  req: DayChangeRow;
+  t: Dict;
+  locale: Locale;
+  approver: string | null;
+  canWithdraw: boolean;
+}) {
   const what =
     req.action === 'reset'
       ? t.timesheet.day.pendingReset
       : [
           req.leaveType ? t.timesheet.leaveTypes[req.leaveType] + (req.leavePortion === 0.5 ? ` · ${t.timesheet.day.half}` : '') : null,
-          req.workedMinutes || !req.leaveType ? formatHours(req.workedMinutes) : null,
+          req.workedMinutes || !req.leaveType ? formatHours(req.workedMinutes, locale) : null,
           req.note ? `“${req.note}”` : null,
         ]
           .filter(Boolean)

@@ -36,7 +36,7 @@ export default async function DepartmentsPage({ searchParams }: { searchParams: 
             <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'nowrap', alignItems: 'flex-start' }}>
               <h2>{localName(locale, d.nameEn, d.nameAr)}</h2>
               <span className="pill pill-muted">
-                {d.members.length === 1 ? t.departments.memberOne : fmt(t.departments.memberCount, { count: d.members.length })}
+                {fmt(t.departments.memberCount, { count: d.members.length })}
               </span>
             </div>
             <p className="muted small dept-desc">{d.description ?? t.departments.noDescription}</p>

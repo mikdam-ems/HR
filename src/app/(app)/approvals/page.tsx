@@ -105,7 +105,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
 
             <div className="stats">
               <Stat label={t.timesheet.workingDays} value={String(month.summary.totals.workingDays)} />
-              <Stat label={t.timesheet.hoursWorked} value={formatHours(month.summary.totals.workedMinutes)} />
+              <Stat label={t.timesheet.hoursWorked} value={formatHours(month.summary.totals.workedMinutes, locale)} />
               <Stat
                 label={t.timesheet.leave}
                 value={fmt(t.timesheet.days, {
@@ -114,11 +114,11 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
               />
               <Stat
                 label={t.timesheet.overtime}
-                value={formatHours(month.summary.totals.regularOvertimeMinutes + month.summary.totals.offDayOvertimeMinutes)}
+                value={formatHours(month.summary.totals.regularOvertimeMinutes + month.summary.totals.offDayOvertimeMinutes, locale)}
               />
               <Stat
                 label={fmt(t.approvals.specialStat, { rate })}
-                value={formatHours(month.summary.totals.specialOvertimeMinutes)}
+                value={formatHours(month.summary.totals.specialOvertimeMinutes, locale)}
               />
             </div>
 
@@ -205,11 +205,11 @@ function ChangedDays({
               const counts = d.entry.leave
                 ? { cls: d.entry.leave.type === 'sick' ? 'badge-danger' : 'status-submitted', text: `${t.timesheet.leaveTypes[d.entry.leave.type]} · ${o.leaveDays}` }
                 : o.regularOvertimeMinutes
-                  ? { cls: 'badge-special_overtime', text: `+${formatHours(o.regularOvertimeMinutes)} ${t.timesheet.day.regular}` }
+                  ? { cls: 'badge-special_overtime', text: `+${formatHours(o.regularOvertimeMinutes, locale)} ${t.timesheet.day.regular}` }
                   : o.specialOvertimeMinutes
-                    ? { cls: 'badge-special_overtime', text: `${formatHours(o.specialOvertimeMinutes)} ${fmt(t.timesheet.day.special, { rate })}` }
+                    ? { cls: 'badge-special_overtime', text: `${formatHours(o.specialOvertimeMinutes, locale)} ${fmt(t.timesheet.day.special, { rate })}` }
                     : o.offDayOvertimeMinutes
-                      ? { cls: 'badge-special_overtime', text: `${formatHours(o.offDayOvertimeMinutes)} ${t.timesheet.day.offDay}` }
+                      ? { cls: 'badge-special_overtime', text: `${formatHours(o.offDayOvertimeMinutes, locale)} ${t.timesheet.day.offDay}` }
                       : null;
               return (
                 <tr key={d.day.date}>
@@ -217,8 +217,8 @@ function ChangedDays({
                     {formatDate(d.day.date, locale, { weekday: 'short', day: 'numeric', month: 'short' })}
                   </td>
                   <td>{holidayLabel(locale, d.day) ?? t.dayTypes[d.day.dayType]}</td>
-                  <td>{formatHours(d.day.expectedMinutes)}</td>
-                  <td style={{ fontWeight: 600 }}>{formatHours(d.entry.workedMinutes)}</td>
+                  <td>{formatHours(d.day.expectedMinutes, locale)}</td>
+                  <td style={{ fontWeight: 600 }}>{formatHours(d.entry.workedMinutes, locale)}</td>
                   <td>{counts ? <span className={`badge ${counts.cls}`}>{counts.text}</span> : '—'}</td>
                   <td className="muted">{month.notes[d.day.date] ?? ''}</td>
                 </tr>
@@ -332,7 +332,7 @@ function DayChanges({ changes, t, locale }: { changes: PendingChange[]; t: Dict;
             ? t.timesheet.leaveTypes[v.leaveType as keyof Dict['timesheet']['leaveTypes']] +
               (v.leavePortion === 0.5 ? ` · ${t.timesheet.day.half}` : '')
             : null,
-          v.workedMinutes || !v.leaveType ? formatHours(v.workedMinutes) : null,
+          v.workedMinutes || !v.leaveType ? formatHours(v.workedMinutes, locale) : null,
         ]
           .filter(Boolean)
           .join(' · ');

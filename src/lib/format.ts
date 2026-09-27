@@ -13,9 +13,11 @@ export function formatDate(iso: string, locale: Locale, opts: Intl.DateTimeForma
   return new Intl.DateTimeFormat(tag, { ...opts, timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
 }
 
-export function formatHours(minutes: number): string {
+/** 510 → "8h 30m"; in Arabic "8 س 30 د" (ساعة / دقيقة). */
+export function formatHours(minutes: number, locale: Locale = 'en'): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
+  if (locale === 'ar') return m ? `${h} س ${m} د` : `${h} س`;
   return m ? `${h}h ${m}m` : `${h}h`;
 }
 

@@ -141,10 +141,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                     </td>
                     <td>{tt.workingDays}</td>
                     <td>
-                      {formatHours(tt.workedMinutes)} <span className="muted small">/ {formatHours(tt.expectedMinutes)}</span>
+                      {formatHours(tt.workedMinutes, locale)} <span className="muted small">/ {formatHours(tt.expectedMinutes, locale)}</span>
                     </td>
-                    <td>{ot ? formatHours(ot) : '—'}</td>
-                    <td>{tt.weightedOvertimeMinutes ? formatHours(Math.round(tt.weightedOvertimeMinutes)) : '—'}</td>
+                    <td>{ot ? formatHours(ot, locale) : '—'}</td>
+                    <td>{tt.weightedOvertimeMinutes ? formatHours(Math.round(tt.weightedOvertimeMinutes), locale) : '—'}</td>
                     <td className="small">{leaveTotal(r) || '—'}</td>
                   </tr>
                 );

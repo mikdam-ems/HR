@@ -4,7 +4,7 @@ import { DayBadge } from '@/components/DayBadge';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { addDays, resolveDay } from '@/domain';
-import { clientLabel, fmt, getDict, holidayLabel, localName } from '@/i18n';
+import { clientLabel, fmt, getDict, holidayLabel, localName, plural } from '@/i18n';
 import { formatDate, formatHours, todayISO } from '@/lib/format';
 import { listDepartments } from '@/server/departments';
 import { getEmployeeProfile, listEmployees } from '@/server/people';
@@ -113,13 +113,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
         <section className="card kpi span-3">
           <span className="label">{t.home.hoursThisMonth}</span>
-          <strong className="kpi-value">{formatHours(totals?.workedMinutes ?? 0)}</strong>
+          <strong className="kpi-value">{formatHours(totals?.workedMinutes ?? 0, locale)}</strong>
           <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
             <span style={{ inlineSize: `${progress}%` }} />
           </div>
           <span className="muted small">
-            {fmt(t.home.ofExpected, { hours: formatHours(totals?.expectedMinutes ?? 0) })}
-            {overtime ? ` · ${t.home.overtime} ${formatHours(overtime)}` : ''}
+            {fmt(t.home.ofExpected, { hours: formatHours(totals?.expectedMinutes ?? 0, locale) })}
+            {overtime ? ` · ${t.home.overtime} ${formatHours(overtime, locale)}` : ''}
           </span>
         </section>
 
@@ -135,7 +135,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <section className="card kpi span-3">
             <span className="label">{t.home.leaveLeft}</span>
             <strong className="kpi-value">
-              {annual?.available ?? '—'} <span className="kpi-unit">{t.home.days}</span>
+              {annual?.available ?? '—'} <span className="kpi-unit">{plural(t.home.days, annual?.available ?? 0)}</span>
             </strong>
             <Link className="small" href="/time-off">
               {t.timeOff.request}
@@ -152,7 +152,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 <strong>{formatDate(d.date, locale, { weekday: 'short' })}</strong>
                 <span className="node-date">{formatDate(d.date, locale, { day: 'numeric', month: 'short' })}</span>
                 <span className="node-type">{holidayLabel(locale, d) ?? t.dayTypes[d.dayType]}</span>
-                {d.expectedMinutes ? <span className="muted small">{formatHours(d.expectedMinutes)}</span> : null}
+                {d.expectedMinutes ? <span className="muted small">{formatHours(d.expectedMinutes, locale)}</span> : null}
               </li>
             ))}
           </ol>
@@ -167,7 +167,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             <div className="stack" style={{ gap: 2 }}>
               <span className="label">{t.home.leaveLeft}</span>
               <strong className="kpi-value kpi-small">
-                {annual?.available ?? '—'} <span className="kpi-unit">{t.home.days}</span>
+                {annual?.available ?? '—'} <span className="kpi-unit">{plural(t.home.days, annual?.available ?? 0)}</span>
               </strong>
             </div>
           ) : null}
