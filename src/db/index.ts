@@ -15,7 +15,11 @@ const MIGRATIONS = path.join(process.cwd(), 'drizzle');
 
 /** The connection string, under any of the names hosts use (Vercel's Neon integration sets several). */
 export function databaseUrl(): string | undefined {
-  return process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL || undefined;
+  const direct = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL;
+  if (direct) return direct;
+  // Vercel's storage integrations may add a custom prefix, e.g. STORAGE_DATABASE_URL.
+  const key = Object.keys(process.env).find((k) => /(^|_)(DATABASE_URL|POSTGRES_URL)$/.test(k) && process.env[k]);
+  return key ? process.env[key] : undefined;
 }
 
 /** Serverless hosts have no lasting disk, so the embedded database can't work there. */
