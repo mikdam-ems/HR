@@ -34,6 +34,8 @@ export async function updateClientAction(fd: FormData) {
     nameAr: str(fd, 'nameAr'),
     calendarId: str(fd, 'calendarId') ?? '',
     active: bool(fd, 'active'),
+    isInternal: bool(fd, 'isInternal'),
+    leaveContact: str(fd, 'leaveContact'),
   });
   revalidatePath('/clients');
   redirectWith(`/clients/${id}`, result);

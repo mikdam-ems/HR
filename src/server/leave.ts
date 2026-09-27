@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, inArray, lte, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DB } from '@/db';
 import {
+  clients,
   dayEntries,
   employees,
   leaveAdjustments,
@@ -94,6 +95,14 @@ export const requestInput = z.object({
     .max(500)
     .nullish()
     .transform((v) => (v ? v : null)),
+  /** The person has already told the client about these dates. */
+  clientNotified: z.boolean().default(false),
+  clientNotifiedNote: z
+    .string()
+    .trim()
+    .max(300)
+    .nullish()
+    .transform((v) => (v ? v : null)),
 });
 export type RequestInput = z.input<typeof requestInput>;
 
@@ -175,9 +184,16 @@ export async function createRequest(
   }
   const r = parse(requestInput, input);
   if (!r.ok) return r;
+  const { clientNotified, clientNotifiedNote, ...request } = r.value;
   const [row] = await db
     .insert(leaveRequests)
-    .values({ employeeId: actor.id, ...r.value, daysUsed: preview.value.daysUsed })
+    .values({
+      employeeId: actor.id,
+      ...request,
+      daysUsed: preview.value.daysUsed,
+      clientNotifiedAt: clientNotified ? new Date() : null,
+      clientNotifiedNote: clientNotified ? clientNotifiedNote : null,
+    })
     .returning();
   await audit(db, { actorId: actor.id, action: 'create', entity: 'leave_request', entityId: row!.id, after: row });
   if (attachment) {
@@ -418,4 +434,81 @@ export async function listAdjustments(db: DB, employeeId: string, year: number) 
     .from(leaveAdjustments)
     .where(and(eq(leaveAdjustments.employeeId, employeeId), eq(leaveAdjustments.year, year)))
     .orderBy(asc(leaveAdjustments.createdAt));
+}
+
+export interface ClientToInform {
+  id: string;
+  nameEn: string;
+  nameAr: string | null;
+  leaveContact: string | null;
+}
+
+/** The clients (not EMS itself) this person works for on any of these dates — the ones to tell about leave. */
+export async function clientsToInform(db: DB, employeeId: string, from: string, to: string): Promise<ClientToInform[]> {
+  if (!from || !to || to < from) return [];
+  const ctx = await loadRulesContext(db);
+  const ids = [...new Set(eachDay(from, to).slice(0, MAX_REQUEST_DAYS).flatMap((d) => resolveDay(ctx, employeeId, d).clientIds))];
+  if (!ids.length) return [];
+  const rows = await db.select().from(clients).where(inArray(clients.id, ids));
+  return rows
+    .filter((c) => !c.isInternal)
+    .map((c) => ({ id: c.id, nameEn: c.nameEn, nameAr: c.nameAr, leaveContact: c.leaveContact }));
+}
+
+/** Records that the person told the client about this leave. The client is informed, not asked. */
+export async function markClientNotified(db: DB, actor: Actor, requestId: string, note: string | null): Promise<Result<void>> {
+  const [req] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, requestId));
+  if (!req) return fail('not_found');
+  if (req.employeeId !== actor.id) return fail('forbidden');
+  if (req.status !== 'pending' && req.status !== 'approved') return fail('invalid_input', 'this request is closed');
+  const clean = note?.trim().slice(0, 300) || null;
+  const [after] = await db
+    .update(leaveRequests)
+    .set({ clientNotifiedAt: new Date(), clientNotifiedNote: clean })
+    .where(eq(leaveRequests.id, requestId))
+    .returning();
+  await audit(db, { actorId: actor.id, action: 'client_notified', entity: 'leave_request', entityId: requestId, before: req, after });
+  return ok(undefined);
+}
+
+/** Pending and approved leave of people on this client, overlapping the next `days` days. */
+export async function upcomingLeaveForClient(db: DB, clientId: string, today: string, days = 60) {
+  const until = new Date(`${today}T00:00:00Z`);
+  until.setUTCDate(until.getUTCDate() + days);
+  const end = until.toISOString().slice(0, 10);
+  const rows = await db.query.leaveRequests.findMany({
+    where: and(inArray(leaveRequests.status, ['pending', 'approved']), gte(leaveRequests.toDate, today), lte(leaveRequests.fromDate, end)),
+    with: { employee: true },
+    orderBy: asc(leaveRequests.fromDate),
+  });
+  if (!rows.length) return [];
+  const ctx = await loadRulesContext(db);
+  return rows.filter(
+    (r) =>
+      r.employee.active &&
+      eachDay(r.fromDate < today ? today : r.fromDate, r.toDate > end ? end : r.toDate).some((d) =>
+        resolveDay(ctx, r.employeeId, d).clientIds.includes(clientId),
+      ),
+  );
+}
+
+/** This person's own upcoming leave that a client still hasn't been told about — for a reminder on Home. */
+export async function uninformedUpcomingLeave(db: DB, employeeId: string, today: string) {
+  const rows = await db
+    .select()
+    .from(leaveRequests)
+    .where(
+      and(
+        eq(leaveRequests.employeeId, employeeId),
+        inArray(leaveRequests.status, ['pending', 'approved']),
+        gte(leaveRequests.toDate, today),
+      ),
+    )
+    .orderBy(asc(leaveRequests.fromDate));
+  const out: (LeaveRequestRow & { clients: ClientToInform[] })[] = [];
+  for (const r of rows.filter((x) => !x.clientNotifiedAt)) {
+    const cs = await clientsToInform(db, employeeId, r.fromDate, r.toDate);
+    if (cs.length) out.push({ ...r, clients: cs });
+  }
+  return out;
 }

@@ -41,8 +41,16 @@ export async function seedBase(db: DB, log: (m: string) => void = console.log) {
         must(await setHoliday(db, null, { calendarId: saudi, date: `${y}-${md}`, nameEn: en, nameAr: ar }), 'holiday');
       }
     }
-    must(await createClient(db, null, { nameEn: 'EMS Internal', nameAr: 'EMS داخلي', calendarId: jordan }), 'client');
-    must(await createClient(db, null, { nameEn: 'Jadwa Investment', nameAr: 'جدوى للاستثمار', calendarId: saudi }), 'client');
+    must(await createClient(db, null, { nameEn: 'EMS Internal', nameAr: 'EMS داخلي', calendarId: jordan, isInternal: true }), 'client');
+    must(
+      await createClient(db, null, {
+        nameEn: 'Jadwa Investment',
+        nameAr: 'جدوى للاستثمار',
+        calendarId: saudi,
+        leaveContact: 'Your Jadwa project manager, by email',
+      }),
+      'client',
+    );
     await setSetting(db, 'homeCalendarId', jordan);
     await setSetting(db, 'overtimeRates', (await getSettings(db)).overtimeRates);
     log('✓ Calendars, clients and settings created.');

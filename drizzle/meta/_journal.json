@@ -50,6 +50,13 @@
       "when": 1790520568897,
       "tag": "0006_attachments_department_description",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790521984791,
+      "tag": "0007_client_notified",
+      "breakpoints": true
     }
   ]
 }

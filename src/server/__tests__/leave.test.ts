@@ -5,6 +5,10 @@ import { createCalendar, createClient, setHoliday } from '../clients';
 import {
   addAdjustment,
   cancelRequest,
+  clientsToInform,
+  markClientNotified,
+  uninformedUpcomingLeave,
+  upcomingLeaveForClient,
   createRequest,
   decideRequest,
   getAttachment,
@@ -200,5 +204,38 @@ describe('attachments', () => {
     expect(
       await createRequest(db, lina, req, { fileName: 'big.pdf', contentType: 'application/pdf', bytes: new Uint8Array(5 * 1024 * 1024) }),
     ).toMatchObject({ error: 'invalid_input' });
+  });
+});
+
+describe('telling the client', () => {
+  it('records that the client was told, when asking or later; internal clients never need it', async () => {
+    const { lina, khaled } = await setup();
+    const [jadwa] = await clientsToInform(db, lina.id, '2026-09-20', '2026-09-21');
+    expect(jadwa).toMatchObject({ nameEn: 'Jadwa' });
+
+    const told = await createRequest(db, lina, {
+      type: 'annual', fromDate: '2026-09-20', toDate: '2026-09-21', clientNotified: true, clientNotifiedNote: 'Emailed Ahmed (PM)',
+    });
+    const later = await createRequest(db, lina, { type: 'annual', fromDate: '2026-10-04', toDate: '2026-10-05' });
+    if (!told.ok || !later.ok) throw new Error('create');
+
+    const reminders = await uninformedUpcomingLeave(db, lina.id, '2026-09-01');
+    expect(reminders.map((r) => r.id)).toEqual([later.value]);
+
+    expect(await markClientNotified(db, khaled, later.value, null)).toMatchObject({ error: 'forbidden' });
+    expect((await markClientNotified(db, lina, later.value, 'Told on the stand-up')).ok).toBe(true);
+    expect(await uninformedUpcomingLeave(db, lina.id, '2026-09-01')).toEqual([]);
+
+    const upcoming = await upcomingLeaveForClient(db, jadwa!.id, '2026-09-15');
+    expect(upcoming.map((r) => [r.employee.email, r.clientNotifiedNote])).toEqual([
+      ['lina@x.com', 'Emailed Ahmed (PM)'],
+      ['lina@x.com', 'Told on the stand-up'],
+    ]);
+  });
+
+  it('skips clients marked internal', async () => {
+    const { lina } = await setup();
+    await db.execute(sql`UPDATE clients SET is_internal = true`);
+    expect(await clientsToInform(db, lina.id, '2026-09-20', '2026-09-21')).toEqual([]);
   });
 });

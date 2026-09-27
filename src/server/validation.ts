@@ -109,6 +109,8 @@ export const clientInput = z.object({
   nameAr: optionalText,
   calendarId: z.string().uuid(),
   active: z.boolean().default(true),
+  isInternal: z.boolean().default(false),
+  leaveContact: optionalText,
 });
 
 /** Parses with a schema and turns failure into an `invalid_input` result. */

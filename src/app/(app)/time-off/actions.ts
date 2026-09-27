@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db';
-import { bool, redirectWith, str } from '@/lib/forms';
-import { addAdjustment, cancelRequest, createRequest, decideRequest } from '@/server/leave';
+import { bool, redirectWith, safePath, str } from '@/lib/forms';
+import { addAdjustment, cancelRequest, createRequest, decideRequest, markClientNotified } from '@/server/leave';
 import { requirePermission, requireUser } from '@/server/session';
 
 export async function requestLeaveAction(fd: FormData) {
@@ -22,6 +22,8 @@ export async function requestLeaveAction(fd: FormData) {
       toDate: str(fd, 'to') ?? str(fd, 'from') ?? '',
       halfDay: bool(fd, 'halfDay'),
       note: str(fd, 'note'),
+      clientNotified: bool(fd, 'clientNotified'),
+      clientNotifiedNote: str(fd, 'clientNotifiedNote'),
     },
     attachment,
   );
@@ -58,4 +60,13 @@ export async function addAdjustmentAction(fd: FormData) {
     reason: str(fd, 'reason') ?? '',
   });
   redirectWith(`/people/${employeeId}`, result);
+}
+
+/** The person marks that they told the client about their leave. */
+export async function markClientNotifiedAction(fd: FormData) {
+  const user = await requireUser();
+  const result = await markClientNotified(await getDb(), user, str(fd, 'id') ?? '', str(fd, 'note'));
+  revalidatePath('/time-off');
+  revalidatePath('/');
+  redirectWith(safePath(str(fd, 'back'), '/time-off'), result);
 }

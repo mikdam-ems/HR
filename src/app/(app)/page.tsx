@@ -3,6 +3,7 @@ import { Avatar } from '@/components/Avatar';
 import { DayBadge } from '@/components/DayBadge';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
+import { markClientNotifiedAction } from '@/app/(app)/time-off/actions';
 import { addDays, resolveDay } from '@/domain';
 import { clientLabel, fmt, getDict, holidayLabel, localName, plural } from '@/i18n';
 import { formatDate, formatHours, todayISO } from '@/lib/format';
@@ -13,7 +14,7 @@ import { can } from '@/server/permissions';
 import { loadRulesContext } from '@/server/rulesContext';
 import { requireUser } from '@/server/session';
 import { getSettings } from '@/server/settings';
-import { countPendingLeave, getBalances } from '@/server/leave';
+import { countPendingLeave, getBalances, uninformedUpcomingLeave } from '@/server/leave';
 import { countPendingApprovals, getMonth } from '@/server/timesheets';
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -25,7 +26,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const approver = user.isManager || user.roles.includes('admin');
   const overview = can(user, 'people.manage') || can(user, 'reports.view');
 
-  const [ctx, profile, appSettings, monthView, pendingSheets, pendingLeave, balances, depts, people] = await Promise.all([
+  const [ctx, profile, appSettings, monthView, pendingSheets, pendingLeave, balances, depts, people, untold] = await Promise.all([
     loadRulesContext(db),
     getEmployeeProfile(db, user.id),
     getSettings(db),
@@ -35,6 +36,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     getBalances(db, user.id, year),
     overview ? listDepartments(db) : Promise.resolve([]),
     overview ? listEmployees(db) : Promise.resolve([]),
+    uninformedUpcomingLeave(db, user.id, today),
   ]);
   const day = resolveDay(ctx, user.id, today);
   const week = Array.from({ length: 7 }, (_, i) => resolveDay(ctx, user.id, addDays(today, i + 1)));
@@ -85,6 +87,22 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </Link>
         </div>
       </div>
+
+      {untold.map((r) => (
+        <form key={r.id} action={markClientNotifiedAction} className="flash flash-info reminder">
+          <input type="hidden" name="id" value={r.id} />
+          <input type="hidden" name="back" value="/" />
+          <span>
+            {fmt(t.timeOff.reminder, {
+              client: r.clients.map((c) => localName(locale, c.nameEn, c.nameAr)).join(', '),
+              dates:
+                formatDate(r.fromDate, locale, { day: 'numeric', month: 'short' }) +
+                (r.toDate !== r.fromDate ? ` – ${formatDate(r.toDate, locale, { day: 'numeric', month: 'short' })}` : ''),
+            })}
+          </span>
+          <button className="btn btn-small">{t.timeOff.markInformed}</button>
+        </form>
+      ))}
 
       <div className="bento">
         <section className="card card-dark span-6" aria-labelledby="today">

@@ -7,7 +7,7 @@ import { getDb } from '@/db';
 import { fmt, getDict, holidayLabel, localName, type Locale } from '@/i18n';
 import type { Dict } from '@/i18n/en';
 import { formatDate, formatHours } from '@/lib/format';
-import { getBalances, listAttachments, listPendingLeave, teamOff } from '@/server/leave';
+import { clientsToInform, getBalances, listAttachments, listPendingLeave, teamOff } from '@/server/leave';
 import { requireUser } from '@/server/session';
 import { getSettings } from '@/server/settings';
 import { getMonth, listPendingApprovals, listPendingDayChanges, type MonthView, type PendingChange } from '@/server/timesheets';
@@ -241,11 +241,13 @@ async function LeaveDetail({
   locale: Locale;
 }) {
   const db = await getDb();
-  const [balances, others, files] = await Promise.all([
+  const [balances, others, files, clientList] = await Promise.all([
     getBalances(db, leave.employeeId, Number(leave.fromDate.slice(0, 4))),
     teamOff(db, leave.employeeId, leave.fromDate, leave.toDate),
     listAttachments(db, [leave.id]),
+    clientsToInform(db, leave.employeeId, leave.fromDate, leave.toDate),
   ]);
+  const clientNames = clientList.map((c) => localName(locale, c.nameEn, c.nameAr)).join(', ');
   const balance = balances.find((b) => b.type === leave.type);
   const d = (iso: string) => formatDate(iso, locale, { weekday: 'short', day: 'numeric', month: 'short' });
   return (
@@ -282,6 +284,20 @@ async function LeaveDetail({
           <span className="label">{t.timeOff.note}</span>
           <span>{leave.note}</span>
         </div>
+      ) : null}
+      {clientList.length ? (
+        leave.clientNotifiedAt ? (
+          <div className="small client-told">
+            ✓{' '}
+            {fmt(t.timeOff.clientInformed, {
+              client: clientNames,
+              date: formatDate(leave.clientNotifiedAt.toISOString().slice(0, 10), locale, { day: 'numeric', month: 'short' }),
+            })}
+            {leave.clientNotifiedNote ? <span className="muted"> · {leave.clientNotifiedNote}</span> : null}
+          </div>
+        ) : (
+          <div className="small client-untold-flat">{fmt(t.timeOff.clientNotInformed, { client: clientNames })}</div>
+        )
       ) : null}
       {files.length ? (
         <div className="stack" style={{ gap: 4 }}>

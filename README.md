@@ -72,6 +72,7 @@ Only people added by HR can sign in, and only with a Google account on the allow
 | Request day changes, submit own timesheet; request time off; see own balances | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Edit own photo and bio; set a daily status (name and title are kept by HR) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Attach a document (e.g. a medical report) to a leave request | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Record that they told the client about their leave (the client is informed, not asked) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | See department and client pages, and the org chart (pyramid or outline) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Open leave attachments of their team | | ✓ | | | |
 | See their team's status; approve day changes; approve or return their team's timesheets and leave | | ✓ | | | |

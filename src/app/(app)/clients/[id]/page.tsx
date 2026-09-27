@@ -8,6 +8,7 @@ import { fmt, getDict, localName } from '@/i18n';
 import type { Dict } from '@/i18n/en';
 import { formatDate, todayISO } from '@/lib/format';
 import { getClientProfile, listCalendars, type ClientProfile } from '@/server/clients';
+import { upcomingLeaveForClient } from '@/server/leave';
 import { can } from '@/server/permissions';
 import { currentStatus } from '@/server/profile';
 import { requireUser } from '@/server/session';
@@ -28,7 +29,10 @@ export default async function ClientPage({
   if (!profile) notFound();
   const { client, current, upcoming, past, upcomingHolidays } = profile;
   const manage = can(user, 'clients.manage');
-  const calendarRows = manage ? await listCalendars(db) : [];
+  const [calendarRows, leave] = await Promise.all([
+    manage ? listCalendars(db) : Promise.resolve([]),
+    client.isInternal ? Promise.resolve([]) : upcomingLeaveForClient(db, client.id, today),
+  ]);
   const offDays = [0, 1, 2, 3, 4, 5, 6].filter((d) => !client.calendar.workWeek.includes(d)).map((d) => t.weekdays[d]);
   const departments = [...new Map(current.flatMap((a) => (a.employee.department ? [[a.employee.department.id, a.employee.department]] : []))).values()];
   const d = (iso: string) => formatDate(iso, locale, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -105,6 +109,47 @@ export default async function ClientPage({
           )}
         </section>
 
+        {!client.isInternal ? (
+          <section className="card span-12">
+            <div className="stack" style={{ gap: 2 }}>
+              <h2>{t.client.upcomingLeave}</h2>
+              <span className="muted small">{t.client.upcomingLeaveHint}</span>
+            </div>
+            {leave.length ? (
+              <ul className="list-rows">
+                {leave.map((r) => (
+                  <li key={r.id}>
+                    <Link className="person" href={`/people/${r.employee.id}`}>
+                      <Avatar person={r.employee} size="sm" />
+                      <span className="stack" style={{ gap: 0 }}>
+                        {localName(locale, r.employee.nameEn, r.employee.nameAr)}
+                        <span className="muted small">
+                          {t.timesheet.leaveTypes[r.type]} · {formatDate(r.fromDate, locale, { day: 'numeric', month: 'short' })}
+                          {r.toDate !== r.fromDate ? ` – ${formatDate(r.toDate, locale, { day: 'numeric', month: 'short' })}` : ''}
+                        </span>
+                      </span>
+                    </Link>
+                    <span className="row" style={{ gap: 6 }}>
+                      <span className={`badge status-${r.status}`}>{t.timeOff.status[r.status]}</span>
+                      {r.clientNotifiedAt ? (
+                        <span className="badge badge-client_holiday" title={r.clientNotifiedNote ?? undefined}>
+                          ✓ {fmt(t.timeOff.clientInformed, { client: localName(locale, client.nameEn, client.nameAr), date: formatDate(r.clientNotifiedAt.toISOString().slice(0, 10), locale, { day: 'numeric', month: 'short' }) })}
+                        </span>
+                      ) : (
+                        <span className="badge badge-special_overtime">
+                          {fmt(t.timeOff.clientNotInformed, { client: localName(locale, client.nameEn, client.nameAr) })}
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <span className="muted small">{t.client.noUpcomingLeave}</span>
+            )}
+          </section>
+        ) : null}
+
         {upcoming.length ? (
           <section className="card span-6">
             <h2>{t.client.upcoming}</h2>
@@ -145,9 +190,18 @@ export default async function ClientPage({
                   </select>
                 </div>
               </div>
+              <div className="field">
+                <label htmlFor="leaveContact">{t.client.leaveContact}</label>
+                <input id="leaveContact" name="leaveContact" type="text" maxLength={200} defaultValue={client.leaveContact ?? ''} />
+                <span className="muted small">{t.client.leaveContactHint}</span>
+              </div>
               <label className="check">
                 <input type="checkbox" name="active" defaultChecked={client.active} />
                 {t.clients.active}
+              </label>
+              <label className="check">
+                <input type="checkbox" name="isInternal" defaultChecked={client.isInternal} />
+                {t.client.isInternal}
               </label>
               <div>
                 <button className="btn btn-primary">{t.form.save}</button>

@@ -101,6 +101,10 @@ export const clients = pgTable('clients', {
     .notNull()
     .references(() => calendars.id, { onDelete: 'restrict' }),
   active: boolean('active').notNull().default(true),
+  /** EMS itself: nobody needs to tell it about their leave. */
+  isInternal: boolean('is_internal').notNull().default(false),
+  /** Who people tell at the client when they take leave, e.g. "Project manager: Ahmed, ahmed@jadwa.com". */
+  leaveContact: text('leave_contact'),
   ...timestamps,
 });
 
@@ -222,6 +226,10 @@ export const leaveRequests = pgTable(
     decidedById: uuid('decided_by_id').references(() => employees.id, { onDelete: 'set null' }),
     decidedAt: timestamp('decided_at', { withTimezone: true }),
     managerNote: text('manager_note'),
+    /** When the person told the client about this leave (the client is informed, not asked). */
+    clientNotifiedAt: timestamp('client_notified_at', { withTimezone: true }),
+    /** Who they told and how, e.g. "Emailed Ahmed (PM)". */
+    clientNotifiedNote: text('client_notified_note'),
     ...timestamps,
   },
   (t) => [index('leave_requests_employee_idx').on(t.employeeId)],

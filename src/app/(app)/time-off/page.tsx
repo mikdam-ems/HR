@@ -1,13 +1,13 @@
-import { cancelLeaveAction, requestLeaveAction } from '@/app/(app)/time-off/actions';
+import { cancelLeaveAction, markClientNotifiedAction, requestLeaveAction } from '@/app/(app)/time-off/actions';
 import { Balances } from '@/components/Balances';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { leaveTypeEnum } from '@/db/schema';
 import { isWorkday } from '@/domain';
-import { fmt, getDict, holidayLabel } from '@/i18n';
+import { fmt, getDict, holidayLabel, localName } from '@/i18n';
 import type { Dict } from '@/i18n/en';
 import { formatDate, todayISO } from '@/lib/format';
-import { getBalances, listAttachments, listRequests, previewRequest } from '@/server/leave';
+import { clientsToInform, getBalances, listAttachments, listRequests, previewRequest, type ClientToInform } from '@/server/leave';
 import { requireUser } from '@/server/session';
 
 type LeaveType = (typeof leaveTypeEnum.enumValues)[number];
@@ -31,7 +31,14 @@ export default async function TimeOffPage({ searchParams }: { searchParams: Prom
     listRequests(db, user.id),
     from ? previewRequest(db, user.id, { type, fromDate: from, toDate: to, halfDay, note }) : Promise.resolve(null),
   ]);
-  const attachments = await listAttachments(db, requests.map((r) => r.id));
+  const open = requests.filter((r) => (r.status === 'pending' || r.status === 'approved') && r.toDate >= today);
+  const [attachments, toInform, ...openClients] = await Promise.all([
+    listAttachments(db, requests.map((r) => r.id)),
+    preview?.ok ? clientsToInform(db, user.id, from, to) : Promise.resolve([] as ClientToInform[]),
+    ...open.map((r) => clientsToInform(db, user.id, r.fromDate, r.toDate)),
+  ]);
+  const clientsFor = new Map(open.map((r, i) => [r.id, openClients[i]!]));
+  const names = (cs: ClientToInform[]) => cs.map((c) => localName(locale, c.nameEn, c.nameAr)).join(', ');
   const range = (a: string, b: string) =>
     a === b
       ? formatDate(a, locale, { weekday: 'short', day: 'numeric', month: 'short' })
@@ -120,6 +127,30 @@ export default async function TimeOffPage({ searchParams }: { searchParams: Prom
               <span className="muted small">{t.timeOff.overSick}</span>
             ) : null}
             <form action={requestLeaveAction} className="stack">
+              {toInform.length ? (
+                <div className="inform-box">
+                  <strong>{fmt(t.timeOff.informTitle, { client: names(toInform) })}</strong>
+                  <span className="small">{fmt(t.timeOff.informHint, { client: names(toInform) })}</span>
+                  {toInform
+                    .filter((c) => c.leaveContact)
+                    .map((c) => (
+                      <span key={c.id} className="small">
+                        {fmt(t.timeOff.whoToTell, { contact: c.leaveContact! })}
+                      </span>
+                    ))}
+                  <label className="check">
+                    <input type="checkbox" name="clientNotified" />
+                    {fmt(t.timeOff.informedCheck, { client: names(toInform) })}
+                  </label>
+                  <input
+                    type="text"
+                    name="clientNotifiedNote"
+                    maxLength={300}
+                    placeholder={t.timeOff.informedPlaceholder}
+                    aria-label={t.timeOff.informedNote}
+                  />
+                </div>
+              ) : null}
               <div className="field">
                 <label htmlFor="attachment">{t.timeOff.attachmentOptional}</label>
                 <input id="attachment" name="attachment" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" />
@@ -178,6 +209,7 @@ export default async function TimeOffPage({ searchParams }: { searchParams: Prom
                       <td>{r.daysUsed}</td>
                       <td>
                         <span className={`badge status-${r.status}`}>{t.timeOff.status[r.status]}</span>
+                        <ClientNotice r={r} clients={clientsFor.get(r.id) ?? []} names={names} t={t} locale={locale} />
                         {r.managerNote ? (
                           <div className="muted small">
                             {t.timeOff.managerSaid} {r.managerNote}
@@ -201,5 +233,40 @@ export default async function TimeOffPage({ searchParams }: { searchParams: Prom
         </div>
       </section>
     </>
+  );
+}
+
+function ClientNotice({
+  r,
+  clients,
+  names,
+  t,
+  locale,
+}: {
+  r: { id: string; clientNotifiedAt: Date | null; clientNotifiedNote: string | null };
+  clients: ClientToInform[];
+  names: (cs: ClientToInform[]) => string;
+  t: Dict;
+  locale: 'en' | 'ar';
+}) {
+  if (!clients.length) return null;
+  if (r.clientNotifiedAt) {
+    return (
+      <div className="small client-told">
+        ✓ {fmt(t.timeOff.clientInformed, { client: names(clients), date: formatDate(r.clientNotifiedAt.toISOString().slice(0, 10), locale, { day: 'numeric', month: 'short' }) })}
+        {r.clientNotifiedNote ? <span className="muted"> · {r.clientNotifiedNote}</span> : null}
+      </div>
+    );
+  }
+  return (
+    <details className="client-untold small">
+      <summary>{fmt(t.timeOff.clientNotInformed, { client: names(clients) })}</summary>
+      <form action={markClientNotifiedAction} className="row" style={{ marginTop: 6 }}>
+        <input type="hidden" name="id" value={r.id} />
+        <input type="hidden" name="back" value="/time-off" />
+        <input type="text" name="note" maxLength={300} placeholder={t.timeOff.informedPlaceholder} aria-label={t.timeOff.informedNote} style={{ width: 240, minHeight: 34 }} />
+        <button className="btn btn-small btn-primary">{t.timeOff.markInformed}</button>
+      </form>
+    </details>
   );
 }
