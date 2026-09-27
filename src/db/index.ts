@@ -13,13 +13,25 @@ export type DB = NodePgDatabase<typeof schema>;
 
 const MIGRATIONS = path.join(process.cwd(), 'drizzle');
 
-/** The connection string, under any of the names hosts use (Vercel's Neon integration sets several). */
+const POSTGRES = /^postgres(ql)?:\/\//;
+
+/**
+ * The PostgreSQL connection string. Hosts use different names (Vercel's Neon integration can add a
+ * prefix such as STORAGE_URL), so take the first well-known name holding a real postgres:// address,
+ * then any other variable that does. A leftover non-database DATABASE_URL is skipped.
+ */
 export function databaseUrl(): string | undefined {
-  const direct = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL;
-  if (direct) return direct;
-  // Vercel's storage integrations may add a custom prefix, e.g. STORAGE_DATABASE_URL.
-  const key = Object.keys(process.env).find((k) => /(^|_)(DATABASE_URL|POSTGRES_URL)$/.test(k) && process.env[k]);
-  return key ? process.env[key] : undefined;
+  const preferred = ['DATABASE_URL', 'POSTGRES_URL', 'NEON_DATABASE_URL'];
+  const others = Object.keys(process.env)
+    .filter((k) => !preferred.includes(k) && /URL/.test(k))
+    // Pooled connections first; unpooled ones also work.
+    .sort((a, b) => Number(/UNPOOLED|NON_POOLING/.test(a)) - Number(/UNPOOLED|NON_POOLING/.test(b)));
+  for (const key of [...preferred, ...others]) {
+    const value = process.env[key];
+    if (value && POSTGRES.test(value)) return value;
+  }
+  // Local development: DATABASE_URL=memory or an embedded-database path.
+  return process.env.DATABASE_URL || undefined;
 }
 
 /** Serverless hosts have no lasting disk, so the embedded database can't work there. */
