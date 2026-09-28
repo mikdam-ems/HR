@@ -17,8 +17,8 @@ export function formatDate(iso: string, locale: Locale, opts: Intl.DateTimeForma
 export function formatHours(minutes: number, locale: Locale = 'en'): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  if (locale === 'ar') return m ? `${h} س ${m} د` : `${h} س`;
-  return m ? `${h}h ${m}m` : `${h}h`;
+  if (locale === 'ar') return !h && m ? `${m} د` : m ? `${h} س ${m} د` : `${h} س`;
+  return !h && m ? `${m}m` : m ? `${h}h ${m}m` : `${h}h`;
 }
 
 /** Up to two initials for an avatar badge: "Rania Saleh" → "RS". */

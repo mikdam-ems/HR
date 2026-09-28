@@ -64,6 +64,13 @@
       "when": 1790582416012,
       "tag": "0008_clock_events",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790583049281,
+      "tag": "0009_slack_user",
+      "breakpoints": true
     }
   ]
 }

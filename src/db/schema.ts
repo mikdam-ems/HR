@@ -60,6 +60,8 @@ export const employees = pgTable(
     statusEmoji: text('status_emoji'),
     statusText: text('status_text'),
     statusDate: date('status_date', { mode: 'string' }),
+    /** Their Slack member id, remembered the first time they use a Slack command (matched by email). */
+    slackUserId: text('slack_user_id'),
     /** Set when the person has a photo (stored in employee_photos); also busts the image cache. */
     photoUpdatedAt: timestamp('photo_updated_at', { withTimezone: true }),
     ...timestamps,
