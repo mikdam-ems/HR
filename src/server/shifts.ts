@@ -1,10 +1,12 @@
-import { asc, desc, eq, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lte } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DB } from '@/db';
-import { clientShifts, clients, schedules } from '@/db/schema';
+import { clientShifts, clients, leaveRequests, schedules } from '@/db/schema';
+import { addDays, eachDay, rosterWeek } from '@/domain';
 import { todayISO } from '@/lib/format';
 import { audit } from './audit';
 import { putOnShift } from './people';
+import { loadRulesContext } from './rulesContext';
 import { type Result, fail, hhmm, ok, parse } from './validation';
 
 /** A client's working hours: one "Standard" shift, or several (e.g. A / B / C for a 24/7 client). */
@@ -99,3 +101,18 @@ export async function shiftRoster(db: DB, clientId: string, date = todayISO()) {
   return out;
 }
 
+
+/** The shift roster of one client for the 7 days from `from`, with approved leave shown as leave. */
+export async function weekRoster(db: DB, clientId: string, from: string) {
+  const days = eachDay(from, addDays(from, 6));
+  const [ctx, leave, shifts] = await Promise.all([
+    loadRulesContext(db),
+    db
+      .select()
+      .from(leaveRequests)
+      .where(and(eq(leaveRequests.status, 'approved'), lte(leaveRequests.fromDate, days[6]!), gte(leaveRequests.toDate, from))),
+    listShifts(db, clientId, true),
+  ]);
+  const onLeave = (id: string, d: string) => leave.some((l) => l.employeeId === id && l.fromDate <= d && l.toDate >= d);
+  return { days, shifts, ...rosterWeek(ctx, clientId, days, onLeave) };
+}

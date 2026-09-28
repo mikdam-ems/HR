@@ -4,7 +4,7 @@ import type { DB } from '@/db';
 import { employeePhotos, employees, type Employee } from '@/db/schema';
 import { todayISO } from '@/lib/format';
 import { audit } from './audit';
-import { type Result, fail, ok, parse } from './validation';
+import { type Result, fail, isoDate, ok, parse } from './validation';
 
 const optional = (max: number) =>
   z
@@ -17,6 +17,8 @@ const optional = (max: number) =>
 /** What people may change about themselves: their bio (and photo, below). Name, title and the rest stay with People & Culture. */
 export const ownProfileInput = z.object({
   bio: optional(500),
+  // Only the day and month are ever shown to colleagues.
+  birthDate: isoDate.nullish(),
 });
 
 export async function updateOwnProfile(db: DB, actorId: string, input: z.input<typeof ownProfileInput>): Promise<Result<void>> {

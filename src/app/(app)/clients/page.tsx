@@ -65,7 +65,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                             {own[0]!.startTime}–{own[0]!.endTime}
                           </span>
                         ) : (
-                          fmt(t.shifts.summary, { count: own.length })
+                          <Link href={`/clients/${c.id}/roster`}>{fmt(t.shifts.summary, { count: own.length })}</Link>
                         );
                       })()}
                     </td>

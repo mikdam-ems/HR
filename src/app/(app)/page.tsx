@@ -9,6 +9,7 @@ import { addDays, resolveDay } from '@/domain';
 import { clientLabel, fmt, getDict, holidayLabel, localName, plural } from '@/i18n';
 import { toClockData } from '@/lib/clockData';
 import { formatDate, formatHours, timeOfDay, todayISO } from '@/lib/format';
+import { celebrations } from '@/server/celebrations';
 import { clockView, teamClock } from '@/server/clock';
 import { listDepartments } from '@/server/departments';
 import { getEmployeeProfile, listEmployees } from '@/server/people';
@@ -29,7 +30,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const approver = user.isManager || user.roles.includes('admin');
   const overview = can(user, 'people.manage') || can(user, 'reports.view');
 
-  const [ctx, profile, appSettings, monthView, pendingSheets, pendingLeave, balances, depts, people, untold] = await Promise.all([
+  const [ctx, profile, appSettings, monthView, pendingSheets, pendingLeave, balances, depts, people, untold, parties] = await Promise.all([
     loadRulesContext(db),
     getEmployeeProfile(db, user.id),
     getSettings(db),
@@ -40,6 +41,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     overview ? listDepartments(db) : Promise.resolve([]),
     overview ? listEmployees(db) : Promise.resolve([]),
     uninformedUpcomingLeave(db, user.id, today),
+    celebrations(db, today, 7),
   ]);
   const day = resolveDay(ctx, user.id, today);
   const week = Array.from({ length: 7 }, (_, i) => resolveDay(ctx, user.id, addDays(today, i + 1)));
@@ -234,6 +236,30 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                       </Link>
                     ) : null}
                     <DayBadge type={resolveDay(ctx, r.id, today).dayType} t={t} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {parties.length ? (
+          <section className="card span-6" aria-labelledby="celebrations">
+            <h2 id="celebrations">{t.celebrations.title}</h2>
+            <ul className="list-rows">
+              {parties.map((c) => (
+                <li key={`${c.employeeId}-${c.kind}`} className={c.date === today ? 'celebration-today' : undefined}>
+                  <Link className="person" href={`/people/${c.person.id}`}>
+                    <Avatar person={c.person} size="sm" />
+                    <span className="stack" style={{ gap: 0 }}>
+                      {localName(locale, c.person.nameEn, c.person.nameAr)}
+                      <span className="muted small">
+                        {c.kind === 'birthday' ? t.celebrations.birthday : fmt(t.celebrations.anniversary, { n: c.years })}
+                      </span>
+                    </span>
+                  </Link>
+                  <span className={c.date === today ? 'badge badge-accent' : 'muted small'}>
+                    {c.date === today ? t.celebrations.today : formatDate(c.date, locale, { weekday: 'short', day: 'numeric', month: 'short' })}
                   </span>
                 </li>
               ))}

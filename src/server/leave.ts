@@ -18,6 +18,7 @@ import {
 import { type LeaveType, type ResolvedDay, annualEntitlementDays, eachDay, isWorkday, resolveDay } from '@/domain';
 import { todayISO } from '@/lib/format';
 import { audit } from './audit';
+import { approversOf, notify } from './notify';
 import { loadRulesContext } from './rulesContext';
 import type { Actor } from './timesheets';
 import { type Result, fail, isoDate, ok, parse } from './validation';
@@ -197,6 +198,16 @@ export async function createRequest(
     })
     .returning();
   await audit(db, { actorId: actor.id, action: 'create', entity: 'leave_request', entityId: row!.id, after: row });
+  const [me] = await db.select().from(employees).where(eq(employees.id, actor.id));
+  if (me) {
+    await notify(db, await approversOf(db, me), 'leave_requested', {
+      name: me.nameEn,
+      nameAr: me.nameAr,
+      type: row!.type,
+      from: row!.fromDate,
+      to: row!.toDate,
+    }, `/approvals?l=${row!.id}`);
+  }
   if (attachment) {
     const [file] = await db
       .insert(leaveAttachments)
@@ -290,6 +301,7 @@ export async function decideRequest(
       .where(eq(leaveRequests.id, requestId))
       .returning();
     await audit(db, { actorId: actor.id, action: 'decline', entity: 'leave_request', entityId: requestId, before: req, after });
+    await tellDecision(db, req, 'declined', note);
     return ok(undefined);
   }
 
@@ -324,7 +336,12 @@ export async function decideRequest(
       .returning();
     await audit(tx, { actorId: actor.id, action: 'approve', entity: 'leave_request', entityId: requestId, before: req, after });
   });
+  await tellDecision(db, req, 'approved', note);
   return ok(undefined);
+}
+
+function tellDecision(db: DB, req: LeaveRequestRow, outcome: 'approved' | 'declined', note: string | null) {
+  return notify(db, [req.employeeId], 'leave_decided', { outcome, type: req.type, from: req.fromDate, to: req.toDate, note }, '/time-off');
 }
 
 /** The person can cancel a pending request, or approved leave that hasn't started yet. */

@@ -85,6 +85,13 @@
       "when": 1790597294042,
       "tag": "0011_client_shifts",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790606216892,
+      "tag": "0012_notifications_birthdays",
+      "breakpoints": true
     }
   ]
 }

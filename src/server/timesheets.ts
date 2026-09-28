@@ -24,6 +24,7 @@ import {
 } from '@/domain';
 import { todayISO } from '@/lib/format';
 import { audit } from './audit';
+import { approversOf, notify } from './notify';
 import { firstClockDates, monthClock } from './clock';
 import { loadRulesContext } from './rulesContext';
 import { getSettings } from './settings';
@@ -253,6 +254,10 @@ async function requestChange(
     ? await db.update(dayChangeRequests).set(values).where(eq(dayChangeRequests.id, pending.id)).returning()
     : await db.insert(dayChangeRequests).values({ employeeId, date, ...values }).returning();
   await audit(db, { actorId, action: pending ? 'update' : 'request', entity: 'day_change', entityId: after!.id, before: pending, after });
+  if (!pending) {
+    const [employee] = await db.select().from(employees).where(eq(employees.id, employeeId));
+    if (employee) await notify(db, await approversOf(db, employee), 'day_change_requested', { name: employee.nameEn, nameAr: employee.nameAr, date }, '/approvals');
+  }
   return after!.id;
 }
 
@@ -375,6 +380,13 @@ export async function decideDayChange(
       .returning();
     await audit(t, { actorId: actor.id, action: outcome, entity: 'day_change', entityId: requestId, before: req, after });
   });
+  await notify(
+    db,
+    [req.employeeId],
+    'day_change_decided',
+    { outcome: outcome === 'approve' ? 'approved' : 'declined', date: req.date, note },
+    `/timesheet/${req.employeeId}?month=${req.date.slice(0, 7)}&day=${req.date}`,
+  );
   return ok(undefined);
 }
 
@@ -443,6 +455,13 @@ export async function submitMonth(
     ? await db.update(timesheets).set(values).where(eq(timesheets.id, before.id)).returning()
     : await db.insert(timesheets).values({ employeeId, year, month, ...values }).returning();
   await audit(db, { actorId: actor.id, action: 'submit', entity: 'timesheet', entityId: after!.id, before, after });
+  await notify(
+    db,
+    await approversOf(db, view.value.employee),
+    'month_submitted',
+    { name: view.value.employee.nameEn, nameAr: view.value.employee.nameAr, month: `${year}-${String(month).padStart(2, '0')}` },
+    `/approvals?t=${after!.id}`,
+  );
   return ok(undefined);
 }
 
@@ -474,6 +493,8 @@ async function decide(
     .where(eq(timesheets.id, timesheetId))
     .returning();
   await audit(db, { actorId: actor.id, action: outcome === 'approved' ? 'approve' : 'return', entity: 'timesheet', entityId: timesheetId, before, after });
+  const monthKey = `${before.year}-${String(before.month).padStart(2, '0')}`;
+  await notify(db, [before.employeeId], 'month_decided', { outcome, month: monthKey, note }, `/timesheet/${before.employeeId}?month=${monthKey}`);
   return ok(undefined);
 }
 

@@ -76,6 +76,11 @@ export default async function MyProfilePage({ searchParams }: { searchParams: Pr
             <label htmlFor="bio">{t.me.bio}</label>
             <textarea id="bio" name="bio" rows={4} maxLength={500} defaultValue={me.bio ?? ''} placeholder={t.me.bioPlaceholder} />
           </div>
+          <div className="field">
+            <label htmlFor="birthDate">{t.form.birthDate}</label>
+            <input id="birthDate" name="birthDate" type="date" defaultValue={me.birthDate ?? ''} style={{ maxWidth: 220 }} />
+            <span className="muted small">{t.me.birthdayHint}</span>
+          </div>
           <div>
             <button className="btn btn-primary">{t.me.save}</button>
           </div>

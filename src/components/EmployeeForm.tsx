@@ -64,6 +64,10 @@ export function EmployeeForm({
           <label htmlFor="hireDate">{t.form.hireDate}</label>
           <input id="hireDate" name="hireDate" type="date" defaultValue={person?.hireDate ?? ''} />
         </div>
+        <div className="field">
+          <label htmlFor="birthDate">{t.form.birthDate}</label>
+          <input id="birthDate" name="birthDate" type="date" defaultValue={person?.birthDate ?? ''} />
+        </div>
       </div>
 
       <fieldset className="stack" style={{ gap: 4 }} disabled={!canEditRoles}>

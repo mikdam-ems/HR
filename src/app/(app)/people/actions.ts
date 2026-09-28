@@ -45,6 +45,7 @@ export async function savePersonAction(fd: FormData) {
     managerId: str(fd, 'managerId'),
     departmentId: str(fd, 'departmentId'),
     hireDate: str(fd, 'hireDate'),
+    birthDate: str(fd, 'birthDate'),
     roles,
     active: id ? bool(fd, 'active') : true,
   };

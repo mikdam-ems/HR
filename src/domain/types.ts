@@ -46,6 +46,8 @@ export interface Schedule {
   breakMinutes?: number;
   /** Optional label such as "A", "B" or "C" when the schedule is a named shift. */
   shiftCode?: string;
+  /** The client shift this schedule came from, when it did. */
+  clientShiftId?: string;
 }
 
 /**

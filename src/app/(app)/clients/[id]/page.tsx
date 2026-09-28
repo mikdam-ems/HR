@@ -108,9 +108,14 @@ export default async function ClientPage({
         </div>
 
         <section className="card span-12" aria-labelledby="shifts">
-          <div className="stack" style={{ gap: 2 }}>
-            <h2 id="shifts">{t.shifts.title}</h2>
-            <span className="muted small">{t.shifts.hint}</span>
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div className="stack" style={{ gap: 2 }}>
+              <h2 id="shifts">{t.shifts.title}</h2>
+              <span className="muted small">{t.shifts.hint}</span>
+            </div>
+            <Link className="btn btn-small" href={`/clients/${client.id}/roster`}>
+              {t.roster.open}
+            </Link>
           </div>
           <ul className="shift-list">
             {shifts.map((sh) => {

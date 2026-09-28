@@ -77,6 +77,9 @@ Only people added by HR can sign in, and only with a Google account on the allow
 | See who on their team is working or on a break right now, and their attendance log | | ✓ | ✓ | ✓ | ✓ |
 | See their own attendance log (every clock in, break and out) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | See department and client pages, and the org chart (pyramid or outline) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| See a client's weekly shift roster (who works which shift each day, and coverage per shift) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Get notified (🔔 in the app, Slack DM, browser notification) about requests to approve and decisions on their own | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Add their birthday (colleagues see day and month only); see birthdays and work anniversaries this week on Home | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Open leave attachments of their team | | ✓ | | | |
 | See their team's status; approve day changes; approve or return their team's timesheets and leave | | ✓ | | | |
 | View anyone's timesheet (read-only) | | | ✓ | ✓ | ✓ |
@@ -94,6 +97,12 @@ timesheet fills from clocked time: a full day is the schedule (09:00–17:30 = 8
 days not reached yet stay empty, and a past workday with no clock is flagged. Days before they first clocked keep
 the schedule, so people not on the clock yet are unaffected. Admins can switch back to schedule-filled timesheets
 in Settings.
+
+**Notifications.** Every request to approve and every decision is saved for the 🔔 in the top bar. When
+`SLACK_BOT_TOKEN` is set they also go out as Slack DMs, and when the VAPID keys are set people can turn on browser
+notifications from the 🔔 (on iPhone, add the site to the Home Screen first). A daily job (`/api/cron/daily`,
+08:00 Amman) reminds people on their last working day to submit the month, and posts today's birthdays and work
+anniversaries to `SLACK_CELEBRATIONS_CHANNEL`. See [slack/README.md](slack/README.md) and `.env.example`.
 
 **Changing a day is a request.** When someone changes a day (hours, leave on the day, a note) it goes to their manager;
 the timesheet only changes once it's approved. At month end the person still submits the whole month for a final

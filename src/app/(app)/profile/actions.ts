@@ -11,7 +11,7 @@ import { requireUser } from '@/server/session';
 export async function saveProfileAction(fd: FormData) {
   const user = await requireUser();
   const db = await getDb();
-  const result = await updateOwnProfile(db, user.id, { bio: str(fd, 'bio') });
+  const result = await updateOwnProfile(db, user.id, { bio: str(fd, 'bio'), birthDate: str(fd, 'birthDate') });
   if (!result.ok) redirectWith('/profile', result);
   const photo = str(fd, 'photo');
   if (photo || str(fd, 'removePhoto')) {
