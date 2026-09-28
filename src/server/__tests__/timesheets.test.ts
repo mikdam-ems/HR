@@ -35,7 +35,7 @@ async function setup() {
   await setHoliday(db, null, { calendarId: jo.value, date: '2026-08-26', nameEn: "Prophet's Birthday (test)" });
   await setSetting(db, 'homeCalendarId', jo.value);
   // These tests cover schedule mode (every day pre-filled); clock mode has its own tests.
-  await setSetting(db, 'hoursSource', 'schedule');
+  await setSetting(db, 'hoursSource', []);
   const jadwa = await createClient(db, null, { nameEn: 'Jadwa', calendarId: sa.value });
   if (!jadwa.ok) throw new Error('client');
 
@@ -275,7 +275,7 @@ describe('day changes need the manager', () => {
 describe('clock mode', () => {
   it('fills the month from clock in/out; past days with no clock are flagged, future days stay empty', async () => {
     const { lina } = await setup();
-    await setSetting(db, 'hoursSource', 'clock');
+    await setSetting(db, 'hoursSource', [{ from: '2026-01-01', source: 'clock' }]);
     const { clock } = await import('../clock');
     const { ammanInstant } = await import('@/lib/format');
     await clock(db, lina.id, 'in', ammanInstant('2026-09-15', '09:00'));
@@ -294,7 +294,7 @@ describe('clock mode', () => {
 
   it('a forgotten clock-out counts nothing and is flagged, instead of running on until now', async () => {
     const { lina } = await setup();
-    await setSetting(db, 'hoursSource', 'clock');
+    await setSetting(db, 'hoursSource', [{ from: '2026-01-01', source: 'clock' }]);
     const { clock } = await import('../clock');
     const { ammanInstant } = await import('@/lib/format');
     await clock(db, lina.id, 'in', ammanInstant('2026-09-10', '09:00'));
@@ -309,7 +309,7 @@ describe('clock mode', () => {
 
   it('a correction for a forgotten clock-in is a request, and once approved it counts', async () => {
     const { lina, khaled } = await setup();
-    await setSetting(db, 'hoursSource', 'clock');
+    await setSetting(db, 'hoursSource', [{ from: '2026-01-01', source: 'clock' }]);
     const r = await ts.saveDay(db, lina, lina.id, { date: '2026-09-14', startTime: '09:00', endTime: '17:00', note: 'Forgot to clock in' });
     if (!r.ok) throw new Error(r.error);
     expect(r.value.requestId).not.toBeNull();
@@ -319,3 +319,36 @@ describe('clock mode', () => {
     expect(m.value.summary.days.find((x) => x.day.date === '2026-09-14')!.entry.workedMinutes).toBe(h(8));
   });
 });
+
+describe('switching where hours come from (issue #4)', () => {
+  it('a switch changes only days from its date on', async () => {
+    const { lina, boss: admin } = await setup();
+    const { clock } = await import('../clock');
+    const { ammanInstant } = await import('@/lib/format');
+    const { setHoursSource } = await import('../settings');
+    await clock(db, lina.id, 'in', ammanInstant('2026-09-14', '09:00'));
+    await clock(db, lina.id, 'out', ammanInstant('2026-09-14', '20:00'));
+    await clock(db, lina.id, 'in', ammanInstant('2026-09-21', '09:00'));
+    await clock(db, lina.id, 'out', ammanInstant('2026-09-21', '20:00'));
+
+    expect((await setHoursSource(db, admin.id, { from: '2026-09-20', source: 'clock' })).ok).toBe(true);
+    const m = await getMonth(db, lina, lina.id, 2026, 9);
+    if (!m.ok) throw new Error(m.error);
+    const day = (d: string) => m.value.summary.days.find((x) => x.day.date === d)!;
+    expect(day('2026-09-14').entry.workedMinutes).toBe(h(8)); // the schedule, as before the switch
+    expect(day('2026-09-21').entry.workedMinutes).toBe(h(11)); // the clock
+  });
+
+  it("can't start before the latest switch, or in or before a closed month", async () => {
+    const { boss: admin } = await setup();
+    const { setHoursSource } = await import('../settings');
+    const { monthClosures } = await import('@/db/schema');
+    await db.insert(monthClosures).values({ year: 2026, month: 8, closedById: admin.id });
+
+    expect(await setHoursSource(db, admin.id, { from: '2026-08-20', source: 'clock' })).toMatchObject({ error: 'hours_source_date' });
+    expect((await setHoursSource(db, admin.id, { from: '2026-09-15', source: 'clock' })).ok).toBe(true);
+    expect(await setHoursSource(db, admin.id, { from: '2026-09-10', source: 'schedule' })).toMatchObject({ error: 'hours_source_date' });
+    expect(await setHoursSource(db, admin.id, { from: 'not a date', source: 'schedule' })).toMatchObject({ error: 'invalid_input' });
+  });
+});
+

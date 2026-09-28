@@ -27,7 +27,7 @@ async function setup() {
   await setHoliday(db, null, { calendarId: sa.value, date: '2026-09-23', nameEn: 'Saudi National Day' });
   await setSetting(db, 'homeCalendarId', jo.value);
   // These tests cover schedule mode (every day pre-filled); clock mode has its own tests.
-  await setSetting(db, 'hoursSource', 'schedule');
+  await setSetting(db, 'hoursSource', []);
   const jadwa = await createClient(db, null, { nameEn: 'Jadwa', calendarId: sa.value });
   if (!jadwa.ok) throw new Error('client');
   const make = async (email: string, managerId: string | null, roles: ('hr' | 'admin' | 'finance')[] = [], assign = true) => {
@@ -93,7 +93,7 @@ describe('month report', () => {
 describe('month report in clock mode', () => {
   it('a forgotten clock-out adds no overtime to the report', async () => {
     const { lina, finance } = await setup();
-    await setSetting(db, 'hoursSource', 'clock');
+    await setSetting(db, 'hoursSource', [{ from: '2026-01-01', source: 'clock' }]);
     const { clock } = await import('../clock');
     const { ammanInstant } = await import('@/lib/format');
     await clock(db, lina.id, 'in', ammanInstant('2026-09-08', '09:00'));

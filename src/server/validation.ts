@@ -23,6 +23,7 @@ export type ErrorCode =
   | 'already_decided'
   | 'pending_changes'
   | 'clock_invalid'
+  | 'hours_source_date'
   | 'forbidden';
 
 export type Result<T = void> = { ok: true; value: T } | { ok: false; error: ErrorCode; detail?: string };

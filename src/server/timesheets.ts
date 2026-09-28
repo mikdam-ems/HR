@@ -18,6 +18,7 @@ import {
   type LeaveType,
   type MonthSummary,
   daysOfMonth,
+  monthUsesClock,
   summarizeMonth,
   windowMinutes,
 } from '@/domain';
@@ -145,12 +146,13 @@ export async function getMonth(
   }));
   const notes = Object.fromEntries(rows.filter((r) => r.note).map((r) => [r.date, r.note!]));
   const times = Object.fromEntries(rows.map((r) => [r.date, { start: r.startTime, end: r.endTime }]));
-  const clockSource =
-    appSettings.hoursSource === 'clock'
+  const periods = appSettings.hoursSource;
+  const clockSource = monthUsesClock(periods, year, month)
       ? await Promise.all([monthClock(db, employeeId, year, month), firstClockDates(db, [employeeId])]).then(([days, since]) => ({
           ...toClockedMonth(days),
           today: todayISO(),
           since: since[employeeId] ?? null,
+          periods,
         }))
       : undefined;
   const summary = summarizeMonth(ctx, employeeId, year, month, entries, appSettings.overtimeRates, clockSource);

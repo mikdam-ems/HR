@@ -89,11 +89,12 @@ Only people added by HR can sign in, and only with a Google account on the allow
 
 "Manager" isn't a role you assign: anyone with direct reports is a manager.
 
-**Hours come from the clock.** From the first day someone clocks in (website or `/ems in` in Slack), their
-timesheet fills from clocked time: a full day is the schedule (09:00–17:30 = 8h30), anything beyond is overtime,
-days not reached yet stay empty, and a past workday with no clock is flagged. Days before they first clocked keep
-the schedule, so people not on the clock yet are unaffected. Admins can switch back to schedule-filled timesheets
-in Settings.
+**Hours come from the clock — from October 2026.** From 1 October 2026 (and from the first day someone clocks
+in, website or `/ems in` in Slack), their timesheet fills from clocked time: a full day is the schedule
+(09:00–17:30 = 8h30 from October; 09:00–17:00 before), anything beyond is overtime, days not reached yet stay
+empty, a past workday with no clock is flagged, and a forgotten clock-out counts nothing until it's corrected.
+Days before they first clocked keep the schedule. Admins switch between the clock and the schedule in Settings
+with a start date: a switch never changes days before it, and can't start in a closed month.
 
 **Changing a day is a request.** When someone changes a day (hours, leave on the day, a note) it goes to their manager;
 the timesheet only changes once it's approved. At month end the person still submits the whole month for a final
