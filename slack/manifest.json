@@ -1,12 +1,12 @@
 {
   "display_information": {
-    "name": "EMS People & Culture",
+    "name": "EMS Clock",
     "description": "Clock in, breaks and clock out for EMS, straight from Slack.",
     "background_color": "#1f3201"
   },
   "features": {
     "bot_user": {
-      "display_name": "EMS People & Culture",
+      "display_name": "ems-clock",
       "always_online": false
     },
     "slash_commands": [
