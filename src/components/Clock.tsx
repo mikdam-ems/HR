@@ -165,18 +165,17 @@ export function TopClock({ data, labels }: { data: ClockData; labels: ClockLabel
   const elapsed = useElapsed(data.state !== 'out');
   const back = usePathname();
   const worked = data.workedMs + (data.state === 'working' ? elapsed : 0);
-  if (data.state === 'out' && !data.openFrom && worked < 60_000) {
-    return (
-      <form action={clockAction} className="top-clock-form">
-        <input type="hidden" name="kind" value="in" />
-        <input type="hidden" name="back" value={back} />
-        <button className="top-clock top-clock-out" title={labels.notIn}>
-          <span className="clock-dot" aria-hidden="true" />
-          {labels.in}
-        </button>
-      </form>
-    );
-  }
+  const clockIn = (
+    <form action={clockAction} className="top-clock-form">
+      <input type="hidden" name="kind" value="in" />
+      <input type="hidden" name="back" value={back} />
+      <button className="top-clock top-clock-out" title={labels.notIn}>
+        <span className="clock-dot" aria-hidden="true" />
+        {labels.in}
+      </button>
+    </form>
+  );
+  if (data.state === 'out' && !data.openFrom && worked < 60_000) return clockIn;
   const p = progress(worked, data.targetMs);
   const title = [
     data.state === 'break' ? labels.onBreak : data.state === 'working' ? labels.working : labels.notIn,
@@ -185,7 +184,7 @@ export function TopClock({ data, labels }: { data: ClockData; labels: ClockLabel
   ]
     .filter(Boolean)
     .join(' · ');
-  return (
+  const total = (
     <a href={data.openFrom ? '/' : '/attendance'} className={`top-clock clock-${data.state}${p.full ? ' is-full' : ''}${p.overMs ? ' is-over' : ''}`} title={title}>
       <span className="clock-dot" aria-hidden="true" />
       <span dir="ltr" className="top-clock-time">
@@ -201,4 +200,14 @@ export function TopClock({ data, labels }: { data: ClockData; labels: ClockLabel
       {data.state === 'break' ? <span className="top-clock-tag">☕</span> : null}
     </a>
   );
+  // Clocked out after working today (lunch, a client visit): keep the total and offer the next session.
+  if (data.state === 'out' && !data.openFrom) {
+    return (
+      <span className="top-clock-group">
+        {total}
+        {clockIn}
+      </span>
+    );
+  }
+  return total;
 }
