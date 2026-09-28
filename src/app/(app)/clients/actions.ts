@@ -97,11 +97,13 @@ export async function saveSettingsAction(fd: FormData) {
   }
   await setSetting(db, 'homeCalendarId', str(fd, 'homeCalendarId'));
   await setSetting(db, 'overtimeRates', { regular, special, offDay });
+  const hoursSource = str(fd, 'hoursSource') === 'schedule' ? 'schedule' : 'clock';
+  await setSetting(db, 'hoursSource', hoursSource);
   await audit(db, {
     actorId: actor.id,
     action: 'update',
     entity: 'settings',
-    after: { homeCalendarId: str(fd, 'homeCalendarId'), overtimeRates: { regular, special, offDay } },
+    after: { homeCalendarId: str(fd, 'homeCalendarId'), overtimeRates: { regular, special, offDay }, hoursSource },
   });
   revalidatePath('/');
   redirectWith('/settings', { ok: true, value: undefined });

@@ -74,7 +74,8 @@ Only people added by HR can sign in, and only with a Google account on the allow
 | Attach a document (e.g. a medical report) to a leave request | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Record that they told the client about their leave (the client is informed, not asked) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Clock in / out and take breaks, with a live timer — on the site or with `/ems in` in Slack ([setup](slack/README.md)) | ✓ | ✓ | ✓ | ✓ | ✓ |
-| See who on their team is working or on a break right now | | ✓ | | | |
+| See who on their team is working or on a break right now, and their attendance log | | ✓ | ✓ | ✓ | ✓ |
+| See their own attendance log (every clock in, break and out) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | See department and client pages, and the org chart (pyramid or outline) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Open leave attachments of their team | | ✓ | | | |
 | See their team's status; approve day changes; approve or return their team's timesheets and leave | | ✓ | | | |
@@ -87,6 +88,12 @@ Only people added by HR can sign in, and only with a Google account on the allow
 | Roles, home calendar, overtime rates; reopen a closed month | | | | | ✓ |
 
 "Manager" isn't a role you assign: anyone with direct reports is a manager.
+
+**Hours come from the clock.** From the first day someone clocks in (website or `/ems in` in Slack), their
+timesheet fills from clocked time: a full day is the schedule (09:00–17:30 = 8h30), anything beyond is overtime,
+days not reached yet stay empty, and a past workday with no clock is flagged. Days before they first clocked keep
+the schedule, so people not on the clock yet are unaffected. Admins can switch back to schedule-filled timesheets
+in Settings.
 
 **Changing a day is a request.** When someone changes a day (hours, leave on the day, a note) it goes to their manager;
 the timesheet only changes once it's approved. At month end the person still submits the whole month for a final

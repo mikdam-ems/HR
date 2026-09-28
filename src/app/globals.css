@@ -2389,3 +2389,61 @@ html[dir='rtl'] .clock-time strong {
     animation: none;
   }
 }
+
+/* ---------- Full day and overtime ---------- */
+.clock-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.progress-over span {
+  background: linear-gradient(90deg, var(--accent) 0%, #e0a526 100%);
+}
+.clock-verdict {
+  font-weight: 600;
+  color: var(--brand-900);
+}
+.clock-card.clock-break .clock-verdict {
+  color: var(--warn-fg);
+}
+.top-clock-time {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.top-clock-of {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 12px;
+}
+.top-clock.is-full {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.top-clock.is-full .clock-dot {
+  background: var(--on-accent);
+}
+.top-clock-over {
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  font-size: 12px;
+  font-weight: 700;
+}
+a.clock-pill {
+  text-decoration: none;
+}
+.clock-events summary {
+  cursor: pointer;
+  color: var(--brand-700);
+  margin-top: 2px;
+}
+.clock-events ul {
+  margin: 6px 0 0;
+  padding-inline-start: 16px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

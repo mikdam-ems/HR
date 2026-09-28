@@ -73,6 +73,7 @@ export default async function TimesheetPage({
     : undefined;
   const approver = approverRow ? localName(locale, approverRow.nameEn, approverRow.nameAr) : null;
   const pendingCount = Object.keys(view.pending).length;
+  const clockMode = view.summary.days.some((d) => d.future !== undefined);
   const decidedBy = view.timesheet?.decidedById ? await db.query.employees.findFirst({ where: (e, { eq }) => eq(e.id, view.timesheet!.decidedById!) }) : undefined;
 
   return (
@@ -102,18 +103,23 @@ export default async function TimesheetPage({
             ) : null}
           </span>
         </div>
-        {view.access.edit ? (
-          <form action={submitMonthAction}>
-            <input type="hidden" name="month" value={monthKey} />
-            <button className="btn btn-primary">{t.timesheet.submit}</button>
-          </form>
-        ) : null}
+        <div className="row">
+          <Link className="btn" href={`/attendance/${view.employee.id}?month=${monthKey}`}>
+            {t.timesheet.attendance}
+          </Link>
+          {view.access.edit ? (
+            <form action={submitMonthAction}>
+              <input type="hidden" name="month" value={monthKey} />
+              <button className="btn btn-primary">{t.timesheet.submit}</button>
+            </form>
+          ) : null}
+        </div>
       </div>
 
       <StatusNote view={view} t={t} locale={locale} decidedBy={decidedBy ? localName(locale, decidedBy.nameEn, decidedBy.nameAr) : ''} />
       {view.access.edit && view.status === 'draft' ? (
         <p className="muted" style={{ margin: 0 }}>
-          {t.timesheet.intro}
+          {clockMode ? t.timesheet.introClock : t.timesheet.intro}
         </p>
       ) : null}
       {pendingCount ? (
@@ -284,7 +290,7 @@ function DayCell({
         {future && worked && !d.changed ? <span className="muted small"> {t.timesheet.planned}</span> : null}
         {extra ? <span className="cell-extra"> +{formatHours(extra, locale)}</span> : null}
       </span>
-      {clock ? (
+      {clock && (d.clockedMinutes === undefined || d.changed) ? (
         <span className="cell-clock" title={t.clock.clocked}>
           ⏱ {formatHours(msToMinutes(clock.workedMs), locale)}
         </span>
@@ -384,7 +390,7 @@ function DayPanel({
         </div>
       </dl>
 
-      {view.access.edit && clock && !clock.open && date < todayISO() && !d.entry.leave && Math.abs(msToMinutes(clock.workedMs) - d.entry.workedMinutes) >= 15 ? (
+      {view.access.edit && d.future === undefined && clock && !clock.open && date < todayISO() && !d.entry.leave && Math.abs(msToMinutes(clock.workedMs) - d.entry.workedMinutes) >= 15 ? (
         <form action={saveDayAction}>
           <input type="hidden" name="date" value={date} />
           <input type="hidden" name="workedMinutes" value={msToMinutes(clock.workedMs)} />
@@ -447,7 +453,13 @@ function DayPanel({
             <form action={resetDayAction}>
               <input type="hidden" name="date" value={date} />
               <button className="btn" style={{ width: '100%' }}>
-                {approver ? t.timesheet.day.askReset : t.timesheet.day.reset}
+                {d.future !== undefined
+                  ? approver
+                    ? t.timesheet.day.askResetClock
+                    : t.timesheet.day.resetClock
+                  : approver
+                    ? t.timesheet.day.askReset
+                    : t.timesheet.day.reset}
               </button>
             </form>
           ) : null}

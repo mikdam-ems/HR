@@ -103,3 +103,47 @@ describe('month summary', () => {
     expect(m.totals.weightedOvertimeMinutes).toBe(h(3) + h(9.6));
   });
 });
+
+describe('clock mode', () => {
+  it('takes hours from the clock, leaves future days empty and flags past days with no clock', async () => {
+    const EMP = 'omar';
+    const s = summarizeMonth(ctx, EMP, 2026, 9, [], rates, { minutes: { '2026-09-15': 10 * 60, '2026-09-16': 8 * 60 }, today: '2026-09-17', since: '2026-09-14' });
+    const day = (d: string) => s.days.find((x) => x.day.date === d)!;
+    expect(day('2026-09-15').entry.workedMinutes).toBe(600);
+    expect(day('2026-09-15').changed).toBe(false);
+    expect(day('2026-09-15').totals.regularOvertimeMinutes).toBe(600 - day('2026-09-15').day.expectedMinutes);
+    expect(day('2026-09-14').issues.map((i) => i.code)).toContain('missing_hours');
+    expect(day('2026-09-17').issues).toEqual([]);
+    expect(day('2026-09-20').future).toBe(true);
+    expect(day('2026-09-20').entry.workedMinutes).toBe(0);
+  });
+
+  it('an approved change still overrides the clock', async () => {
+    const EMP = 'omar';
+    const s = summarizeMonth(ctx, EMP, 2026, 9, [{ date: '2026-09-15', workedMinutes: 0, leave: { type: 'sick', portion: 1 } }], rates, {
+      minutes: { '2026-09-15': 30 },
+      today: '2026-09-30',
+      since: '2026-09-01',
+    });
+    const d = s.days.find((x) => x.day.date === '2026-09-15')!;
+    expect(d.entry.leave?.type).toBe('sick');
+    expect(d.changed).toBe(true);
+    expect(d.clockedMinutes).toBe(30);
+  });
+});
+
+describe('clock mode starts on the first clock-in', () => {
+  it('keeps the schedule before someone started clocking, and entirely for people who never clocked', () => {
+    const s = summarizeMonth(ctx, 'omar', 2026, 9, [], rates, { minutes: { '2026-09-15': 600 }, today: '2026-09-17', since: '2026-09-15' });
+    const day = (d: string) => s.days.find((x) => x.day.date === d)!;
+    expect(day('2026-09-14').entry.workedMinutes).toBe(day('2026-09-14').day.expectedMinutes);
+    expect(day('2026-09-14').issues).toEqual([]);
+    expect(day('2026-09-14').future).toBeUndefined();
+    expect(day('2026-09-15').entry.workedMinutes).toBe(600);
+    expect(day('2026-09-16').issues.map((i) => i.code)).toContain('missing_hours');
+
+    const never = summarizeMonth(ctx, 'omar', 2026, 9, [], rates, { minutes: {}, today: '2026-09-17', since: null });
+    expect(never.days.every((d) => d.future === undefined)).toBe(true);
+    expect(never.issues.filter((i) => i.code === 'missing_hours')).toEqual([]);
+  });
+});

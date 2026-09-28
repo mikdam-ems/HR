@@ -29,6 +29,17 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </select>
           <span className="muted small">{t.settings.homeHint}</span>
         </div>
+        <fieldset className="stack" style={{ gap: 6 }}>
+          <legend className="label">{t.settings.hoursSource}</legend>
+          <label className="check">
+            <input type="radio" name="hoursSource" value="clock" defaultChecked={s.hoursSource === 'clock'} />
+            {t.settings.fromClock}
+          </label>
+          <label className="check">
+            <input type="radio" name="hoursSource" value="schedule" defaultChecked={s.hoursSource === 'schedule'} />
+            {t.settings.fromSchedule}
+          </label>
+        </fieldset>
         <fieldset className="stack">
           <legend className="label">{t.settings.rates}</legend>
           <div className="grid-form">

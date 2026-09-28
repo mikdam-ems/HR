@@ -14,6 +14,8 @@ export interface ClockData {
   /** Start of today's first session, as "09:05". */
   startedAt: string | null;
   openFrom: { date: string; label: string } | null;
+  /** A full day today (the scheduled minutes, e.g. 8h30); 0 on a day off, where any work is overtime. */
+  targetMs: number;
 }
 
 export interface ClockLabels {
@@ -33,6 +35,11 @@ export interface ClockLabels {
   leftAt: string;
   close: string;
   pilot: string;
+  fullDay: string;
+  overtime: string;
+  left: string;
+  of: string;
+  log: string;
 }
 
 /** Milliseconds since the page was rendered — the server totals plus this give a live clock. */
@@ -53,6 +60,17 @@ const hms = (ms: number) => {
   return `${Math.floor(s / 3600)}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
 };
 const hm = (ms: number) => hms(ms).slice(0, -3);
+
+/** Where today stands against a full day. */
+function progress(workedMs: number, targetMs: number) {
+  const over = workedMs - targetMs;
+  return {
+    pct: targetMs ? Math.min(100, (workedMs / targetMs) * 100) : 100,
+    full: targetMs > 0 && workedMs >= targetMs,
+    overMs: over > 0 && (targetMs > 0 || workedMs > 0) ? over : 0,
+    leftMs: targetMs > workedMs ? targetMs - workedMs : 0,
+  };
+}
 
 function Action({ kind, label, primary = false, small = false }: { kind: string; label: string; primary?: boolean; small?: boolean }) {
   const back = usePathname();
@@ -107,6 +125,25 @@ export function ClockCard({ data, labels }: { data: ClockData; labels: ClockLabe
               {rest >= 60_000 ? ` · ${labels.breaks} ${hm(rest)}` : ''}
             </span>
           </div>
+          {(() => {
+            const p = progress(worked, data.targetMs);
+            return (
+              <div className="clock-progress">
+                <div className={`progress${p.overMs ? ' progress-over' : ''}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p.pct)}>
+                  <span style={{ inlineSize: `${p.pct}%` }} />
+                </div>
+                <span className="small clock-verdict">
+                  {p.overMs
+                    ? `${p.full ? `✓ ${labels.fullDay} · ` : ''}${labels.overtime} +${hm(p.overMs)}`
+                    : p.full
+                      ? `✓ ${labels.fullDay}`
+                      : data.targetMs
+                        ? labels.left.replace('{time}', hm(p.leftMs)).replace('{target}', hm(data.targetMs))
+                        : ''}
+                </span>
+              </div>
+            );
+          })()}
           <div className="row">
             {data.state === 'out' ? <Action kind="in" label={labels.in} primary /> : null}
             {data.state === 'working' ? <Action kind="break_start" label={labels.breakStart} /> : null}
@@ -115,16 +152,20 @@ export function ClockCard({ data, labels }: { data: ClockData; labels: ClockLabe
           </div>
         </>
       )}
-      <span className="muted small">{labels.pilot}</span>
+      <span className="row muted small" style={{ justifyContent: 'space-between' }}>
+        <span>{labels.pilot}</span>
+        <a href="/attendance">{labels.log}</a>
+      </span>
     </section>
   );
 }
 
-/** The small running clock in the top bar, visible on every page while clocked in. */
+/** The top-bar total: today's worked hours against a full day, always visible, with overtime once it's passed. */
 export function TopClock({ data, labels }: { data: ClockData; labels: ClockLabels }) {
   const elapsed = useElapsed(data.state !== 'out');
   const back = usePathname();
-  if (data.state === 'out' && !data.openFrom) {
+  const worked = data.workedMs + (data.state === 'working' ? elapsed : 0);
+  if (data.state === 'out' && !data.openFrom && worked < 60_000) {
     return (
       <form action={clockAction} className="top-clock-form">
         <input type="hidden" name="kind" value="in" />
@@ -136,11 +177,27 @@ export function TopClock({ data, labels }: { data: ClockData; labels: ClockLabel
       </form>
     );
   }
-  const worked = data.workedMs + (data.state === 'working' ? elapsed : 0);
+  const p = progress(worked, data.targetMs);
+  const title = [
+    data.state === 'break' ? labels.onBreak : data.state === 'working' ? labels.working : labels.notIn,
+    p.full ? labels.fullDay : null,
+    p.overMs ? `${labels.overtime} +${hm(p.overMs)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   return (
-    <a href="/" className={`top-clock clock-${data.state}`} title={data.state === 'break' ? labels.onBreak : labels.working}>
+    <a href="/attendance" className={`top-clock clock-${data.state}${p.full ? ' is-full' : ''}${p.overMs ? ' is-over' : ''}`} title={title}>
       <span className="clock-dot" aria-hidden="true" />
-      <span dir="ltr">{hm(worked)}</span>
+      <span dir="ltr" className="top-clock-time">
+        {hm(worked)}
+        {!p.full && data.targetMs ? <span className="top-clock-of"> / {hm(data.targetMs)}</span> : null}
+        {p.full && !p.overMs ? <span className="top-clock-tag"> ✓</span> : null}
+      </span>
+      {p.overMs ? (
+        <span className="top-clock-over" dir="ltr">
+          +{hm(p.overMs)}
+        </span>
+      ) : null}
       {data.state === 'break' ? <span className="top-clock-tag">☕</span> : null}
     </a>
   );

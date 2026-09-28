@@ -8,12 +8,15 @@ export interface AppSettings {
   /** EMS's own calendar (Jordan). Its holidays trigger special overtime. */
   homeCalendarId: string | null;
   overtimeRates: OvertimeRates;
+  /** Where a day's hours come from: clocked time (default), or the schedule as before the clock existed. */
+  hoursSource: 'clock' | 'schedule';
 }
 
 /** Only special (1.2) is decided; regular and off-day are placeholders until HR confirms. */
 export const DEFAULT_SETTINGS: AppSettings = {
   homeCalendarId: null,
   overtimeRates: { regular: 1, special: 1.2, offDay: 1 },
+  hoursSource: 'clock',
 };
 
 async function getSettingsUncached(db: DB): Promise<AppSettings> {
@@ -22,6 +25,7 @@ async function getSettingsUncached(db: DB): Promise<AppSettings> {
   return {
     homeCalendarId: (map.homeCalendarId as string | undefined) ?? DEFAULT_SETTINGS.homeCalendarId,
     overtimeRates: { ...DEFAULT_SETTINGS.overtimeRates, ...(map.overtimeRates as Partial<OvertimeRates>) },
+    hoursSource: map.hoursSource === 'schedule' ? 'schedule' : DEFAULT_SETTINGS.hoursSource,
   };
 }
 

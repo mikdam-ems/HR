@@ -134,7 +134,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </section>
 
         <div className="span-6 clock-slot">
-          <ClockCard data={toClockData(myClock, locale)} labels={t.clock} />
+          <ClockCard data={toClockData(myClock, locale, day.expectedMinutes)} labels={t.clock} />
         </div>
 
         <section className="card kpi span-3">
@@ -227,11 +227,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   </Link>
                   <span className="row" style={{ gap: 6 }}>
                     {teamNow[r.id] && teamNow[r.id]!.state !== 'out' ? (
-                      <span className={`clock-pill clock-${teamNow[r.id]!.state}`}>
+                      <Link href={`/attendance/${r.id}`} className={`clock-pill clock-${teamNow[r.id]!.state}`}>
                         <span className="clock-dot" aria-hidden="true" />
                         {teamNow[r.id]!.state === 'break' ? t.clock.onBreak : t.clock.working}
                         {teamNow[r.id]!.since ? ` · ${timeOfDay(teamNow[r.id]!.since!)}` : ''}
-                      </span>
+                      </Link>
                     ) : null}
                     <DayBadge type={resolveDay(ctx, r.id, today).dayType} t={t} />
                   </span>

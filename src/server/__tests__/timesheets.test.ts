@@ -21,7 +21,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`TRUNCATE audit_log, day_change_requests, day_entries, timesheets, assignments, schedules, holidays, clients, calendars, settings, employees CASCADE`,
+    sql`TRUNCATE audit_log, clock_events, day_change_requests, day_entries, timesheets, assignments, schedules, holidays, clients, calendars, settings, employees CASCADE`,
   );
 });
 
@@ -34,6 +34,8 @@ async function setup() {
   await setHoliday(db, null, { calendarId: sa.value, date: '2026-09-23', nameEn: 'Saudi National Day' });
   await setHoliday(db, null, { calendarId: jo.value, date: '2026-08-26', nameEn: "Prophet's Birthday (test)" });
   await setSetting(db, 'homeCalendarId', jo.value);
+  // These tests cover schedule mode (every day pre-filled); clock mode has its own tests.
+  await setSetting(db, 'hoursSource', 'schedule');
   const jadwa = await createClient(db, null, { nameEn: 'Jadwa', calendarId: sa.value });
   if (!jadwa.ok) throw new Error('client');
 
@@ -267,5 +269,38 @@ describe('day changes need the manager', () => {
     const { boss } = await setup();
     const r = await ts.saveDay(db, boss, boss.id, { date: '2026-09-15', workedMinutes: h(10) });
     expect(r).toMatchObject({ ok: true, value: { applied: true } });
+  });
+});
+
+describe('clock mode', () => {
+  it('fills the month from clock in/out; past days with no clock are flagged, future days stay empty', async () => {
+    const { lina } = await setup();
+    await setSetting(db, 'hoursSource', 'clock');
+    const { clock } = await import('../clock');
+    const { ammanInstant } = await import('@/lib/format');
+    await clock(db, lina.id, 'in', ammanInstant('2026-09-15', '09:00'));
+    await clock(db, lina.id, 'out', ammanInstant('2026-09-15', '19:30'));
+
+    const m = await getMonth(db, lina, lina.id, 2026, 9);
+    if (!m.ok) throw new Error(m.error);
+    const day = (d: string) => m.value.summary.days.find((x) => x.day.date === d)!;
+    expect(day('2026-09-15').entry.workedMinutes).toBe(h(10.5));
+    expect(day('2026-09-15').totals.regularOvertimeMinutes).toBe(h(10.5) - day('2026-09-15').day.expectedMinutes);
+    // Before the first clock-in the schedule still applies; after it, a day with no clock is missing.
+    expect(day('2026-09-14').entry.workedMinutes).toBe(day('2026-09-14').day.expectedMinutes);
+    expect(day('2026-09-16').entry.workedMinutes).toBe(0);
+    expect(day('2026-09-16').issues.map((i) => i.code)).toContain('missing_hours');
+  });
+
+  it('a correction for a forgotten clock-in is a request, and once approved it counts', async () => {
+    const { lina, khaled } = await setup();
+    await setSetting(db, 'hoursSource', 'clock');
+    const r = await ts.saveDay(db, lina, lina.id, { date: '2026-09-14', startTime: '09:00', endTime: '17:00', note: 'Forgot to clock in' });
+    if (!r.ok) throw new Error(r.error);
+    expect(r.value.requestId).not.toBeNull();
+    await ts.decideDayChange(db, khaled, r.value.requestId!, 'approve');
+    const m = await getMonth(db, lina, lina.id, 2026, 9);
+    if (!m.ok) throw new Error(m.error);
+    expect(m.value.summary.days.find((x) => x.day.date === '2026-09-14')!.entry.workedMinutes).toBe(h(8));
   });
 });

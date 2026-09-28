@@ -91,6 +91,10 @@ export interface MonthDay {
   entry: DayEntry;
   /** True when the entry differs from the auto-filled one — these are what the manager reviews. */
   changed: boolean;
+  /** Clock mode: minutes clocked that day (undefined when nothing was clocked). */
+  clockedMinutes?: number;
+  /** Clock mode: the day hasn't happened yet, so it's left empty. */
+  future?: boolean;
   totals: DayTotals;
   issues: Issue[];
 }
@@ -109,6 +113,24 @@ export interface MonthSummary {
   issues: Issue[];
 }
 
+/**
+ * Where a day's hours come from when nobody changed it:
+ * - schedule mode (no `clock` given): the scheduled hours on workdays;
+ * - clock mode: the minutes clocked that day. Days after `today` stay empty, and a past workday with
+ *   no clock record and no leave is flagged as missing.
+ * An approved change (an entry) always wins over both.
+ */
+export interface ClockSource {
+  /** Minutes clocked per date. */
+  minutes: Readonly<Record<ISODate, number>>;
+  today: ISODate;
+  /**
+   * The first day this person ever clocked in. The clock takes over from that day; earlier days (before
+   * they started using it) keep the schedule. Null: they've never clocked, so the whole month uses the schedule.
+   */
+  since: ISODate | null;
+}
+
 /** Builds a full month: resolves every day, fills in what the employee didn't change, totals and checks. */
 export function summarizeMonth(
   ctx: RulesContext,
@@ -117,6 +139,7 @@ export function summarizeMonth(
   month: number,
   entries: readonly DayEntry[],
   rates: OvertimeRates,
+  clock?: ClockSource,
 ): MonthSummary {
   const byDate = new Map(entries.map((e) => [e.date, e]));
   const totals: MonthTotals = {
@@ -133,7 +156,10 @@ export function summarizeMonth(
 
   for (const date of daysOfMonth(year, month)) {
     const day = resolveDay(ctx, employeeId, date);
-    const prefilled = prefillEntry(day);
+    const byClock = !!clock && clock.since !== null && date >= clock.since;
+    const clockedMinutes = byClock ? clock.minutes[date] : undefined;
+    const future = byClock ? date > clock.today : false;
+    const prefilled = byClock ? { date, workedMinutes: clockedMinutes ?? 0 } : prefillEntry(day);
     const entry = byDate.get(date) ?? prefilled;
     const changed = entry !== prefilled && (entry.workedMinutes !== prefilled.workedMinutes || !!entry.leave);
     const dayTotals = computeDayTotals(day, entry, rates);
@@ -150,7 +176,9 @@ export function summarizeMonth(
       totals.leaveDaysByType[t] = (totals.leaveDaysByType[t] ?? 0) + dayTotals.leaveDays;
     }
 
-    days.push({ day, entry, changed, totals: dayTotals, issues: checkDay(day, entry) });
+    // In clock mode only past days can be missing hours; today and later are still to come.
+    const issues = checkDay(day, entry).filter((i) => !(byClock && i.code === 'missing_hours' && date >= clock.today));
+    days.push({ day, entry, changed, totals: dayTotals, issues, ...(byClock ? { clockedMinutes, future } : {}) });
   }
 
   return { employeeId, year, month, days, totals, issues: days.flatMap((d) => d.issues) };

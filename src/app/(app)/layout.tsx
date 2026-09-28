@@ -7,6 +7,9 @@ import { StatusBubble } from '@/components/StatusBubble';
 import { TopClock } from '@/components/Clock';
 import { toClockData } from '@/lib/clockData';
 import { clockView } from '@/server/clock';
+import { loadRulesContext } from '@/server/rulesContext';
+import { resolveDay } from '@/domain';
+import { todayISO } from '@/lib/format';
 import { demoMode } from '@/auth';
 import { getDict, localName } from '@/i18n';
 import { can } from '@/server/permissions';
@@ -22,7 +25,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const approver = user.isManager || user.roles.includes('admin');
   const db = await getDb();
   const pending = approver ? (await countPendingApprovals(db, user)) + (await countPendingLeave(db, user)) : 0;
-  const clockData = toClockData(await clockView(db, user.id), locale);
+  const [myClock, ctx] = await Promise.all([clockView(db, user.id), loadRulesContext(db)]);
+  const clockData = toClockData(myClock, locale, resolveDay(ctx, user.id, todayISO()).expectedMinutes);
   const links = [
     { href: '/', label: t.nav.home },
     { href: '/timesheet', label: t.nav.timesheet },

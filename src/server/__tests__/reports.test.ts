@@ -26,6 +26,8 @@ async function setup() {
   if (!sa.ok || !jo.ok) throw new Error('calendar');
   await setHoliday(db, null, { calendarId: sa.value, date: '2026-09-23', nameEn: 'Saudi National Day' });
   await setSetting(db, 'homeCalendarId', jo.value);
+  // These tests cover schedule mode (every day pre-filled); clock mode has its own tests.
+  await setSetting(db, 'hoursSource', 'schedule');
   const jadwa = await createClient(db, null, { nameEn: 'Jadwa', calendarId: sa.value });
   if (!jadwa.ok) throw new Error('client');
   const make = async (email: string, managerId: string | null, roles: ('hr' | 'admin' | 'finance')[] = [], assign = true) => {
