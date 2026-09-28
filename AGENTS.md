@@ -17,3 +17,4 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Brand colours are CSS variables in `src/app/globals.css`. Text on the green (`--brand-600`) is `--brand-950`, never white.
 - Schema changes: edit `src/db/schema.ts`, then `npm run db:generate` and commit the new file in `drizzle/`.
 - Before pushing: `npm test && npm run typecheck && npm run build`.
+- The `clean-code` skill (`.claude/skills/clean-code`) is general guidance. Where it differs, this project's conventions win: server functions return a `Result` (`ok` / `fail`) instead of throwing, functions return `null`/`undefined` for "not found", and short comments explaining *why* are welcome.
