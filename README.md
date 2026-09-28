@@ -5,6 +5,7 @@ Each person's days off, work week and overtime follow the client they're assigne
 
 - **Plan (product):** [EMS People & Culture — Plan v0.1](https://claude.ai/code/artifact/2644cbbc-032f-4bd5-9c32-532e915d4536)
 - **Wireframes:** [People & Culture Wireframes](https://claude.ai/artifact/5aTvRyU8yfekwc93seUufT)
+- **Brand directions (product):** [HR Product Brand Directions](https://claude.ai/artifact/FYrBeJ1ZjgnWcodFgSfYNK)
 - **Technical design:** [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md)
 
 ## Status
