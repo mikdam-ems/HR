@@ -374,6 +374,8 @@ export const en = {
     over: 'Overtime +{time}',
     dayOff: 'Day off',
     stillIn: 'Still in',
+    toGo: 'Today · {time} to go',
+    sinceFirst: 'The log starts on the first clock-in ({date}); days before it keep the schedule.',
     noRecord: 'Nothing clocked this month yet.',
     events: 'Show clock events',
     kinds: { in: 'Clocked in', break_start: 'Break started', break_end: 'Back from break', out: 'Clocked out' },
