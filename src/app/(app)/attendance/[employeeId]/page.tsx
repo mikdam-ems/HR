@@ -9,7 +9,7 @@ import { firstClockDates, monthClock } from '@/server/clock';
 import { getEmployeeProfile } from '@/server/people';
 import { loadRulesContext } from '@/server/rulesContext';
 import { requireUser } from '@/server/session';
-import { accessFor } from '@/server/timesheets';
+import { canViewAttendance } from '@/server/timesheets';
 
 function parseMonth(value: string | undefined): [number, number] {
   const m = /^(\d{4})-(\d{2})$/.exec(value ?? '');
@@ -36,7 +36,7 @@ export default async function AttendancePage({
   const db = await getDb();
   const person = await getEmployeeProfile(db, (await params).employeeId);
   if (!person) notFound();
-  if (!accessFor(user, person, 'draft').view) {
+  if (!canViewAttendance(user, person)) {
     return (
       <div className="flash flash-error" role="alert">
         {t.errors.forbidden}

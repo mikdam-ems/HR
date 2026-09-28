@@ -352,3 +352,13 @@ describe('switching where hours come from (issue #4)', () => {
   });
 });
 
+describe('who sees an attendance log', () => {
+  it('the person, their manager, HR, Finance and admins; not a teammate', async () => {
+    const { lina, omar, khaled, hr, boss } = await setup();
+    const finance = { id: 'f', roles: ['finance'] } as ts.Actor;
+    const linaRow = { id: lina.id, managerId: khaled.id };
+    for (const who of [lina, khaled, hr, boss, finance]) expect(ts.canViewAttendance(who, linaRow)).toBe(true);
+    expect(ts.canViewAttendance(omar, linaRow)).toBe(false);
+  });
+});
+
