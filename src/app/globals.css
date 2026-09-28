@@ -2340,3 +2340,52 @@ html[dir='rtl'] .clock-time strong {
     display: none;
   }
 }
+
+/* ---------- Performance ----------
+ * Blurring what's behind a surface is costly, especially while scrolling. Cards sit on a smooth gradient, where a
+ * blur changes nothing visible, so only surfaces with content scrolling underneath (top bar, menus, the status
+ * bubble) keep it. The translucent white stays, so the look is the same. */
+.card:not(.card-dark):not(.card-accent),
+.table-wrap,
+.stat,
+.org-card,
+.pyr-card,
+.segmented-light,
+.top-clock {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.card:not(.card-dark):not(.card-accent),
+.table-wrap,
+.stat {
+  background: rgba(255, 255, 255, 0.66);
+}
+.page-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.skeleton {
+  border-radius: var(--r-card);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.8) 50%, rgba(255, 255, 255, 0.45) 100%);
+  background-size: 200% 100%;
+  animation: skeleton 1.2s ease-in-out infinite;
+}
+.skeleton-title {
+  width: 260px;
+  height: 40px;
+  border-radius: var(--r-pill);
+}
+@keyframes skeleton {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}

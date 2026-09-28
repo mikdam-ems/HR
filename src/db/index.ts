@@ -42,8 +42,10 @@ const serverless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
  * Anything else (or unset) uses PGlite, an embedded PostgreSQL stored in PGLITE_DIR — zero setup for local dev.
  */
 export async function createDb(url = databaseUrl()): Promise<DB> {
+  // DB_LOG=1 prints every query — handy for spotting slow pages.
+  const logger = process.env.DB_LOG === '1';
   if (url?.startsWith('postgres')) {
-    const db = drizzlePg(new Pool({ connectionString: url }), { schema });
+    const db = drizzlePg(new Pool({ connectionString: url }), { schema, logger });
     await migratePg(db, { migrationsFolder: MIGRATIONS });
     return db;
   }
@@ -54,7 +56,7 @@ export async function createDb(url = databaseUrl()): Promise<DB> {
   }
   const dir = url === 'memory' ? undefined : (process.env.PGLITE_DIR ?? path.join(process.cwd(), '.data', 'pglite'));
   if (dir) mkdirSync(dir, { recursive: true });
-  const db = drizzlePglite(new PGlite(dir), { schema });
+  const db = drizzlePglite(new PGlite(dir), { schema, logger });
   await migratePglite(db, { migrationsFolder: MIGRATIONS });
   return db as unknown as DB;
 }

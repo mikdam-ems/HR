@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { and, asc, desc, eq, gte, inArray, lte, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DB } from '@/db';
@@ -377,7 +378,7 @@ export async function listPendingLeave(db: DB, actor: Actor): Promise<(LeaveRequ
   return rows.map((r) => ({ ...r, employee: mine.find((p) => p.id === r.employeeId)! }));
 }
 
-export async function countPendingLeave(db: DB, actor: Actor): Promise<number> {
+async function countPendingLeaveUncached(db: DB, actor: Actor): Promise<number> {
   const people = await db.select({ id: employees.id, managerId: employees.managerId }).from(employees);
   const ids = people.filter((p) => canDecide(actor, p)).map((p) => p.id);
   if (!ids.length) return 0;
@@ -512,3 +513,6 @@ export async function uninformedUpcomingLeave(db: DB, employeeId: string, today:
   }
   return out;
 }
+
+/** Loaded once per page render and shared by everything on the page. */
+export const countPendingLeave = cache(countPendingLeaveUncached);

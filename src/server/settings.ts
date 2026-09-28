@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { eq } from 'drizzle-orm';
 import type { DB } from '@/db';
 import { settings } from '@/db/schema';
@@ -15,7 +16,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   overtimeRates: { regular: 1, special: 1.2, offDay: 1 },
 };
 
-export async function getSettings(db: DB): Promise<AppSettings> {
+async function getSettingsUncached(db: DB): Promise<AppSettings> {
   const rows = await db.select().from(settings);
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   return {
@@ -29,3 +30,6 @@ export async function setSetting<K extends keyof AppSettings>(db: DB, key: K, va
   if (existing.length) await db.update(settings).set({ value }).where(eq(settings.key, key));
   else await db.insert(settings).values({ key, value });
 }
+
+/** Loaded once per page render and shared by everything on the page. */
+export const getSettings = cache(getSettingsUncached);

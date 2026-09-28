@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { and, asc, between, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DB } from '@/db';
@@ -494,7 +495,7 @@ export async function monthStatus(db: DB, employeeId: string, year: number, mont
 
 
 /** How many submitted timesheets and day changes wait for this person — cheap enough for the navigation badge. */
-export async function countPendingApprovals(db: DB, actor: Actor): Promise<number> {
+async function countPendingApprovalsUncached(db: DB, actor: Actor): Promise<number> {
   const people = await db.select({ id: employees.id, managerId: employees.managerId }).from(employees);
   const ids = people.filter((p) => canDecideFor(actor, p)).map((p) => p.id);
   if (!ids.length) return 0;
@@ -507,3 +508,6 @@ export async function countPendingApprovals(db: DB, actor: Actor): Promise<numbe
   ]);
   return sheets.length + changes.length;
 }
+
+/** Loaded once per page render and shared by everything on the page. */
+export const countPendingApprovals = cache(countPendingApprovalsUncached);

@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import type { DB } from '@/db';
 import { assignments, calendars, clients, holidays, schedules } from '@/db/schema';
 import type { RulesContext, Weekday, WorkCalendar } from '@/domain';
@@ -9,7 +10,7 @@ const EMPTY_HOME: WorkCalendar = { id: 'none', name: 'No home calendar set', wor
  * Loads everything the rules engine needs from the database. At EMS's size (tens of people,
  * a handful of clients) loading it all is cheaper and simpler than filtering.
  */
-export async function loadRulesContext(db: DB): Promise<RulesContext> {
+async function loadRulesContextUncached(db: DB): Promise<RulesContext> {
   const [calRows, holidayRows, clientRows, assignmentRows, scheduleRows, appSettings] = await Promise.all([
     db.select().from(calendars),
     db.select().from(holidays),
@@ -50,3 +51,6 @@ export async function loadRulesContext(db: DB): Promise<RulesContext> {
     })),
   };
 }
+
+/** Loaded once per page render and shared by everything on the page. */
+export const loadRulesContext = cache(loadRulesContextUncached);

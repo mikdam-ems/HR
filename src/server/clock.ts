@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { and, asc, desc, eq, gte, inArray, lt } from 'drizzle-orm';
 import type { DB } from '@/db';
 import { clockEvents } from '@/db/schema';
@@ -77,7 +78,7 @@ export interface ClockView {
 }
 
 /** Everything the clock widget needs for one person. */
-export async function clockView(db: DB, employeeId: string, now = new Date()): Promise<ClockView> {
+async function clockViewUncached(db: DB, employeeId: string, now = new Date()): Promise<ClockView> {
   const events = await db
     .select()
     .from(clockEvents)
@@ -124,3 +125,6 @@ export async function teamClock(db: DB, ids: string[]): Promise<Record<string, {
   for (const id of ids) out[id] = stateAfter(rows.filter((r) => r.employeeId === id));
   return out;
 }
+
+/** Loaded once per page render and shared by everything on the page. */
+export const clockView = cache(clockViewUncached);
