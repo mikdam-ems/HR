@@ -22,6 +22,7 @@ export type ErrorCode =
   | 'not_all_approved'
   | 'already_decided'
   | 'pending_changes'
+  | 'clock_invalid'
   | 'forbidden';
 
 export type Result<T = void> = { ok: true; value: T } | { ok: false; error: ErrorCode; detail?: string };

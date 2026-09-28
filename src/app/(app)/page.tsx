@@ -1,12 +1,15 @@
 import Link from 'next/link';
 import { Avatar } from '@/components/Avatar';
+import { ClockCard } from '@/components/Clock';
 import { DayBadge } from '@/components/DayBadge';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { markClientNotifiedAction } from '@/app/(app)/time-off/actions';
 import { addDays, resolveDay } from '@/domain';
 import { clientLabel, fmt, getDict, holidayLabel, localName, plural } from '@/i18n';
-import { formatDate, formatHours, todayISO } from '@/lib/format';
+import { toClockData } from '@/lib/clockData';
+import { formatDate, formatHours, timeOfDay, todayISO } from '@/lib/format';
+import { clockView, teamClock } from '@/server/clock';
 import { listDepartments } from '@/server/departments';
 import { getEmployeeProfile, listEmployees } from '@/server/people';
 import { currentStatus } from '@/server/profile';
@@ -48,6 +51,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const overtime = totals ? totals.regularOvertimeMinutes + totals.specialOvertimeMinutes + totals.offDayOvertimeMinutes : 0;
   const progress = totals?.expectedMinutes ? Math.min(100, Math.round((totals.workedMinutes / totals.expectedMinutes) * 100)) : 0;
   const team = (profile?.reports ?? []).filter((r) => r.active);
+  const [myClock, teamNow] = await Promise.all([clockView(db, user.id), teamClock(db, team.map((r) => r.id))]);
 
   // Headcount by department, for HR, Finance and the General Manager.
   const headcount = [
@@ -129,6 +133,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </div>
         </section>
 
+        <div className="span-6 clock-slot">
+          <ClockCard data={toClockData(myClock, locale)} labels={t.clock} />
+        </div>
+
         <section className="card kpi span-3">
           <span className="label">{t.home.hoursThisMonth}</span>
           <strong className="kpi-value">{formatHours(totals?.workedMinutes ?? 0, locale)}</strong>
@@ -161,7 +169,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </section>
         )}
 
-        <section className="card span-8" aria-labelledby="next7">
+        <section className="card span-12" aria-labelledby="next7">
           <h2 id="next7">{t.home.next7}</h2>
           <ol className="timeline">
             {week.map((d) => (
@@ -176,7 +184,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </ol>
         </section>
 
-        <section className="card span-4">
+        <section className="card span-6">
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <h2>{fmt(t.home.timesheetCard, { month: formatDate(today, locale, { month: 'long' }) })}</h2>
             <span className={`badge status-${status}`}>{t.timesheet.status[status]}</span>
@@ -217,7 +225,16 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                       </span>
                     </span>
                   </Link>
-                  <DayBadge type={resolveDay(ctx, r.id, today).dayType} t={t} />
+                  <span className="row" style={{ gap: 6 }}>
+                    {teamNow[r.id] && teamNow[r.id]!.state !== 'out' ? (
+                      <span className={`clock-pill clock-${teamNow[r.id]!.state}`}>
+                        <span className="clock-dot" aria-hidden="true" />
+                        {teamNow[r.id]!.state === 'break' ? t.clock.onBreak : t.clock.working}
+                        {teamNow[r.id]!.since ? ` · ${timeOfDay(teamNow[r.id]!.since!)}` : ''}
+                      </span>
+                    ) : null}
+                    <DayBadge type={resolveDay(ctx, r.id, today).dayType} t={t} />
+                  </span>
                 </li>
               ))}
             </ul>

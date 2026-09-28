@@ -8,11 +8,13 @@ import { type MonthDay, weekdayOf } from '@/domain';
 import { clientLabel, fmt, getDict, holidayLabel, localName, type Locale } from '@/i18n';
 import type { Dict } from '@/i18n/en';
 import type { DayChangeRow } from '@/db/schema';
-import { formatDate, formatHours, todayISO } from '@/lib/format';
+import { formatDate, formatHours, timeOfDay, todayISO } from '@/lib/format';
 import { loadRulesContext } from '@/server/rulesContext';
 import { requireUser } from '@/server/session';
 import { getSettings } from '@/server/settings';
 import { getMonth, type MonthView } from '@/server/timesheets';
+import { monthClock } from '@/server/clock';
+import { type ClockDay, msToMinutes } from '@/domain';
 
 const LEAVE_TYPES = ['annual', 'sick', 'unpaid', 'compensatory', 'bereavement', 'paternity', 'maternity', 'hajj'] as const;
 
@@ -53,7 +55,7 @@ export default async function TimesheetPage({
     );
   }
   const view = result.value;
-  const [ctx, appSettings] = await Promise.all([loadRulesContext(db), getSettings(db)]);
+  const [ctx, appSettings, clocked] = await Promise.all([loadRulesContext(db), getSettings(db), monthClock(db, employeeId, year, month)]);
   const own = view.employee.id === user.id;
   const today = todayISO();
   const selected = view.summary.days.find((d) => d.day.date === search.day) ?? null;
@@ -154,7 +156,7 @@ export default async function TimesheetPage({
               <div key={`lead-${i}`} className="cell cell-empty" aria-hidden="true" />
             ))}
             {view.summary.days.map((d) => (
-              <DayCell key={d.day.date} d={d} t={t} locale={locale} monthKey={monthKey} today={today} selected={d.day.date === selected?.day.date} pending={!!view.pending[d.day.date]} />
+              <DayCell key={d.day.date} d={d} t={t} locale={locale} monthKey={monthKey} today={today} selected={d.day.date === selected?.day.date} pending={!!view.pending[d.day.date]} clock={clocked[d.day.date]} />
             ))}
           </div>
           <div className="legend">
@@ -177,7 +179,7 @@ export default async function TimesheetPage({
 
         <aside className="card day-panel" aria-label={selected ? formatDate(selected.day.date, locale) : t.timesheet.checks}>
           {selected ? (
-            <DayPanel d={selected} view={view} t={t} locale={locale} clientNames={(ids) => clientLabel(locale, ctx.clients, ids)} rate={appSettings.overtimeRates.special} approver={approver} />
+            <DayPanel d={selected} view={view} t={t} locale={locale} clientNames={(ids) => clientLabel(locale, ctx.clients, ids)} rate={appSettings.overtimeRates.special} approver={approver} clock={clocked[selected.day.date]} />
           ) : (
             <>
               <p className="muted" style={{ margin: 0 }}>
@@ -242,6 +244,7 @@ function DayCell({
   today,
   selected,
   pending,
+  clock,
 }: {
   d: MonthDay;
   t: Dict;
@@ -250,6 +253,7 @@ function DayCell({
   today: string;
   selected: boolean;
   pending: boolean;
+  clock?: ClockDay;
 }) {
   const date = d.day.date;
   const kind = cellKind(d);
@@ -280,6 +284,11 @@ function DayCell({
         {future && worked && !d.changed ? <span className="muted small"> {t.timesheet.planned}</span> : null}
         {extra ? <span className="cell-extra"> +{formatHours(extra, locale)}</span> : null}
       </span>
+      {clock ? (
+        <span className="cell-clock" title={t.clock.clocked}>
+          ⏱ {formatHours(msToMinutes(clock.workedMs), locale)}
+        </span>
+      ) : null}
     </Link>
   );
 }
@@ -292,6 +301,7 @@ function DayPanel({
   clientNames,
   rate,
   approver,
+  clock,
 }: {
   d: MonthDay;
   view: MonthView;
@@ -300,6 +310,7 @@ function DayPanel({
   clientNames: (ids: string[]) => string;
   rate: number;
   approver: string | null;
+  clock?: ClockDay;
 }) {
   const date = d.day.date;
   const pending = view.pending[date];
@@ -352,11 +363,41 @@ function DayPanel({
           <dd>{otText}</dd>
         </div>
         <div>
+          <dt>{t.clock.clocked}</dt>
+          <dd>
+            {clock ? (
+              <>
+                <bdi dir="ltr">
+                  {timeOfDay(clock.firstIn)}–{clock.lastOut ? timeOfDay(clock.lastOut) : '…'}
+                </bdi>{' '}
+                · {formatHours(msToMinutes(clock.workedMs), locale)}
+                {clock.open ? ` (${t.clock.stillOpen})` : ''}
+              </>
+            ) : (
+              t.clock.noClock
+            )}
+          </dd>
+        </div>
+        <div>
           <dt>{t.timesheet.day.leave}</dt>
           <dd>{d.entry.leave ? t.timesheet.leaveTypes[d.entry.leave.type] : t.timesheet.day.none}</dd>
         </div>
       </dl>
 
+      {view.access.edit && clock && !clock.open && date < todayISO() && !d.entry.leave && Math.abs(msToMinutes(clock.workedMs) - d.entry.workedMinutes) >= 15 ? (
+        <form action={saveDayAction}>
+          <input type="hidden" name="date" value={date} />
+          <input type="hidden" name="workedMinutes" value={msToMinutes(clock.workedMs)} />
+          <input
+            type="hidden"
+            name="note"
+            value={fmt(t.clock.useClockedNote, { start: timeOfDay(clock.firstIn), end: clock.lastOut ? timeOfDay(clock.lastOut) : '' })}
+          />
+          <button className="btn btn-small" style={{ width: '100%' }}>
+            ⏱ {fmt(t.clock.useClocked, { hours: formatHours(msToMinutes(clock.workedMs), locale) })}
+          </button>
+        </form>
+      ) : null}
       {pending ? <PendingNote req={pending} t={t} locale={locale} approver={approver} canWithdraw={view.access.edit} /> : null}
 
       {view.access.edit ? (

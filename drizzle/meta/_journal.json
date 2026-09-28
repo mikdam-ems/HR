@@ -57,6 +57,13 @@
       "when": 1790521984791,
       "tag": "0007_client_notified",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790582416012,
+      "tag": "0008_clock_events",
+      "breakpoints": true
     }
   ]
 }

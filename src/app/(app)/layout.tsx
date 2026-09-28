@@ -4,6 +4,9 @@ import { Avatar } from '@/components/Avatar';
 import { EmsLogo } from '@/components/EmsLogo';
 import { BackField, NavLinks } from '@/components/NavLinks';
 import { StatusBubble } from '@/components/StatusBubble';
+import { TopClock } from '@/components/Clock';
+import { toClockData } from '@/lib/clockData';
+import { clockView } from '@/server/clock';
 import { demoMode } from '@/auth';
 import { getDict, localName } from '@/i18n';
 import { can } from '@/server/permissions';
@@ -17,8 +20,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { t, locale } = await getDict();
   const name = localName(locale, user.nameEn, user.nameAr);
   const approver = user.isManager || user.roles.includes('admin');
-  const db = approver ? await getDb() : null;
-  const pending = db ? (await countPendingApprovals(db, user)) + (await countPendingLeave(db, user)) : 0;
+  const db = await getDb();
+  const pending = approver ? (await countPendingApprovals(db, user)) + (await countPendingLeave(db, user)) : 0;
+  const clockData = toClockData(await clockView(db, user.id), locale);
   const links = [
     { href: '/', label: t.nav.home },
     { href: '/timesheet', label: t.nav.timesheet },
@@ -45,6 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <NavLinks links={links} />
           </nav>
           <div className="topbar-end">
+            <TopClock data={clockData} labels={t.clock} />
             <form action={setLocaleAction} className="segmented" aria-label={t.nav.language}>
               <BackField />
               <button name="locale" value="en" aria-pressed={locale === 'en'} lang="en">

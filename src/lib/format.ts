@@ -31,3 +31,26 @@ export function initials(name: string): string {
     .slice(0, 2)
     .toUpperCase();
 }
+
+/** "09:05" — the time of day in Amman. */
+export function timeOfDay(d: Date): string {
+  return new Intl.DateTimeFormat('en-GB', { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d);
+}
+
+/** The instant a local Amman date and time ("2026-09-27", "18:30") refers to. */
+export function ammanInstant(date: string, time: string): Date {
+  const guess = new Date(`${date}T${time}:00Z`);
+  // Offset of Amman from UTC at that moment, in minutes (Jordan is UTC+3 all year, but don't hard-code it).
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: TIME_ZONE,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(guess);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)!.value);
+  const local = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'));
+  return new Date(guess.getTime() - (local - guess.getTime()));
+}

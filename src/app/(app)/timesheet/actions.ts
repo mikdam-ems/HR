@@ -20,6 +20,8 @@ export async function saveDayAction(fd: FormData) {
     date,
     startTime: str(fd, 'startTime'),
     endTime: str(fd, 'endTime'),
+    // "Use clocked hours" sends the clocked total instead of start/end times.
+    workedMinutes: str(fd, 'workedMinutes') ? Number(str(fd, 'workedMinutes')) : undefined,
     leaveType: leaveType as never,
     leavePortion: str(fd, 'leavePortion') === '0.5' ? 0.5 : 1,
     note: str(fd, 'note'),

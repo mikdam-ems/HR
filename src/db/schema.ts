@@ -291,6 +291,25 @@ export const leaveAttachments = pgTable(
   (t) => [index('leave_attachments_request_idx').on(t.leaveRequestId)],
 );
 
+export const clockKindEnum = pgEnum('clock_kind', ['in', 'out', 'break_start', 'break_end']);
+
+/** Clock in / out / breaks, one row per press. Worked time is worked out from these (see domain/clock). */
+export const clockEvents = pgTable(
+  'clock_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    kind: clockKindEnum('kind').notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull(),
+    /** Where it came from: web, slack, or 'correction' when someone fixed a forgotten clock-out. */
+    source: text('source').notNull().default('web'),
+    ...timestamps,
+  },
+  (t) => [index('clock_events_employee_at_idx').on(t.employeeId, t.at)],
+);
+
 /** HR corrections to a balance: carry-over from last year, opening balances, fixes. Positive or negative. */
 export const leaveAdjustments = pgTable(
   'leave_adjustments',
@@ -396,6 +415,7 @@ export type LeaveAdjustmentRow = typeof leaveAdjustments.$inferSelect;
 export type TimesheetRow = typeof timesheets.$inferSelect;
 export type DayEntryRow = typeof dayEntries.$inferSelect;
 export type DayChangeRow = typeof dayChangeRequests.$inferSelect;
+export type ClockEventRow = typeof clockEvents.$inferSelect;
 export type Calendar = typeof calendars.$inferSelect;
 export type HolidayRow = typeof holidays.$inferSelect;
 export type ClientRow = typeof clients.$inferSelect;
