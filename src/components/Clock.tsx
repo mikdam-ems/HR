@@ -186,7 +186,7 @@ export function TopClock({ data, labels }: { data: ClockData; labels: ClockLabel
     .filter(Boolean)
     .join(' · ');
   return (
-    <a href="/attendance" className={`top-clock clock-${data.state}${p.full ? ' is-full' : ''}${p.overMs ? ' is-over' : ''}`} title={title}>
+    <a href={data.openFrom ? '/' : '/attendance'} className={`top-clock clock-${data.state}${p.full ? ' is-full' : ''}${p.overMs ? ' is-over' : ''}`} title={title}>
       <span className="clock-dot" aria-hidden="true" />
       <span dir="ltr" className="top-clock-time">
         {hm(worked)}
