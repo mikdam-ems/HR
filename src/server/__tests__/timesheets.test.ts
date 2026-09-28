@@ -292,6 +292,21 @@ describe('clock mode', () => {
     expect(day('2026-09-16').issues.map((i) => i.code)).toContain('missing_hours');
   });
 
+  it('a forgotten clock-out counts nothing and is flagged, instead of running on until now', async () => {
+    const { lina } = await setup();
+    await setSetting(db, 'hoursSource', 'clock');
+    const { clock } = await import('../clock');
+    const { ammanInstant } = await import('@/lib/format');
+    await clock(db, lina.id, 'in', ammanInstant('2026-09-10', '09:00'));
+
+    const m = await getMonth(db, lina, lina.id, 2026, 9);
+    if (!m.ok) throw new Error(m.error);
+    const d = m.value.summary.days.find((x) => x.day.date === '2026-09-10')!;
+    expect(d.entry.workedMinutes).toBe(0);
+    expect(d.issues.map((i) => i.code)).toEqual(['clock_open']);
+    expect(m.value.summary.totals.regularOvertimeMinutes).toBe(0);
+  });
+
   it('a correction for a forgotten clock-in is a request, and once approved it counts', async () => {
     const { lina, khaled } = await setup();
     await setSetting(db, 'hoursSource', 'clock');

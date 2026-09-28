@@ -166,3 +166,46 @@ describe('sumMonthDays', () => {
     expect(sumMonthDays(atJadwa)).toEqual(july.totals);
   });
 });
+
+describe('a forgotten clock-out', () => {
+  it('counts nothing on a past day and asks for a correction instead of adding the time since', () => {
+    // Clocked in on the 10th and never out: by the 28th the clock has run for ~430 hours.
+    const s = summarizeMonth(ctx, 'omar', 2026, 9, [], rates, {
+      minutes: { '2026-09-10': 430 * 60 },
+      open: ['2026-09-10'],
+      today: '2026-09-28',
+      since: '2026-09-01',
+    });
+    const d = s.days.find((x) => x.day.date === '2026-09-10')!;
+    expect(d.entry.workedMinutes).toBe(0);
+    expect(d.totals.regularOvertimeMinutes).toBe(0);
+    expect(d.clockedMinutes).toBeUndefined();
+    expect(d.issues.map((i) => i.code)).toEqual(['clock_open']);
+    expect(s.totals.regularOvertimeMinutes).toBe(0);
+  });
+
+  it("keeps counting today's open session live", () => {
+    const s = summarizeMonth(ctx, 'omar', 2026, 9, [], rates, {
+      minutes: { '2026-09-28': 5 * 60 },
+      open: ['2026-09-28'],
+      today: '2026-09-28',
+      since: '2026-09-01',
+    });
+    const d = s.days.find((x) => x.day.date === '2026-09-28')!;
+    expect(d.entry.workedMinutes).toBe(5 * 60);
+    expect(d.issues).toEqual([]);
+  });
+
+  it('an approved correction for that day replaces the open session', () => {
+    const s = summarizeMonth(ctx, 'omar', 2026, 9, [{ date: '2026-09-10', workedMinutes: 8 * 60 }], rates, {
+      minutes: { '2026-09-10': 430 * 60 },
+      open: ['2026-09-10'],
+      today: '2026-09-28',
+      since: '2026-09-01',
+    });
+    const d = s.days.find((x) => x.day.date === '2026-09-10')!;
+    expect(d.entry.workedMinutes).toBe(8 * 60);
+    expect(d.changed).toBe(true);
+    expect(d.issues).toEqual([]);
+  });
+});

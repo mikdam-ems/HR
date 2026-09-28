@@ -59,10 +59,12 @@ export default async function AttendancePage({
     .map((date) => {
       const day = resolveDay(ctx, person.id, date);
       const rec = log[date];
-      const worked = rec ? msToMinutes(rec.day.workedMs) : 0;
+      // A session left open on an earlier day ran on until now; it counts nothing until it's corrected.
+      const forgotten = !!rec?.day.open && date < today;
+      const worked = rec && !forgotten ? msToMinutes(rec.day.workedMs) : 0;
       const target = isWorkday(day.dayType) ? day.expectedMinutes : 0;
       const where = rec?.events.find((e) => e.kind === 'in' && e.location)?.location ?? null;
-      return { date, day, rec, worked, target, over: Math.max(0, worked - target), where };
+      return { date, day, rec, forgotten, worked, target, over: Math.max(0, worked - target), where };
     })
     .filter((r) => r.rec || isWorkday(r.day.dayType));
 
@@ -76,6 +78,7 @@ export default async function AttendancePage({
 
   const result = (r: (typeof rows)[number]) => {
     if (!r.rec) return <span className="badge badge-unassigned">{t.timesheet.issues.missing_hours}</span>;
+    if (r.forgotten) return <span className="badge badge-unassigned">{t.timesheet.issues.clock_open}</span>;
     if (r.rec.day.open) return <span className="badge status-submitted">{t.attendance.stillIn}</span>;
     if (!r.target) return <span className="badge badge-special_overtime">{fmt(t.attendance.over, { time: formatHours(r.worked, locale) })}</span>;
     if (r.over) return <span className="badge badge-special_overtime">{fmt(t.attendance.over, { time: formatHours(r.over, locale) })}</span>;
@@ -173,7 +176,7 @@ export default async function AttendancePage({
                   <td dir="ltr">{r.rec?.day.lastOut ? timeOfDay(r.rec.day.lastOut) : r.rec?.day.open ? '…' : '—'}</td>
                   <td>{r.rec && r.rec.day.breakMs >= 60_000 ? formatHours(msToMinutes(r.rec.day.breakMs), locale) : '—'}</td>
                   <td>
-                    <strong style={{ fontWeight: 600 }}>{r.rec ? formatHours(r.worked, locale) : '—'}</strong>
+                    <strong style={{ fontWeight: 600 }}>{r.rec && !r.forgotten ? formatHours(r.worked, locale) : '—'}</strong>
                     {r.target ? <span className="muted small"> / {formatHours(r.target, locale)}</span> : null}
                   </td>
                   <td>{isWorkday(r.day.dayType) || r.rec ? result(r) : <span className="badge badge-weekend">{t.attendance.dayOff}</span>}</td>

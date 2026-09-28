@@ -17,7 +17,6 @@ import {
   type LeaveType,
   type MonthSummary,
   daysOfMonth,
-  msToMinutes,
   summarizeMonth,
   windowMinutes,
 } from '@/domain';
@@ -26,7 +25,7 @@ import { audit } from './audit';
 import { approversOf, notify } from './notify';
 import { behalfOf } from './delegation';
 import { type Approver, decidesFor } from './permissions';
-import { firstClockDates, monthClock } from './clock';
+import { firstClockDates, monthClock, toClockedMonth } from './clock';
 import { loadRulesContext } from './rulesContext';
 import { getSettings } from './settings';
 import { type Result, fail, hhmm, isoDate, ok, parse } from './validation';
@@ -144,25 +143,15 @@ export async function getMonth(
   }));
   const notes = Object.fromEntries(rows.filter((r) => r.note).map((r) => [r.date, r.note!]));
   const times = Object.fromEntries(rows.map((r) => [r.date, { start: r.startTime, end: r.endTime }]));
-  const [clocked, since] =
+  const clockSource =
     appSettings.hoursSource === 'clock'
-      ? await Promise.all([monthClock(db, employeeId, year, month), firstClockDates(db, [employeeId])])
-      : [null, {}];
-  const summary = summarizeMonth(
-    ctx,
-    employeeId,
-    year,
-    month,
-    entries,
-    appSettings.overtimeRates,
-    clocked
-      ? {
-          minutes: Object.fromEntries(Object.entries(clocked).map(([d, c]) => [d, msToMinutes(c.workedMs)])),
+      ? await Promise.all([monthClock(db, employeeId, year, month), firstClockDates(db, [employeeId])]).then(([days, since]) => ({
+          ...toClockedMonth(days),
           today: todayISO(),
-          since: (since as Record<string, string>)[employeeId] ?? null,
-        }
-      : undefined,
-  );
+          since: since[employeeId] ?? null,
+        }))
+      : undefined;
+  const summary = summarizeMonth(ctx, employeeId, year, month, entries, appSettings.overtimeRates, clockSource);
   // A note alone is worth the manager's attention, even if the hours match.
   for (const d of summary.days) if (notes[d.day.date]) d.changed = true;
 

@@ -63,6 +63,7 @@ export function computeDayTotals(day: ResolvedDay, entry: DayEntry, rates: Overt
 export type IssueCode =
   | 'missing_hours'
   | 'too_many_hours'
+  | 'clock_open'
   | 'leave_on_day_off'
   | 'worked_on_full_leave'
   | 'unassigned';
@@ -123,6 +124,11 @@ export interface MonthSummary {
 export interface ClockSource {
   /** Minutes clocked per date. */
   minutes: Readonly<Record<ISODate, number>>;
+  /**
+   * Dates whose session was never clocked out. Before today that's a forgotten clock-out: the clock ran on
+   * until now, so the day counts nothing and is flagged for a correction. Today's open session counts live.
+   */
+  open?: readonly ISODate[];
   today: ISODate;
   /**
    * The first day this person ever clocked in. The clock takes over from that day; earlier days (before
@@ -147,7 +153,8 @@ export function summarizeMonth(
   for (const date of daysOfMonth(year, month)) {
     const day = resolveDay(ctx, employeeId, date);
     const byClock = !!clock && clock.since !== null && date >= clock.since;
-    const clockedMinutes = byClock ? clock.minutes[date] : undefined;
+    const forgotten = byClock && date < clock.today && !!clock.open?.includes(date);
+    const clockedMinutes = byClock && !forgotten ? clock.minutes[date] : undefined;
     const future = byClock ? date > clock.today : false;
     const prefilled = byClock ? { date, workedMinutes: clockedMinutes ?? 0 } : prefillEntry(day);
     const entry = byDate.get(date) ?? prefilled;
@@ -155,7 +162,9 @@ export function summarizeMonth(
     const dayTotals = computeDayTotals(day, entry, rates);
 
     // In clock mode only past days can be missing hours; today and later are still to come.
-    const issues = checkDay(day, entry).filter((i) => !(byClock && i.code === 'missing_hours' && date >= clock.today));
+    let issues = checkDay(day, entry).filter((i) => !(byClock && i.code === 'missing_hours' && date >= clock.today));
+    // A forgotten clock-out, until someone corrects the day. It says more than "missing hours" would.
+    if (forgotten && entry === prefilled) issues = [{ date, code: 'clock_open' }, ...issues.filter((i) => i.code !== 'missing_hours')];
     days.push({ day, entry, changed, totals: dayTotals, issues, ...(byClock ? { clockedMinutes, future } : {}) });
   }
 

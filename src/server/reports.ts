@@ -73,7 +73,7 @@ export async function monthReport(db: DB, actor: Actor, year: number, month: num
       dayEntryList,
       appSettings.overtimeRates,
       appSettings.hoursSource === 'clock'
-        ? { minutes: clocked[employee.id] ?? {}, today, since: since[employee.id] ?? null }
+        ? { ...(clocked[employee.id] ?? { minutes: {}, open: [] }), today, since: since[employee.id] ?? null }
         : undefined,
     );
     if (summary.days.every((d) => d.day.dayType === 'unassigned')) continue; // not working for anyone this month
