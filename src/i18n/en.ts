@@ -314,6 +314,7 @@ export const en = {
     },
     issues: {
       missing_hours: 'No hours and no leave on a working day',
+      clock_open: 'Clock-out missing — ask for a correction',
       too_many_hours: 'More than 16 hours in a day',
       leave_on_day_off: 'Leave recorded on a day off (not needed)',
       worked_on_full_leave: 'Hours logged on a full leave day',

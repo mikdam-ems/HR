@@ -16,7 +16,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`TRUNCATE audit_log, month_closures, leave_requests, leave_adjustments, day_entries, timesheets, assignments, schedules, holidays, clients, calendars, settings, employees CASCADE`,
+    sql`TRUNCATE audit_log, clock_events, month_closures, leave_requests, leave_adjustments, day_entries, timesheets, assignments, schedules, holidays, clients, calendars, settings, employees CASCADE`,
   );
 });
 
@@ -87,6 +87,25 @@ describe('month report', () => {
     expect(col('Annual leave days')).toBe(1);
     const days = wb.getWorksheet('Days 2026-09')!;
     expect(days.rowCount).toBe(1 + 2 * 30);
+  });
+});
+
+describe('month report in clock mode', () => {
+  it('a forgotten clock-out adds no overtime to the report', async () => {
+    const { lina, finance } = await setup();
+    await setSetting(db, 'hoursSource', 'clock');
+    const { clock } = await import('../clock');
+    const { ammanInstant } = await import('@/lib/format');
+    await clock(db, lina.id, 'in', ammanInstant('2026-09-08', '09:00'));
+    await clock(db, lina.id, 'out', ammanInstant('2026-09-08', '19:00'));
+    await clock(db, lina.id, 'in', ammanInstant('2026-09-10', '09:00'));
+
+    const r = await monthReport(db, finance, 2026, 9);
+    if (!r.ok) throw new Error(r.error);
+    const row = r.value.rows.find((x) => x.employee.id === lina.id)!;
+    // Only the 8th's two extra hours; the open session on the 10th counts nothing.
+    expect(row.summary.totals.regularOvertimeMinutes).toBe(120);
+    expect(row.summary.issues.some((i) => i.date === '2026-09-10' && i.code === 'clock_open')).toBe(true);
   });
 });
 

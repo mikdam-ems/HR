@@ -318,6 +318,7 @@ export const ar: DeepString<Dict> = {
     },
     issues: {
       missing_hours: 'لا ساعات ولا إجازة في يوم عمل',
+      clock_open: 'لم يُسجَّل الخروج — اطلب تصحيحاً',
       too_many_hours: 'أكثر من 16 ساعة في يوم',
       leave_on_day_off: 'إجازة مسجلة في يوم عطلة (غير لازمة)',
       worked_on_full_leave: 'ساعات مسجلة في يوم إجازة كاملة',

@@ -2,7 +2,7 @@ import { cache } from 'react';
 import { and, asc, desc, eq, gte, inArray, lt, min } from 'drizzle-orm';
 import type { DB } from '@/db';
 import { clockEvents } from '@/db/schema';
-import { type ClockDay, type ClockKind, type ClockState, canClock, daysOfMonth, stateAfter, summarizeClock } from '@/domain';
+import { type ClockDay, type ClockKind, type ClockState, canClock, daysOfMonth, msToMinutes, stateAfter, summarizeClock } from '@/domain';
 import { ammanInstant, todayISO } from '@/lib/format';
 import { audit } from './audit';
 import { type Result, fail, ok } from './validation';
@@ -138,13 +138,25 @@ export async function monthAttendance(db: DB, employeeId: string, year: number, 
   return out;
 }
 
-/** Clocked minutes per person per day for a whole month, in one query (for reports). */
-export async function monthClockMinutes(
-  db: DB,
-  year: number,
-  month: number,
-  now = new Date(),
-): Promise<Record<string, Record<string, number>>> {
+/** Clocked minutes per day, and the days whose session is still open — what a timesheet needs from the clock. */
+export interface ClockedMonth {
+  minutes: Record<string, number>;
+  open: string[];
+}
+
+/** Turns a month of clock days into what a timesheet needs. */
+export function toClockedMonth(days: Record<string, ClockDay>): ClockedMonth {
+  const minutes: Record<string, number> = {};
+  const open: string[] = [];
+  for (const [date, d] of Object.entries(days)) {
+    minutes[date] = msToMinutes(d.workedMs);
+    if (d.open) open.push(date);
+  }
+  return { minutes, open };
+}
+
+/** Clocked time per person per day for a whole month, in one query (for reports). */
+export async function monthClockMinutes(db: DB, year: number, month: number, now = new Date()): Promise<Record<string, ClockedMonth>> {
   const days = daysOfMonth(year, month);
   const from = ammanInstant(days[0]!, '00:00');
   const to = new Date(ammanInstant(days[days.length - 1]!, '00:00').getTime() + 2 * DAY_MS);
@@ -154,12 +166,17 @@ export async function monthClockMinutes(
     .where(and(gte(clockEvents.at, from), lt(clockEvents.at, to)))
     .orderBy(asc(clockEvents.at));
   const byPerson = new Map<string, typeof events>();
-  for (const e of events) byPerson.set(e.employeeId, [...(byPerson.get(e.employeeId) ?? []), e]);
-  const out: Record<string, Record<string, number>> = {};
+  for (const e of events) {
+    const list = byPerson.get(e.employeeId);
+    if (list) list.push(e);
+    else byPerson.set(e.employeeId, [e]);
+  }
+  const out: Record<string, ClockedMonth> = {};
   for (const [id, list] of byPerson) {
     const summary = summarizeClock(list, now, dateOf);
-    out[id] = {};
-    for (const d of days) if (summary.has(d)) out[id][d] = Math.floor(summary.get(d)!.workedMs / 60000);
+    const inMonth: Record<string, ClockDay> = {};
+    for (const d of days) if (summary.has(d)) inMonth[d] = summary.get(d)!;
+    out[id] = toClockedMonth(inMonth);
   }
   return out;
 }
