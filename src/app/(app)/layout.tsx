@@ -75,15 +75,29 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               vapidKey={process.env.VAPID_PUBLIC_KEY ?? null}
               labels={t.notifications}
             />
-            <form action={setLocaleAction} className="segmented" aria-label={t.nav.language}>
-              <BackField />
-              <button name="locale" value="en" aria-pressed={locale === 'en'} lang="en">
-                EN
-              </button>
-              <button name="locale" value="ar" aria-pressed={locale === 'ar'} lang="ar">
-                عربي
-              </button>
-            </form>
+            <details className="lang">
+              <summary aria-label={t.nav.language} title={t.nav.language}>
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path
+                    d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0 0c2.4-2.4 3.6-5.4 3.6-9S14.4 5.4 12 3m0 18c-2.4-2.4-3.6-5.4-3.6-9S9.6 5.4 12 3M3.6 9h16.8M3.6 15h16.8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <span lang={locale}>{locale === 'ar' ? 'ع' : 'EN'}</span>
+              </summary>
+              <form action={setLocaleAction} className="lang-menu card">
+                <BackField />
+                <button name="locale" value="en" aria-pressed={locale === 'en'} lang="en">
+                  English
+                </button>
+                <button name="locale" value="ar" aria-pressed={locale === 'ar'} lang="ar">
+                  العربية
+                </button>
+              </form>
+            </details>
             <details className="me">
               <summary aria-label={name}>
                 <Avatar person={user} status={user.status} />

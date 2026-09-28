@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Reveal } from '@/components/Reveal';
 import { notFound } from 'next/navigation';
 import { retireShiftAction, saveShiftAction, updateClientAction } from '@/app/(app)/clients/actions';
 import { Avatar } from '@/components/Avatar';
@@ -158,10 +159,12 @@ export default async function ClientPage({
             })}
           </ul>
           {manage ? (
-            <details>
-              <summary className="btn btn-small">{t.shifts.add}</summary>
-              <ShiftForm clientId={client.id} t={t} nextOrder={shifts.length} />
-            </details>
+            <Reveal label={t.shifts.add} cancelLabel={t.form.cancel} primary>
+              <div className="card reveal-card">
+                <h3>{t.shifts.add}</h3>
+                <ShiftForm clientId={client.id} t={t} nextOrder={shifts.length} />
+              </div>
+            </Reveal>
           ) : null}
         </section>
 

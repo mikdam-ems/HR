@@ -1,4 +1,5 @@
 import { cancelLeaveAction, markClientNotifiedAction, requestLeaveAction } from '@/app/(app)/time-off/actions';
+import { Reveal } from '@/components/Reveal';
 import { Balances } from '@/components/Balances';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
@@ -54,120 +55,122 @@ export default async function TimeOffPage({ searchParams }: { searchParams: Prom
         <Balances balances={balances} t={t} />
       </section>
 
-      <section className="card">
-        <h2>{t.timeOff.request}</h2>
-        {/* Step 1 is a plain GET so the page can show exactly what the request would use before sending. */}
-        <form method="get" className="stack">
-          <div className="grid-form">
-            <div className="field">
-              <label htmlFor="type">{t.timeOff.type}</label>
-              <select id="type" name="type" defaultValue={type}>
-                {leaveTypeEnum.enumValues.map((l) => (
-                  <option key={l} value={l}>
-                    {t.timesheet.leaveTypes[l]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="from">{t.timeOff.from}</label>
-              <input id="from" name="from" type="date" required defaultValue={from} />
-            </div>
-            <div className="field">
-              <label htmlFor="to">{t.timeOff.to}</label>
-              <input id="to" name="to" type="date" defaultValue={search.to ?? ''} />
-            </div>
-            <label className="check">
-              <input type="checkbox" name="halfDay" defaultChecked={halfDay} />
-              {t.timeOff.halfDay}
-            </label>
-          </div>
-          <div className="field">
-            <label htmlFor="note">{t.timeOff.note}</label>
-            <textarea id="note" name="note" rows={2} maxLength={500} defaultValue={note} />
-          </div>
-          <div>
-            <button className="btn">{t.timeOff.check}</button>
-          </div>
-        </form>
-
-        {preview && !preview.ok ? (
-          <div className="flash flash-error" role="alert">
-            {t.errors[preview.error as keyof Dict['errors']] ?? t.errors.invalid_input}
-            {preview.detail ? <span className="small"> ({preview.detail})</span> : null}
-          </div>
-        ) : null}
-
-        {preview?.ok ? (
-          <div className="stack" style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-            <h3>
-              {t.timesheet.leaveTypes[type]} · {range(from, to)}
-            </h3>
-            <strong style={{ fontSize: 18 }}>{fmt(t.timeOff.uses, { n: preview.value.daysUsed })}</strong>
-            {preview.value.days.some((d) => !isWorkday(d.dayType)) ? (
-              <div className="stack" style={{ gap: 6 }}>
-                <span className="label">{t.timeOff.notCounted}</span>
-                <div className="preview-days">
-                  {preview.value.days
-                    .filter((d) => !isWorkday(d.dayType))
-                    .map((d) => (
-                      <span key={d.date} className={`badge badge-${d.dayType}`}>
-                        {formatDate(d.date, locale, { weekday: 'short', day: 'numeric' })} · {holidayLabel(locale, d) ?? t.dayTypes[d.dayType]}
-                      </span>
-                    ))}
-                </div>
+      <Reveal label={t.timeOff.request} cancelLabel={t.form.cancel} primary defaultOpen={Boolean(search.from) || search.new === '1'}>
+        <section className="card">
+          <h2>{t.timeOff.request}</h2>
+          {/* Step 1 is a plain GET so the page can show exactly what the request would use before sending. */}
+          <form method="get" className="stack">
+            <div className="grid-form">
+              <div className="field">
+                <label htmlFor="type">{t.timeOff.type}</label>
+                <select id="type" name="type" defaultValue={type}>
+                  {leaveTypeEnum.enumValues.map((l) => (
+                    <option key={l} value={l}>
+                      {t.timesheet.leaveTypes[l]}
+                    </option>
+                  ))}
+                </select>
               </div>
-            ) : null}
-            {preview.value.balanceAfter !== null ? (
-              <span className={preview.value.balanceAfter < 0 ? 'negative' : 'muted'}>
-                {fmt(type === 'sick' ? t.timeOff.sickBalanceAfter : t.timeOff.balanceAfter, { n: preview.value.balanceAfter })}
-              </span>
-            ) : null}
-            {type === 'sick' && preview.value.balanceAfter !== null && preview.value.balanceAfter < 0 ? (
-              <span className="muted small">{t.timeOff.overSick}</span>
-            ) : null}
-            <form action={requestLeaveAction} className="stack">
-              {toInform.length ? (
-                <div className="inform-box">
-                  <strong>{fmt(t.timeOff.informTitle, { client: names(toInform) })}</strong>
-                  <span className="small">{fmt(t.timeOff.informHint, { client: names(toInform) })}</span>
-                  {toInform
-                    .filter((c) => c.leaveContact)
-                    .map((c) => (
-                      <span key={c.id} className="small">
-                        {fmt(t.timeOff.whoToTell, { contact: c.leaveContact! })}
-                      </span>
-                    ))}
-                  <label className="check">
-                    <input type="checkbox" name="clientNotified" />
-                    {fmt(t.timeOff.informedCheck, { client: names(toInform) })}
-                  </label>
-                  <input
-                    type="text"
-                    name="clientNotifiedNote"
-                    maxLength={300}
-                    placeholder={t.timeOff.informedPlaceholder}
-                    aria-label={t.timeOff.informedNote}
-                  />
+              <div className="field">
+                <label htmlFor="from">{t.timeOff.from}</label>
+                <input id="from" name="from" type="date" required defaultValue={from} />
+              </div>
+              <div className="field">
+                <label htmlFor="to">{t.timeOff.to}</label>
+                <input id="to" name="to" type="date" defaultValue={search.to ?? ''} />
+              </div>
+              <label className="check">
+                <input type="checkbox" name="halfDay" defaultChecked={halfDay} />
+                {t.timeOff.halfDay}
+              </label>
+            </div>
+            <div className="field">
+              <label htmlFor="note">{t.timeOff.note}</label>
+              <textarea id="note" name="note" rows={2} maxLength={500} defaultValue={note} />
+            </div>
+            <div>
+              <button className="btn">{t.timeOff.check}</button>
+            </div>
+          </form>
+
+          {preview && !preview.ok ? (
+            <div className="flash flash-error" role="alert">
+              {t.errors[preview.error as keyof Dict['errors']] ?? t.errors.invalid_input}
+              {preview.detail ? <span className="small"> ({preview.detail})</span> : null}
+            </div>
+          ) : null}
+
+          {preview?.ok ? (
+            <div className="stack" style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+              <h3>
+                {t.timesheet.leaveTypes[type]} · {range(from, to)}
+              </h3>
+              <strong style={{ fontSize: 18 }}>{fmt(t.timeOff.uses, { n: preview.value.daysUsed })}</strong>
+              {preview.value.days.some((d) => !isWorkday(d.dayType)) ? (
+                <div className="stack" style={{ gap: 6 }}>
+                  <span className="label">{t.timeOff.notCounted}</span>
+                  <div className="preview-days">
+                    {preview.value.days
+                      .filter((d) => !isWorkday(d.dayType))
+                      .map((d) => (
+                        <span key={d.date} className={`badge badge-${d.dayType}`}>
+                          {formatDate(d.date, locale, { weekday: 'short', day: 'numeric' })} · {holidayLabel(locale, d) ?? t.dayTypes[d.dayType]}
+                        </span>
+                      ))}
+                  </div>
                 </div>
               ) : null}
-              <div className="field">
-                <label htmlFor="attachment">{t.timeOff.attachmentOptional}</label>
-                <input id="attachment" name="attachment" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" />
-                <span className="muted small">{type === 'sick' ? t.timeOff.sickAttachmentHint : t.timeOff.attachmentHint}</span>
-              </div>
-              <input type="hidden" name="type" value={type} />
-              <input type="hidden" name="from" value={from} />
-              <input type="hidden" name="to" value={to} />
-              {halfDay ? <input type="hidden" name="halfDay" value="on" /> : null}
-              <input type="hidden" name="note" value={note} />
-              <div>
-                <button className="btn btn-primary">{t.timeOff.send}</button>
-              </div>
-            </form>
-          </div>
-        ) : null}
-      </section>
+              {preview.value.balanceAfter !== null ? (
+                <span className={preview.value.balanceAfter < 0 ? 'negative' : 'muted'}>
+                  {fmt(type === 'sick' ? t.timeOff.sickBalanceAfter : t.timeOff.balanceAfter, { n: preview.value.balanceAfter })}
+                </span>
+              ) : null}
+              {type === 'sick' && preview.value.balanceAfter !== null && preview.value.balanceAfter < 0 ? (
+                <span className="muted small">{t.timeOff.overSick}</span>
+              ) : null}
+              <form action={requestLeaveAction} className="stack">
+                {toInform.length ? (
+                  <div className="inform-box">
+                    <strong>{fmt(t.timeOff.informTitle, { client: names(toInform) })}</strong>
+                    <span className="small">{fmt(t.timeOff.informHint, { client: names(toInform) })}</span>
+                    {toInform
+                      .filter((c) => c.leaveContact)
+                      .map((c) => (
+                        <span key={c.id} className="small">
+                          {fmt(t.timeOff.whoToTell, { contact: c.leaveContact! })}
+                        </span>
+                      ))}
+                    <label className="check">
+                      <input type="checkbox" name="clientNotified" />
+                      {fmt(t.timeOff.informedCheck, { client: names(toInform) })}
+                    </label>
+                    <input
+                      type="text"
+                      name="clientNotifiedNote"
+                      maxLength={300}
+                      placeholder={t.timeOff.informedPlaceholder}
+                      aria-label={t.timeOff.informedNote}
+                    />
+                  </div>
+                ) : null}
+                <div className="field">
+                  <label htmlFor="attachment">{t.timeOff.attachmentOptional}</label>
+                  <input id="attachment" name="attachment" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" />
+                  <span className="muted small">{type === 'sick' ? t.timeOff.sickAttachmentHint : t.timeOff.attachmentHint}</span>
+                </div>
+                <input type="hidden" name="type" value={type} />
+                <input type="hidden" name="from" value={from} />
+                <input type="hidden" name="to" value={to} />
+                {halfDay ? <input type="hidden" name="halfDay" value="on" /> : null}
+                <input type="hidden" name="note" value={note} />
+                <div>
+                  <button className="btn btn-primary">{t.timeOff.send}</button>
+                </div>
+              </form>
+            </div>
+          ) : null}
+        </section>
+      </Reveal>
 
       <section className="stack">
         <h2>{t.timeOff.myRequests}</h2>

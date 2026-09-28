@@ -85,7 +85,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <h1>{fmt(t.home.hello, { name: localName(locale, user.nameEn, user.nameAr).split(' ')[0]! })}</h1>
         </div>
         <div className="row">
-          <Link className="btn" href="/time-off">
+          <Link className="btn" href="/time-off?new=1">
             {t.timeOff.request}
           </Link>
           <Link className="btn btn-primary" href="/timesheet">

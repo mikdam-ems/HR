@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Reveal } from '@/components/Reveal';
 import { notFound } from 'next/navigation';
 import { removeHolidayAction, setHolidayAction, updateCalendarAction } from '@/app/(app)/clients/actions';
 import { Flash } from '@/components/Flash';
@@ -41,18 +42,20 @@ export default async function CalendarPage({
         {appSettings.homeCalendarId === calendar.id ? <span className="badge badge-brand">{t.calendar.homeBadge}</span> : null}
       </div>
 
-      <form action={updateCalendarAction} className="card">
-        <h2>{t.calendar.settings}</h2>
-        <input type="hidden" name="id" value={calendar.id} />
-        <div className="field" style={{ maxWidth: 360 }}>
-          <label htmlFor="name">{t.clients.name}</label>
-          <input id="name" name="name" type="text" required defaultValue={calendar.name} />
-        </div>
-        <WorkWeekField t={t} value={calendar.workWeek} />
-        <div>
-          <button className="btn btn-primary">{t.form.save}</button>
-        </div>
-      </form>
+      <Reveal label={t.calendar.edit} cancelLabel={t.form.cancel} edit>
+        <form action={updateCalendarAction} className="card">
+          <h2>{t.calendar.settings}</h2>
+          <input type="hidden" name="id" value={calendar.id} />
+          <div className="field" style={{ maxWidth: 360 }}>
+            <label htmlFor="name">{t.clients.name}</label>
+            <input id="name" name="name" type="text" required defaultValue={calendar.name} />
+          </div>
+          <WorkWeekField t={t} value={calendar.workWeek} />
+          <div>
+            <button className="btn btn-primary">{t.form.save}</button>
+          </div>
+        </form>
+      </Reveal>
 
       <section className="stack">
         <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -100,26 +103,28 @@ export default async function CalendarPage({
             </tbody>
           </table>
         </div>
-        <form action={setHolidayAction} className="card">
-          <input type="hidden" name="calendarId" value={calendar.id} />
-          <div className="grid-form">
-            <div className="field">
-              <label htmlFor="date">{t.calendar.date}</label>
-              <input id="date" name="date" type="date" required />
+        <Reveal label={t.calendar.add} cancelLabel={t.form.cancel} primary>
+          <form action={setHolidayAction} className="card">
+            <input type="hidden" name="calendarId" value={calendar.id} />
+            <div className="grid-form">
+              <div className="field">
+                <label htmlFor="date">{t.calendar.date}</label>
+                <input id="date" name="date" type="date" required />
+              </div>
+              <div className="field">
+                <label htmlFor="h-name">{t.calendar.name}</label>
+                <input id="h-name" name="nameEn" type="text" required />
+              </div>
+              <div className="field">
+                <label htmlFor="h-name-ar">{t.calendar.nameAr}</label>
+                <input id="h-name-ar" name="nameAr" type="text" dir="rtl" lang="ar" />
+              </div>
+              <div>
+                <button className="btn btn-primary">{t.calendar.add}</button>
+              </div>
             </div>
-            <div className="field">
-              <label htmlFor="h-name">{t.calendar.name}</label>
-              <input id="h-name" name="nameEn" type="text" required />
-            </div>
-            <div className="field">
-              <label htmlFor="h-name-ar">{t.calendar.nameAr}</label>
-              <input id="h-name-ar" name="nameAr" type="text" dir="rtl" lang="ar" />
-            </div>
-            <div>
-              <button className="btn btn-primary">{t.calendar.add}</button>
-            </div>
-          </div>
-        </form>
+          </form>
+        </Reveal>
       </section>
     </>
   );

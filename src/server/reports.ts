@@ -1,4 +1,3 @@
-import ExcelJS from 'exceljs';
 import { and, between, eq } from 'drizzle-orm';
 import type { DB } from '@/db';
 import { dayEntries, departments, employees, monthClosures, timesheets, type Department, type Employee, type TimesheetRow } from '@/db/schema';
@@ -7,8 +6,10 @@ import { todayISO } from '@/lib/format';
 import { audit } from './audit';
 import { firstClockDates, monthClockMinutes } from './clock';
 import { can, type CurrentUser } from './permissions';
+import { notify } from './notify';
 import { loadRulesContext } from './rulesContext';
 import { getSettings } from './settings';
+import { buildTimesheetWorkbook } from './timesheetWorkbook';
 import { isMonthClosed } from './timesheets';
 import { type Result, fail, ok } from './validation';
 
@@ -115,6 +116,18 @@ export async function closeMonth(db: DB, actor: Actor, year: number, month: numb
   return ok(undefined);
 }
 
+/** Nudges everyone who hasn't submitted the month (draft or returned) through the bell, Slack and push. */
+export async function remindUnsubmitted(db: DB, actor: Actor, year: number, month: number): Promise<Result<number>> {
+  if (!can(actor, 'months.close')) return fail('forbidden');
+  const report = await monthReport(db, actor, year, month);
+  if (!report.ok) return report;
+  const ids = report.value.notApproved.filter((r) => r.status === 'draft' || r.status === 'returned').map((r) => r.employee.id);
+  const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+  await notify(db, ids, 'timesheet_reminder', { month: monthKey }, `/timesheet?month=${monthKey}`);
+  await audit(db, { actorId: actor.id, action: 'remind', entity: 'month', entityId: monthKey, after: { employeeIds: ids } });
+  return ok(ids.length);
+}
+
 /** Admin only: for corrections after payroll. Recorded in the audit log. */
 export async function reopenMonth(db: DB, actor: Actor, year: number, month: number): Promise<Result<void>> {
   if (!can(actor, 'settings.manage')) return fail('forbidden');
@@ -127,100 +140,7 @@ export async function reopenMonth(db: DB, actor: Actor, year: number, month: num
   return ok(undefined);
 }
 
-const hours = (minutes: number) => Math.round((minutes / 60) * 100) / 100;
-
-/** The Finance export: a summary row per person, and every day for anyone who wants to check. */
+/** The Finance export: a team summary, one sheet per person in the official EMS timesheet style, and flat data. */
 export async function buildMonthWorkbook(report: MonthReport): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = 'EMS People & Culture';
-  const label = `${report.year}-${String(report.month).padStart(2, '0')}`;
-
-  const summary = wb.addWorksheet(`Summary ${label}`, { views: [{ state: 'frozen', ySplit: 1 }] });
-  summary.columns = [
-    { header: 'Employee', key: 'name', width: 24 },
-    { header: 'Email', key: 'email', width: 28 },
-    { header: 'Job title', key: 'title', width: 20 },
-    { header: 'Department', key: 'department', width: 22 },
-    { header: 'Manager', key: 'manager', width: 20 },
-    { header: 'Client', key: 'client', width: 22 },
-    { header: 'Status', key: 'status', width: 11 },
-    { header: 'Working days', key: 'workingDays', width: 13 },
-    { header: 'Expected hours', key: 'expected', width: 15 },
-    { header: 'Hours worked', key: 'worked', width: 14 },
-    { header: 'Regular OT hours', key: 'regular', width: 17 },
-    { header: 'Special OT hours (Jordan holiday)', key: 'special', width: 20 },
-    { header: 'Off-day OT hours', key: 'offDay', width: 16 },
-    { header: 'Weighted OT hours', key: 'weighted', width: 18 },
-    { header: 'Annual leave days', key: 'annual', width: 16 },
-    { header: 'Sick leave days', key: 'sick', width: 14 },
-    { header: 'Unpaid leave days', key: 'unpaid', width: 16 },
-    { header: 'Other leave days', key: 'other', width: 15 },
-  ];
-  for (const r of report.rows) {
-    const t = r.totals;
-    const leave = t.leaveDaysByType;
-    const other = Object.entries(leave)
-      .filter(([k]) => !['annual', 'sick', 'unpaid'].includes(k))
-      .reduce((s, [, v]) => s + (v ?? 0), 0);
-    summary.addRow({
-      name: r.employee.nameEn,
-      email: r.employee.email,
-      title: r.employee.jobTitle ?? '',
-      department: r.department?.nameEn ?? '',
-      manager: r.manager?.nameEn ?? '',
-      client: r.clients.join(', '),
-      status: r.status,
-      workingDays: t.workingDays,
-      expected: hours(t.expectedMinutes),
-      worked: hours(t.workedMinutes),
-      regular: hours(t.regularOvertimeMinutes),
-      special: hours(t.specialOvertimeMinutes),
-      offDay: hours(t.offDayOvertimeMinutes),
-      weighted: hours(t.weightedOvertimeMinutes),
-      annual: leave.annual ?? 0,
-      sick: leave.sick ?? 0,
-      unpaid: leave.unpaid ?? 0,
-      other,
-    });
-  }
-  summary.getRow(1).font = { bold: true };
-  summary.getRow(1).alignment = { wrapText: true, vertical: 'top' };
-
-  const daySheet = wb.addWorksheet(`Days ${label}`, { views: [{ state: 'frozen', ySplit: 1 }] });
-  daySheet.columns = [
-    { header: 'Employee', key: 'name', width: 24 },
-    { header: 'Date', key: 'date', width: 12 },
-    { header: 'Day type', key: 'type', width: 18 },
-    { header: 'Holiday', key: 'holiday', width: 22 },
-    { header: 'Expected hours', key: 'expected', width: 15 },
-    { header: 'Hours worked', key: 'worked', width: 14 },
-    { header: 'Regular OT', key: 'regular', width: 11 },
-    { header: 'Special OT', key: 'special', width: 11 },
-    { header: 'Off-day OT', key: 'offDay', width: 11 },
-    { header: 'Leave type', key: 'leave', width: 12 },
-    { header: 'Leave days', key: 'leaveDays', width: 11 },
-    { header: 'Changed', key: 'changed', width: 9 },
-    { header: 'Note', key: 'note', width: 40 },
-  ];
-  for (const r of report.rows) {
-    for (const d of r.summary.days) {
-      daySheet.addRow({
-        name: r.employee.nameEn,
-        date: d.day.date,
-        type: d.day.dayType,
-        holiday: d.day.holidayName ?? '',
-        expected: hours(d.day.expectedMinutes),
-        worked: hours(d.entry.workedMinutes),
-        regular: hours(d.totals.regularOvertimeMinutes),
-        special: hours(d.totals.specialOvertimeMinutes),
-        offDay: hours(d.totals.offDayOvertimeMinutes),
-        leave: d.entry.leave?.type ?? '',
-        leaveDays: d.totals.leaveDays || '',
-        changed: d.changed ? 'yes' : '',
-        note: r.notes[d.day.date] ?? '',
-      });
-    }
-  }
-  daySheet.getRow(1).font = { bold: true };
-  return Buffer.from(await wb.xlsx.writeBuffer());
+  return buildTimesheetWorkbook(report);
 }

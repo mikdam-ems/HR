@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Reveal } from '@/components/Reveal';
 import { notFound } from 'next/navigation';
 import {
   addAssignmentAction,
@@ -172,32 +173,34 @@ export default async function ProfilePage({
             </ul>
           ) : null}
           {manage ? (
-            <form action={addAdjustmentAction} className="card">
-              <input type="hidden" name="employeeId" value={person.id} />
-              <input type="hidden" name="year" value={year} />
-              <h3>{t.timeOff.addAdjustment}</h3>
-              <div className="grid-form">
-                <div className="field">
-                  <label htmlFor="adj-type">{t.timeOff.type}</label>
-                  <select id="adj-type" name="type">
-                    <option value="annual">{t.timesheet.leaveTypes.annual}</option>
-                    <option value="sick">{t.timesheet.leaveTypes.sick}</option>
-                  </select>
+            <Reveal label={t.timeOff.addAdjustment} cancelLabel={t.form.cancel}>
+              <form action={addAdjustmentAction} className="card">
+                <input type="hidden" name="employeeId" value={person.id} />
+                <input type="hidden" name="year" value={year} />
+                <h3>{t.timeOff.addAdjustment}</h3>
+                <div className="grid-form">
+                  <div className="field">
+                    <label htmlFor="adj-type">{t.timeOff.type}</label>
+                    <select id="adj-type" name="type">
+                      <option value="annual">{t.timesheet.leaveTypes.annual}</option>
+                      <option value="sick">{t.timesheet.leaveTypes.sick}</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="adj-days">{t.timeOff.adjustDays}</label>
+                    <input id="adj-days" name="days" type="number" step="0.5" min={-100} max={100} required />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="adj-reason">{t.timeOff.reason}</label>
+                    <input id="adj-reason" name="reason" type="text" required maxLength={200} />
+                  </div>
+                  <div>
+                    <button className="btn btn-primary">{t.timeOff.addAdjustment}</button>
+                  </div>
                 </div>
-                <div className="field">
-                  <label htmlFor="adj-days">{t.timeOff.adjustDays}</label>
-                  <input id="adj-days" name="days" type="number" step="0.5" min={-100} max={100} required />
-                </div>
-                <div className="field">
-                  <label htmlFor="adj-reason">{t.timeOff.reason}</label>
-                  <input id="adj-reason" name="reason" type="text" required maxLength={200} />
-                </div>
-                <div>
-                  <button className="btn btn-primary">{t.timeOff.addAdjustment}</button>
-                </div>
-              </div>
-              <span className="muted small">{t.timeOff.adjustHint}</span>
-            </form>
+                <span className="muted small">{t.timeOff.adjustHint}</span>
+              </form>
+            </Reveal>
           ) : null}
         </section>
       ) : null}
@@ -265,51 +268,53 @@ export default async function ProfilePage({
           </table>
         </div>
         {manage ? (
-          <form action={addAssignmentAction} className="card">
-            <input type="hidden" name="employeeId" value={person.id} />
-            <h3>{t.profile.addAssignment}</h3>
-            <div className="grid-form">
-              <div className="field">
-                <label htmlFor="clientId">{t.profile.client}</label>
-                <select id="clientId" name="clientId" required>
-                  {clientRows
-                    .filter((c) => c.active)
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {localName(locale, c.nameEn, c.nameAr)}
-                      </option>
-                    ))}
-                </select>
+          <Reveal label={t.profile.addAssignment} cancelLabel={t.form.cancel} primary>
+            <form action={addAssignmentAction} className="card">
+              <input type="hidden" name="employeeId" value={person.id} />
+              <h3>{t.profile.addAssignment}</h3>
+              <div className="grid-form">
+                <div className="field">
+                  <label htmlFor="clientId">{t.profile.client}</label>
+                  <select id="clientId" name="clientId" required>
+                    {clientRows
+                      .filter((c) => c.active)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {localName(locale, c.nameEn, c.nameAr)}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="startDate">{t.profile.from}</label>
+                  <input id="startDate" name="startDate" type="date" required defaultValue={today} />
+                </div>
+                <div className="field">
+                  <label htmlFor="endDate">{t.profile.to}</label>
+                  <input id="endDate" name="endDate" type="date" />
+                </div>
+                <div className="field">
+                  <label htmlFor="shiftId">{t.shifts.shift}</label>
+                  <select id="shiftId" name="shiftId" defaultValue="">
+                    <option value="">{t.shifts.noShift}</option>
+                    {shiftOptions}
+                  </select>
+                </div>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    name="primary"
+                    defaultChecked={person.assignments.every((a) => a.endDate && a.endDate < today)}
+                  />
+                  {t.profile.primary}
+                </label>
               </div>
-              <div className="field">
-                <label htmlFor="startDate">{t.profile.from}</label>
-                <input id="startDate" name="startDate" type="date" required defaultValue={today} />
+              <span className="muted small">{t.profile.primaryHint}</span>
+              <div>
+                <button className="btn btn-primary">{t.profile.addAssignment}</button>
               </div>
-              <div className="field">
-                <label htmlFor="endDate">{t.profile.to}</label>
-                <input id="endDate" name="endDate" type="date" />
-              </div>
-              <div className="field">
-                <label htmlFor="shiftId">{t.shifts.shift}</label>
-                <select id="shiftId" name="shiftId" defaultValue="">
-                  <option value="">{t.shifts.noShift}</option>
-                  {shiftOptions}
-                </select>
-              </div>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  name="primary"
-                  defaultChecked={person.assignments.every((a) => a.endDate && a.endDate < today)}
-                />
-                {t.profile.primary}
-              </label>
-            </div>
-            <span className="muted small">{t.profile.primaryHint}</span>
-            <div>
-              <button className="btn btn-primary">{t.profile.addAssignment}</button>
-            </div>
-          </form>
+            </form>
+          </Reveal>
         ) : null}
       </section>
 
@@ -369,58 +374,62 @@ export default async function ProfilePage({
           </table>
         </div>
         {manage && shiftGroups.length ? (
-          <form action={putOnShiftAction} className="card">
-            <input type="hidden" name="employeeId" value={person.id} />
-            <h3>{t.shifts.putOn}</h3>
-            <div className="grid-form">
-              <div className="field">
-                <label htmlFor="shiftPick">{t.shifts.shift}</label>
-                <select id="shiftPick" name="shiftId" required>
-                  {shiftOptions}
-                </select>
+          <Reveal label={t.shifts.putOn} cancelLabel={t.form.cancel} primary>
+            <form action={putOnShiftAction} className="card">
+              <input type="hidden" name="employeeId" value={person.id} />
+              <h3>{t.shifts.putOn}</h3>
+              <div className="grid-form">
+                <div className="field">
+                  <label htmlFor="shiftPick">{t.shifts.shift}</label>
+                  <select id="shiftPick" name="shiftId" required>
+                    {shiftOptions}
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="shiftFrom">{t.profile.effectiveFrom}</label>
+                  <input id="shiftFrom" name="effectiveFrom" type="date" required defaultValue={today} />
+                </div>
               </div>
-              <div className="field">
-                <label htmlFor="shiftFrom">{t.profile.effectiveFrom}</label>
-                <input id="shiftFrom" name="effectiveFrom" type="date" required defaultValue={today} />
+              <span className="muted small">{t.shifts.putOnHint}</span>
+              <div>
+                <button className="btn btn-primary">{t.shifts.putOnButton}</button>
               </div>
-            </div>
-            <span className="muted small">{t.shifts.putOnHint}</span>
-            <div>
-              <button className="btn btn-primary">{t.shifts.putOnButton}</button>
-            </div>
-          </form>
+            </form>
+          </Reveal>
         ) : null}
         {manage ? (
-          <form action={setScheduleAction} className="card">
-            <h3>{t.shifts.custom}</h3>
-            <input type="hidden" name="employeeId" value={person.id} />
-            <div className="grid-form">
-              <div className="field">
-                <label htmlFor="effectiveFrom">{t.profile.effectiveFrom}</label>
-                <input id="effectiveFrom" name="effectiveFrom" type="date" required defaultValue={today} />
+          <Reveal label={t.shifts.custom} cancelLabel={t.form.cancel}>
+            <form action={setScheduleAction} className="card">
+              <h3>{t.shifts.custom}</h3>
+              <input type="hidden" name="employeeId" value={person.id} />
+              <div className="grid-form">
+                <div className="field">
+                  <label htmlFor="effectiveFrom">{t.profile.effectiveFrom}</label>
+                  <input id="effectiveFrom" name="effectiveFrom" type="date" required defaultValue={today} />
+                </div>
+                <div className="field">
+                  <label htmlFor="startTime">{t.profile.start}</label>
+                  <input id="startTime" name="startTime" type="time" required defaultValue="09:00" />
+                </div>
+                <div className="field">
+                  <label htmlFor="endTime">{t.profile.endTime}</label>
+                  <input id="endTime" name="endTime" type="time" required defaultValue="17:30" />
+                </div>
+                <div className="field">
+                  <label htmlFor="breakMinutes">{t.profile.break}</label>
+                  <input id="breakMinutes" name="breakMinutes" type="number" min={0} max={240} defaultValue={0} />
+                </div>
+                <div className="field">
+                  <label htmlFor="shiftCode">{t.profile.shift}</label>
+                  <input id="shiftCode" name="shiftCode" type="text" placeholder="A / B / C" />
+                </div>
               </div>
-              <div className="field">
-                <label htmlFor="startTime">{t.profile.start}</label>
-                <input id="startTime" name="startTime" type="time" required defaultValue="09:00" />
+              <span className="muted small">{t.profile.scheduleHint}</span>
+              <div>
+                <button className="btn btn-primary">{t.profile.addSchedule}</button>
               </div>
-              <div className="field">
-                <label htmlFor="endTime">{t.profile.endTime}</label>
-                <input id="endTime" name="endTime" type="time" required defaultValue="17:30" />
-              </div>
-              <div className="field">
-                <label htmlFor="breakMinutes">{t.profile.break}</label>
-                <input id="breakMinutes" name="breakMinutes" type="number" min={0} max={240} defaultValue={0} />
-              </div>
-              <div className="field">
-                <label htmlFor="shiftCode">{t.profile.shift}</label>
-                <input id="shiftCode" name="shiftCode" type="text" placeholder="A / B / C" />
-              </div>
-            </div>
-            <span className="muted small">{t.profile.scheduleHint}</span>
-            <div>
-              <button className="btn btn-primary">{t.profile.addSchedule}</button>
-            </div>
-          </form>
+            </form>
+          </Reveal>
         ) : null}
       </section>
     </>

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Reveal } from '@/components/Reveal';
 import { createCalendarAction, createClientAction } from '@/app/(app)/clients/actions';
 import { Flash } from '@/components/Flash';
 import { WorkWeekField } from '@/components/WorkWeekField';
@@ -79,32 +80,34 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
           </table>
         </div>
         {calendarRows.length ? (
-          <form action={createClientAction} className="card">
-            <h3>{t.clients.addClient}</h3>
-            <div className="grid-form">
-              <div className="field">
-                <label htmlFor="c-name">{t.clients.name}</label>
-                <input id="c-name" name="nameEn" type="text" required />
+          <Reveal label={t.clients.addClient} cancelLabel={t.form.cancel} primary>
+            <form action={createClientAction} className="card">
+              <h3>{t.clients.addClient}</h3>
+              <div className="grid-form">
+                <div className="field">
+                  <label htmlFor="c-name">{t.clients.name}</label>
+                  <input id="c-name" name="nameEn" type="text" required />
+                </div>
+                <div className="field">
+                  <label htmlFor="c-name-ar">{t.clients.nameAr}</label>
+                  <input id="c-name-ar" name="nameAr" type="text" dir="rtl" lang="ar" />
+                </div>
+                <div className="field">
+                  <label htmlFor="c-cal">{t.clients.calendar}</label>
+                  <select id="c-cal" name="calendarId" required>
+                    {calendarRows.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <button className="btn btn-primary">{t.clients.addClient}</button>
+                </div>
               </div>
-              <div className="field">
-                <label htmlFor="c-name-ar">{t.clients.nameAr}</label>
-                <input id="c-name-ar" name="nameAr" type="text" dir="rtl" lang="ar" />
-              </div>
-              <div className="field">
-                <label htmlFor="c-cal">{t.clients.calendar}</label>
-                <select id="c-cal" name="calendarId" required>
-                  {calendarRows.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <button className="btn btn-primary">{t.clients.addClient}</button>
-              </div>
-            </div>
-          </form>
+            </form>
+          </Reveal>
         ) : null}
       </section>
 
@@ -145,17 +148,19 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
             </tbody>
           </table>
         </div>
-        <form action={createCalendarAction} className="card">
-          <h3>{t.clients.addCalendar}</h3>
-          <div className="field" style={{ maxWidth: 360 }}>
-            <label htmlFor="cal-name">{t.clients.name}</label>
-            <input id="cal-name" name="name" type="text" required placeholder="Saudi Arabia (Sun–Thu)" />
-          </div>
-          <WorkWeekField t={t} />
-          <div>
-            <button className="btn btn-primary">{t.clients.addCalendar}</button>
-          </div>
-        </form>
+        <Reveal label={t.clients.addCalendar} cancelLabel={t.form.cancel}>
+          <form action={createCalendarAction} className="card">
+            <h3>{t.clients.addCalendar}</h3>
+            <div className="field" style={{ maxWidth: 360 }}>
+              <label htmlFor="cal-name">{t.clients.name}</label>
+              <input id="cal-name" name="name" type="text" required placeholder="Saudi Arabia (Sun–Thu)" />
+            </div>
+            <WorkWeekField t={t} />
+            <div>
+              <button className="btn btn-primary">{t.clients.addCalendar}</button>
+            </div>
+          </form>
+        </Reveal>
       </section>
     </>
   );
