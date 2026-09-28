@@ -78,6 +78,13 @@
       "when": 1790585420919,
       "tag": "0010_full_day_830",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790587827974,
+      "tag": "0011_schedule_history",
+      "breakpoints": true
     }
   ]
 }

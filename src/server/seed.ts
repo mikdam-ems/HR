@@ -135,6 +135,8 @@ export function nameFromEmail(email: string): string {
     .join(' ');
 }
 
+/** First day of the 8h30 full day (see drizzle/0011_schedule_history.sql). */
+const FULL_DAY_830_FROM = '2026-10-01';
 const GM = 'suma.abdullah@ems-itech.com';
 const QA_DM = 'dania.alrashed@ems-itech.com';
 const DEV_DM = 'faisal.abuzaid@ems-itech.com';
@@ -193,7 +195,9 @@ export async function seedDemo(db: DB, log: (m: string) => void = console.log) {
     );
     idByEmail.set(p.email, e.id);
     must(await addAssignment(db, null, { employeeId: e.id, clientId: clientId[p.client], startDate: '2026-01-01' }), 'assign');
-    must(await setSchedule(db, null, { employeeId: e.id, effectiveFrom: '2026-01-01', startTime: '09:00', endTime: '17:30' }), 'schedule');
+    must(await setSchedule(db, null, { employeeId: e.id, effectiveFrom: '2026-01-01', startTime: '09:00', endTime: '17:00' }), 'schedule');
+    // The full day became 8h30 from October 2026; earlier months keep the day they were worked under.
+    must(await setSchedule(db, null, { employeeId: e.id, effectiveFrom: FULL_DAY_830_FROM, startTime: '09:00', endTime: '17:30' }), 'schedule');
     added++;
   }
 

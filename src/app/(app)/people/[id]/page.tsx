@@ -355,7 +355,7 @@ export default async function ProfilePage({
               </div>
               <div className="field">
                 <label htmlFor="endTime">{t.profile.endTime}</label>
-                <input id="endTime" name="endTime" type="time" required defaultValue="17:00" />
+                <input id="endTime" name="endTime" type="time" required defaultValue="17:30" />
               </div>
               <div className="field">
                 <label htmlFor="breakMinutes">{t.profile.break}</label>
