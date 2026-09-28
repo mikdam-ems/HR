@@ -5,7 +5,7 @@ import { getDb } from '@/db';
 import { daysOfMonth, isWorkday, msToMinutes, resolveDay } from '@/domain';
 import { fmt, getDict, localName } from '@/i18n';
 import { formatDate, formatHours, timeOfDay, todayISO } from '@/lib/format';
-import { firstClockDates, monthAttendance } from '@/server/clock';
+import { firstClockDates, monthClock } from '@/server/clock';
 import { getEmployeeProfile } from '@/server/people';
 import { loadRulesContext } from '@/server/rulesContext';
 import { requireUser } from '@/server/session';
@@ -46,7 +46,7 @@ export default async function AttendancePage({
   const [year, month] = parseMonth((await searchParams).month);
   const today = todayISO();
   const [log, ctx, firsts] = await Promise.all([
-    monthAttendance(db, person.id, year, month),
+    monthClock(db, person.id, year, month),
     loadRulesContext(db),
     firstClockDates(db, [person.id]),
   ]);
@@ -60,8 +60,8 @@ export default async function AttendancePage({
       const day = resolveDay(ctx, person.id, date);
       const rec = log[date];
       // A session left open on an earlier day ran on until now; it counts nothing until it's corrected.
-      const forgotten = !!rec?.day.open && date < today;
-      const worked = rec && !forgotten ? msToMinutes(rec.day.workedMs) : 0;
+      const forgotten = !!rec?.open && date < today;
+      const worked = rec && !forgotten ? msToMinutes(rec.workedMs) : 0;
       const target = isWorkday(day.dayType) ? day.expectedMinutes : 0;
       return { date, day, rec, forgotten, worked, target, over: Math.max(0, worked - target) };
     })
@@ -70,7 +70,7 @@ export default async function AttendancePage({
   const attended = rows.filter((r) => r.rec);
   const total = attended.reduce((a, r) => a + r.worked, 0);
   const overtime = attended.reduce((a, r) => a + r.over, 0);
-  const starts = attended.map((r) => timeOfDay(r.rec!.day.firstIn)).sort();
+  const starts = attended.map((r) => timeOfDay(r.rec!.firstIn)).sort();
   const usualStart = starts.length ? starts[Math.floor(starts.length / 2)] : '—';
   const own = person.id === user.id;
   const monthKey = ym(year, month);
@@ -78,7 +78,7 @@ export default async function AttendancePage({
   const result = (r: (typeof rows)[number]) => {
     if (!r.rec) return <span className="badge badge-unassigned">{t.timesheet.issues.missing_hours}</span>;
     if (r.forgotten) return <span className="badge badge-unassigned">{t.timesheet.issues.clock_open}</span>;
-    if (r.rec.day.open) return <span className="badge status-submitted">{t.attendance.stillIn}</span>;
+    if (r.rec.open) return <span className="badge status-submitted">{t.attendance.stillIn}</span>;
     if (!r.target) return <span className="badge badge-special_overtime">{fmt(t.attendance.over, { time: formatHours(r.worked, locale) })}</span>;
     if (r.over) return <span className="badge badge-special_overtime">{fmt(t.attendance.over, { time: formatHours(r.over, locale) })}</span>;
     if (r.worked >= r.target) return <span className="badge status-approved">✓ {t.attendance.fullDay}</span>;
@@ -163,9 +163,9 @@ export default async function AttendancePage({
                       </details>
                     ) : null}
                   </td>
-                  <td dir="ltr">{r.rec ? timeOfDay(r.rec.day.firstIn) : '—'}</td>
-                  <td dir="ltr">{r.rec?.day.lastOut ? timeOfDay(r.rec.day.lastOut) : r.rec?.day.open ? '…' : '—'}</td>
-                  <td>{r.rec && r.rec.day.breakMs >= 60_000 ? formatHours(msToMinutes(r.rec.day.breakMs), locale) : '—'}</td>
+                  <td dir="ltr">{r.rec ? timeOfDay(r.rec.firstIn) : '—'}</td>
+                  <td dir="ltr">{r.rec?.lastOut ? timeOfDay(r.rec.lastOut) : r.rec?.open ? '…' : '—'}</td>
+                  <td>{r.rec && r.rec.breakMs >= 60_000 ? formatHours(msToMinutes(r.rec.breakMs), locale) : '—'}</td>
                   <td>
                     <strong style={{ fontWeight: 600 }}>{r.rec && !r.forgotten ? formatHours(r.worked, locale) : '—'}</strong>
                     {r.target ? <span className="muted small"> / {formatHours(r.target, locale)}</span> : null}
