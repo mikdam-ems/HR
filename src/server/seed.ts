@@ -1,9 +1,9 @@
 import { eq, like, sql } from 'drizzle-orm';
 import type { DB } from '@/db';
-import { calendars, departments, employees } from '@/db/schema';
+import { calendars, clientShifts, departments, employees } from '@/db/schema';
 import { createCalendar, createClient, setHoliday } from './clients';
 import { createDepartment } from './departments';
-import { addAssignment, createEmployee, setSchedule } from './people';
+import { addAssignment, createEmployee, putOnShift, setSchedule } from './people';
 import { getSettings, setSetting } from './settings';
 
 /**
@@ -193,7 +193,13 @@ export async function seedDemo(db: DB, log: (m: string) => void = console.log) {
     );
     idByEmail.set(p.email, e.id);
     must(await addAssignment(db, null, { employeeId: e.id, clientId: clientId[p.client], startDate: '2026-01-01' }), 'assign');
-    must(await setSchedule(db, null, { employeeId: e.id, effectiveFrom: '2026-01-01', startTime: '09:00', endTime: '17:30' }), 'schedule');
+    const [standard] = await db.select().from(clientShifts).where(eq(clientShifts.clientId, clientId[p.client]));
+    must(
+      standard
+        ? await putOnShift(db, null, e.id, standard.id, '2026-01-01')
+        : await setSchedule(db, null, { employeeId: e.id, effectiveFrom: '2026-01-01', startTime: '09:00', endTime: '17:30' }),
+      'schedule',
+    );
     added++;
   }
 

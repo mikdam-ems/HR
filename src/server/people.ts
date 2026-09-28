@@ -1,6 +1,6 @@
 import { and, asc, eq, ne } from 'drizzle-orm';
 import type { DB } from '@/db';
-import { assignments, clients, employees, schedules, type Employee } from '@/db/schema';
+import { assignments, clientShifts, clients, employees, schedules, type Employee } from '@/db/schema';
 import { audit } from './audit';
 import { wouldCreateLoop } from './orgTree';
 import {
@@ -100,8 +100,17 @@ export async function addAssignment(db: DB, actorId: string | null, input: Assig
   // Two primaries at once would make the work week ambiguous; HR must end or unmark the other first.
   if (a.primary && overlapping.some((e) => e.primary)) return fail('primary_overlap');
 
-  const [row] = await db.insert(assignments).values(a).returning();
+  const { shiftId, ...assignment } = a;
+  if (shiftId) {
+    const [shift] = await db.select().from(clientShifts).where(eq(clientShifts.id, shiftId));
+    if (!shift || shift.clientId !== a.clientId) return fail('unknown_shift');
+  }
+  const [row] = await db.insert(assignments).values(assignment).returning();
   await audit(db, { actorId, action: 'create', entity: 'assignment', entityId: row!.id, after: row });
+  if (shiftId) {
+    const applied = await putOnShift(db, actorId, a.employeeId, shiftId, a.startDate);
+    if (!applied.ok) return applied;
+  }
   return ok(row!.id);
 }
 
@@ -153,4 +162,25 @@ export async function removeSchedule(db: DB, actorId: string | null, scheduleId:
   if (!before) return fail('not_found');
   await audit(db, { actorId, action: 'delete', entity: 'schedule', entityId: scheduleId, before });
   return ok(undefined);
+}
+
+/** Puts someone on a client shift from a date: their schedule takes the shift's hours from then on. */
+export async function putOnShift(
+  db: DB,
+  actorId: string | null,
+  employeeId: string,
+  shiftId: string,
+  effectiveFrom: string,
+): Promise<Result<void>> {
+  const [shift] = await db.select().from(clientShifts).where(eq(clientShifts.id, shiftId));
+  if (!shift || !shift.active) return fail('unknown_shift');
+  return setSchedule(db, actorId, {
+    employeeId,
+    effectiveFrom,
+    startTime: shift.startTime,
+    endTime: shift.endTime,
+    breakMinutes: shift.breakMinutes,
+    shiftCode: shift.name,
+    clientShiftId: shift.id,
+  });
 }
