@@ -164,10 +164,11 @@ export async function monthClockMinutes(db: DB, year: number, month: number, now
 
 /** The first day each person clocked in (the day the clock takes over their timesheet). */
 export async function firstClockDates(db: DB, ids?: string[]): Promise<Record<string, string>> {
+  if (ids && !ids.length) return {};
   const rows = await db
     .select({ employeeId: clockEvents.employeeId, first: min(clockEvents.at) })
     .from(clockEvents)
-    .where(ids ? inArray(clockEvents.employeeId, ids.length ? ids : ['00000000-0000-0000-0000-000000000000']) : undefined)
+    .where(ids ? inArray(clockEvents.employeeId, ids) : undefined)
     .groupBy(clockEvents.employeeId);
   return Object.fromEntries(rows.filter((r) => r.first).map((r) => [r.employeeId, dateOf(new Date(r.first!))]));
 }

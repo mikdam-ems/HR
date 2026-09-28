@@ -73,7 +73,7 @@ export default async function TimesheetPage({
     : undefined;
   const approver = approverRow ? localName(locale, approverRow.nameEn, approverRow.nameAr) : null;
   const pendingCount = Object.keys(view.pending).length;
-  const clockMode = view.summary.days.some((d) => d.future !== undefined);
+  const clockMode = view.summary.days.some((d) => d.source === 'clock');
   const decidedBy = view.timesheet?.decidedById ? await db.query.employees.findFirst({ where: (e, { eq }) => eq(e.id, view.timesheet!.decidedById!) }) : undefined;
 
   return (
@@ -290,7 +290,7 @@ function DayCell({
         {future && worked && !d.changed ? <span className="muted small"> {t.timesheet.planned}</span> : null}
         {extra ? <span className="cell-extra"> +{formatHours(extra, locale)}</span> : null}
       </span>
-      {clock && (d.clockedMinutes === undefined || d.changed) ? (
+      {clock && (d.source === 'schedule' || d.changed) ? (
         <span className="cell-clock" title={t.clock.clocked}>
           ⏱ {formatHours(msToMinutes(clock.workedMs), locale)}
         </span>
@@ -390,7 +390,7 @@ function DayPanel({
         </div>
       </dl>
 
-      {view.access.edit && d.future === undefined && clock && !clock.open && date < todayISO() && !d.entry.leave && Math.abs(msToMinutes(clock.workedMs) - d.entry.workedMinutes) >= 15 ? (
+      {view.access.edit && d.source === 'schedule' && clock && !clock.open && date < todayISO() && !d.entry.leave && Math.abs(msToMinutes(clock.workedMs) - d.entry.workedMinutes) >= 15 ? (
         <form action={saveDayAction}>
           <input type="hidden" name="date" value={date} />
           <input type="hidden" name="workedMinutes" value={msToMinutes(clock.workedMs)} />
@@ -453,7 +453,7 @@ function DayPanel({
             <form action={resetDayAction}>
               <input type="hidden" name="date" value={date} />
               <button className="btn" style={{ width: '100%' }}>
-                {d.future !== undefined
+                {d.source === 'clock'
                   ? approver
                     ? t.timesheet.day.askResetClock
                     : t.timesheet.day.resetClock
