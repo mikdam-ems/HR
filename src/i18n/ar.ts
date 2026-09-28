@@ -366,7 +366,7 @@ export const ar: DeepString<Dict> = {
     daysIn: 'أيام الحضور',
     total: 'ساعات العمل',
     overtime: 'العمل الإضافي',
-    avgStart: 'وقت البدء المعتاد',
+    usualStart: 'وقت البدء المعتاد',
     date: 'اليوم',
     in: 'الدخول',
     out: 'الخروج',
