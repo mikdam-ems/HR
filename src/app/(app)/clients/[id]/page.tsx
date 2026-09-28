@@ -1,14 +1,17 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { updateClientAction } from '@/app/(app)/clients/actions';
+import { retireShiftAction, saveShiftAction, updateClientAction } from '@/app/(app)/clients/actions';
 import { Avatar } from '@/components/Avatar';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { fmt, getDict, localName } from '@/i18n';
 import type { Dict } from '@/i18n/en';
-import { formatDate, todayISO } from '@/lib/format';
+import { formatDate, formatHours, todayISO } from '@/lib/format';
 import { getClientProfile, listCalendars, type ClientProfile } from '@/server/clients';
 import { upcomingLeaveForClient } from '@/server/leave';
+import { listShifts, shiftRoster } from '@/server/shifts';
+import { windowMinutes } from '@/domain';
+import type { ClientShiftRow } from '@/db/schema';
 import { can } from '@/server/permissions';
 import { currentStatus } from '@/server/profile';
 import { requireUser } from '@/server/session';
@@ -29,10 +32,14 @@ export default async function ClientPage({
   if (!profile) notFound();
   const { client, current, upcoming, past, upcomingHolidays } = profile;
   const manage = can(user, 'clients.manage');
-  const [calendarRows, leave] = await Promise.all([
+  const [calendarRows, leave, shifts, roster] = await Promise.all([
     manage ? listCalendars(db) : Promise.resolve([]),
     client.isInternal ? Promise.resolve([]) : upcomingLeaveForClient(db, client.id, today),
+    listShifts(db, client.id),
+    shiftRoster(db, client.id, today),
   ]);
+  const shiftOf = new Map(shifts.flatMap((sh) => (roster[sh.id] ?? []).map((id) => [id, sh.name] as const)));
+  const byId = new Map(current.map((a) => [a.employee.id, a.employee]));
   const offDays = [0, 1, 2, 3, 4, 5, 6].filter((d) => !client.calendar.workWeek.includes(d)).map((d) => t.weekdays[d]);
   const departments = [...new Map(current.flatMap((a) => (a.employee.department ? [[a.employee.department.id, a.employee.department]] : []))).values()];
   const d = (iso: string) => formatDate(iso, locale, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -100,10 +107,72 @@ export default async function ClientPage({
           </section>
         </div>
 
+        <section className="card span-12" aria-labelledby="shifts">
+          <div className="stack" style={{ gap: 2 }}>
+            <h2 id="shifts">{t.shifts.title}</h2>
+            <span className="muted small">{t.shifts.hint}</span>
+          </div>
+          <ul className="shift-list">
+            {shifts.map((sh) => {
+              const people = (roster[sh.id] ?? []).map((id) => byId.get(id)).filter((e) => !!e);
+              return (
+                <li key={sh.id} className="shift-row">
+                  <div className="shift-main">
+                    <strong>{sh.name}</strong>
+                    <span className="shift-hours" dir="ltr">
+                      {sh.startTime}–{sh.endTime}
+                    </span>
+                    <span className="muted small">
+                      {fmt(t.shifts.perDay, { hours: formatHours(Math.max(0, windowMinutes(sh.startTime, sh.endTime) - sh.breakMinutes), locale) })}
+                      {sh.endTime <= sh.startTime ? ` · ${t.shifts.overnight}` : ''}
+                    </span>
+                  </div>
+                  <div className="row" style={{ gap: 10 }}>
+                    <div className="avatars">
+                      {people.slice(0, 6).map((e) => (
+                        <Link key={e!.id} href={`/people/${e!.id}`} className="avatar-link" title={e!.nameEn}>
+                          <Avatar person={e!} size="sm" />
+                        </Link>
+                      ))}
+                    </div>
+                    <span className="muted small">{fmt(t.shifts.people, { count: people.length })}</span>
+                  </div>
+                  {manage ? (
+                    <details className="shift-edit">
+                      <summary className="btn btn-small">{t.shifts.edit}</summary>
+                      <ShiftForm shift={sh} clientId={client.id} t={t} />
+                      <form action={retireShiftAction}>
+                        <input type="hidden" name="id" value={sh.id} />
+                        <input type="hidden" name="clientId" value={client.id} />
+                        <button className="btn btn-small btn-danger">{t.shifts.retire}</button>
+                      </form>
+                    </details>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+          {manage ? (
+            <details>
+              <summary className="btn btn-small">{t.shifts.add}</summary>
+              <ShiftForm clientId={client.id} t={t} nextOrder={shifts.length} />
+            </details>
+          ) : null}
+        </section>
+
         <section className="card span-12">
           <h2>{t.client.peopleNow}</h2>
           {current.length ? (
-            <People rows={current} t={t} locale={locale} note={(a) => fmt(t.client.since, { date: d(a.startDate) }) + (a.endDate ? ` · ${fmt(t.client.until, { date: d(a.endDate) })}` : '')} />
+            <People
+              rows={current}
+              t={t}
+              locale={locale}
+              note={(a) =>
+                [shiftOf.get(a.employee.id), fmt(t.client.since, { date: d(a.startDate) }) + (a.endDate ? ` · ${fmt(t.client.until, { date: d(a.endDate) })}` : '')]
+                  .filter(Boolean)
+                  .join(' · ')
+              }
+            />
           ) : (
             <span className="muted">{t.client.nobody}</span>
           )}
@@ -252,5 +321,41 @@ function People({
         );
       })}
     </ul>
+  );
+}
+
+function ShiftForm({ shift, clientId, t, nextOrder = 0 }: { shift?: ClientShiftRow; clientId: string; t: Dict; nextOrder?: number }) {
+  const p = shift?.id ?? 'new';
+  return (
+    <form action={saveShiftAction} className="stack" style={{ marginTop: 12 }}>
+      {shift ? <input type="hidden" name="id" value={shift.id} /> : null}
+      <input type="hidden" name="clientId" value={clientId} />
+      <div className="grid-form">
+        <div className="field">
+          <label htmlFor={`sn-${p}`}>{t.shifts.name}</label>
+          <input id={`sn-${p}`} name="name" type="text" required maxLength={60} defaultValue={shift?.name ?? ''} placeholder="Shift A — Morning" />
+        </div>
+        <div className="field">
+          <label htmlFor={`ss-${p}`}>{t.shifts.start}</label>
+          <input id={`ss-${p}`} name="startTime" type="time" required defaultValue={shift?.startTime ?? '09:00'} />
+        </div>
+        <div className="field">
+          <label htmlFor={`se-${p}`}>{t.shifts.end}</label>
+          <input id={`se-${p}`} name="endTime" type="time" required defaultValue={shift?.endTime ?? '17:30'} />
+        </div>
+        <div className="field">
+          <label htmlFor={`sb-${p}`}>{t.shifts.break}</label>
+          <input id={`sb-${p}`} name="breakMinutes" type="number" min={0} max={240} defaultValue={shift?.breakMinutes ?? 0} />
+        </div>
+        <div className="field">
+          <label htmlFor={`so-${p}`}>{t.shifts.order}</label>
+          <input id={`so-${p}`} name="sortOrder" type="number" min={0} max={99} defaultValue={shift?.sortOrder ?? nextOrder} />
+        </div>
+      </div>
+      {shift ? <span className="muted small">{t.shifts.editHint}</span> : null}
+      <div>
+        <button className="btn btn-primary btn-small">{t.shifts.save}</button>
+      </div>
+    </form>
   );
 }

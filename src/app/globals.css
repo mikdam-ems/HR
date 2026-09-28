@@ -2452,3 +2452,46 @@ a.clock-pill {
   flex-direction: column;
   gap: 2px;
 }
+
+/* ---------- Client shifts ---------- */
+.shift-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.shift-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.65);
+}
+.shift-main {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.shift-hours {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  background: var(--brand-100);
+  color: var(--brand-900);
+}
+.shift-edit[open] {
+  flex-basis: 100%;
+}
+.shift-edit[open] {
+  padding-top: 4px;
+}
+.shift-edit form + form {
+  margin-top: 8px;
+}

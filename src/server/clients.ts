@@ -1,7 +1,7 @@
 import { and, asc, eq } from 'drizzle-orm';
 import type { z } from 'zod';
 import type { DB } from '@/db';
-import { assignments, calendars, clients, holidays } from '@/db/schema';
+import { assignments, calendars, clientShifts, clients, holidays } from '@/db/schema';
 import { audit } from './audit';
 import { type Result, calendarInput, clientInput, fail, holidayInput, ok, parse } from './validation';
 
@@ -119,6 +119,12 @@ export async function createClient(
   }
   const [row] = await db.insert(clients).values(parsed.value).returning();
   await audit(db, { actorId, action: 'create', entity: 'client', entityId: row!.id, after: row });
+  // Every client starts with the standard 8h30 day; HR edits it or adds shifts on the client's page.
+  const [shift] = await db
+    .insert(clientShifts)
+    .values({ clientId: row!.id, name: 'Standard', startTime: '09:00', endTime: '17:30' })
+    .returning();
+  await audit(db, { actorId, action: 'create', entity: 'client_shift', entityId: shift!.id, after: shift });
   return ok(row!.id);
 }
 

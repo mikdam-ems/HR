@@ -129,6 +129,28 @@ export const assignments = pgTable(
   (t) => [index('assignments_employee_idx').on(t.employeeId)],
 );
 
+/** A client's working hours, as one or more named shifts (e.g. "Standard 09:00–17:30", or A/B/C). */
+export const clientShifts = pgTable(
+  'client_shifts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    /** Short name people recognise, e.g. "Standard", "Shift A — Morning". */
+    name: text('name').notNull(),
+    /** HH:MM */
+    startTime: text('start_time').notNull(),
+    /** HH:MM; at or before startTime means the shift runs past midnight. */
+    endTime: text('end_time').notNull(),
+    breakMinutes: integer('break_minutes').notNull().default(0),
+    sortOrder: integer('sort_order').notNull().default(0),
+    active: boolean('active').notNull().default(true),
+    ...timestamps,
+  },
+  (t) => [index('client_shifts_client_idx').on(t.clientId)],
+);
+
 export const schedules = pgTable(
   'schedules',
   {
@@ -143,6 +165,8 @@ export const schedules = pgTable(
     endTime: text('end_time').notNull(),
     breakMinutes: integer('break_minutes').notNull().default(0),
     shiftCode: text('shift_code'),
+    /** The client shift these hours come from (null: custom hours set by hand). */
+    clientShiftId: uuid('client_shift_id').references(() => clientShifts.id, { onDelete: 'set null' }),
     ...timestamps,
   },
   (t) => [uniqueIndex('schedules_employee_from_idx').on(t.employeeId, t.effectiveFrom)],
@@ -385,6 +409,12 @@ export const holidaysRelations = relations(holidays, ({ one }) => ({
 export const clientsRelations = relations(clients, ({ one, many }) => ({
   calendar: one(calendars, { fields: [clients.calendarId], references: [calendars.id] }),
   assignments: many(assignments),
+  shifts: many(clientShifts),
+}));
+
+export const clientShiftsRelations = relations(clientShifts, ({ one, many }) => ({
+  client: one(clients, { fields: [clientShifts.clientId], references: [clients.id] }),
+  schedules: many(schedules),
 }));
 
 export const assignmentsRelations = relations(assignments, ({ one }) => ({
@@ -394,6 +424,7 @@ export const assignmentsRelations = relations(assignments, ({ one }) => ({
 
 export const schedulesRelations = relations(schedules, ({ one }) => ({
   employee: one(employees, { fields: [schedules.employeeId], references: [employees.id] }),
+  shift: one(clientShifts, { fields: [schedules.clientShiftId], references: [clientShifts.id] }),
 }));
 
 export const timesheetsRelations = relations(timesheets, ({ one }) => ({
@@ -423,3 +454,4 @@ export type HolidayRow = typeof holidays.$inferSelect;
 export type ClientRow = typeof clients.$inferSelect;
 export type AssignmentRow = typeof assignments.$inferSelect;
 export type ScheduleRow = typeof schedules.$inferSelect;
+export type ClientShiftRow = typeof clientShifts.$inferSelect;

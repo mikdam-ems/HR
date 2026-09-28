@@ -82,8 +82,15 @@
     {
       "idx": 11,
       "version": "7",
-      "when": 1790587827974,
-      "tag": "0011_schedule_history",
+      "when": 1790597294042,
+      "tag": "0011_client_shifts",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790599050586,
+      "tag": "0012_schedule_history",
       "breakpoints": true
     }
   ]

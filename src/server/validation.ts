@@ -24,6 +24,7 @@ export type ErrorCode =
   | 'pending_changes'
   | 'clock_invalid'
   | 'hours_source_date'
+  | 'unknown_shift'
   | 'forbidden';
 
 export type Result<T = void> = { ok: true; value: T } | { ok: false; error: ErrorCode; detail?: string };
@@ -79,6 +80,8 @@ export const assignmentInput = z.object({
   startDate: isoDate,
   endDate: isoDate.nullish().transform((v) => v ?? null),
   primary: z.boolean().default(true),
+  /** Optional: the client shift they work, applied as their schedule from the start date. */
+  shiftId: z.string().uuid().nullish().transform((v) => v ?? null),
 });
 export type AssignmentInput = z.input<typeof assignmentInput>;
 
@@ -89,6 +92,7 @@ export const scheduleInput = z.object({
   endTime: hhmm,
   breakMinutes: z.coerce.number().int().min(0).max(240).default(0),
   shiftCode: optionalText,
+  clientShiftId: z.string().uuid().nullish().transform((v) => v ?? null),
 });
 export type ScheduleInput = z.input<typeof scheduleInput>;
 

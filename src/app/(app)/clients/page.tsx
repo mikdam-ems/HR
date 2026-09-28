@@ -3,16 +3,22 @@ import { createCalendarAction, createClientAction } from '@/app/(app)/clients/ac
 import { Flash } from '@/components/Flash';
 import { WorkWeekField } from '@/components/WorkWeekField';
 import { getDb } from '@/db';
-import { getDict, localName } from '@/i18n';
+import { fmt, getDict, localName } from '@/i18n';
 import { listCalendars, listClients } from '@/server/clients';
 import { requirePermission } from '@/server/session';
 import { getSettings } from '@/server/settings';
+import { allShifts } from '@/server/shifts';
 
 export default async function ClientsPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   await requirePermission('clients.manage');
   const { t, locale } = await getDict();
   const db = await getDb();
-  const [clientRows, calendarRows, appSettings] = await Promise.all([listClients(db), listCalendars(db), getSettings(db)]);
+  const [clientRows, calendarRows, appSettings, shiftRows] = await Promise.all([
+    listClients(db),
+    listCalendars(db),
+    getSettings(db),
+    allShifts(db),
+  ]);
   const weekLabel = (days: number[]) => days.map((d) => t.weekdays[d]).join(', ');
 
   return (
@@ -29,13 +35,14 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                 <th>{t.clients.name}</th>
                 <th>{t.clients.calendar}</th>
                 <th>{t.clients.workWeek}</th>
+                <th>{t.shifts.title}</th>
                 <th />
               </tr>
             </thead>
             <tbody>
               {clientRows.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="muted">
+                  <td colSpan={5} className="muted">
                     {t.clients.noClients}
                   </td>
                 </tr>
@@ -50,6 +57,18 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                       <Link href={`/calendars/${c.calendarId}`}>{c.calendar.name}</Link>
                     </td>
                     <td>{weekLabel(c.calendar.workWeek)}</td>
+                    <td className="small">
+                      {(() => {
+                        const own = shiftRows.filter((sh) => sh.clientId === c.id);
+                        return own.length === 1 ? (
+                          <span dir="ltr">
+                            {own[0]!.startTime}–{own[0]!.endTime}
+                          </span>
+                        ) : (
+                          fmt(t.shifts.summary, { count: own.length })
+                        );
+                      })()}
+                    </td>
                     <td>
                       <Link href={`/clients/${c.id}`}>{t.client.onClient}</Link>
                     </td>

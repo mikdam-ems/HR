@@ -16,6 +16,7 @@ import {
 import { audit } from '@/server/audit';
 import { requirePermission } from '@/server/session';
 import { getSettings, setHoursSource, setSetting } from '@/server/settings';
+import { createShift, deactivateShift, updateShift } from '@/server/shifts';
 
 export async function createClientAction(fd: FormData) {
   const actor = await requirePermission('clients.manage');
@@ -114,4 +115,31 @@ export async function saveSettingsAction(fd: FormData) {
   }
   revalidatePath('/');
   redirectWith('/settings', { ok: true, value: undefined });
+}
+
+/** Adds a shift to a client, or edits one (then everyone on it moves to the new hours from today). */
+export async function saveShiftAction(fd: FormData) {
+  const actor = await requirePermission('clients.manage');
+  const db = await getDb();
+  const id = str(fd, 'id');
+  const clientId = str(fd, 'clientId') ?? '';
+  const input = {
+    clientId,
+    name: str(fd, 'name') ?? '',
+    startTime: str(fd, 'startTime') ?? '',
+    endTime: str(fd, 'endTime') ?? '',
+    breakMinutes: Number(str(fd, 'breakMinutes') ?? 0),
+    sortOrder: Number(str(fd, 'sortOrder') ?? 0),
+  };
+  const result = id ? await updateShift(db, actor.id, id, input) : await createShift(db, actor.id, input);
+  revalidatePath(`/clients/${clientId}`);
+  redirectWith(`/clients/${clientId}`, result, id ? 'saved' : 'created');
+}
+
+export async function retireShiftAction(fd: FormData) {
+  const actor = await requirePermission('clients.manage');
+  const clientId = str(fd, 'clientId') ?? '';
+  const result = await deactivateShift(await getDb(), actor.id, str(fd, 'id') ?? '');
+  revalidatePath(`/clients/${clientId}`);
+  redirectWith(`/clients/${clientId}`, result, 'removed');
 }

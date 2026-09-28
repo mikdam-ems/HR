@@ -1,6 +1,6 @@
 {
-  "id": "6ec6988c-b708-4eb1-9464-b7ab651ff228",
-  "prevId": "83a69652-7c71-4081-acd6-78bdc2e30803",
+  "id": "80ed9efa-dacf-4d23-b4f5-ed0d676d1184",
+  "prevId": "6ec6988c-b708-4eb1-9464-b7ab651ff228",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -73,37 +73,37 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "assignments_employee_id_employees_id_fk": {
           "name": "assignments_employee_id_employees_id_fk",
           "tableFrom": "assignments",
-          "tableTo": "employees",
           "columnsFrom": [
             "employee_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "assignments_client_id_clients_id_fk": {
           "name": "assignments_client_id_clients_id_fk",
           "tableFrom": "assignments",
-          "tableTo": "clients",
           "columnsFrom": [
             "client_id"
           ],
+          "tableTo": "clients",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "restrict"
         }
       },
       "compositePrimaryKeys": {},
@@ -185,24 +185,24 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "audit_log_actor_id_employees_id_fk": {
           "name": "audit_log_actor_id_employees_id_fk",
           "tableFrom": "audit_log",
-          "tableTo": "employees",
           "columnsFrom": [
             "actor_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -340,24 +340,24 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "client_shifts_client_id_clients_id_fk": {
           "name": "client_shifts_client_id_clients_id_fk",
           "tableFrom": "client_shifts",
-          "tableTo": "clients",
           "columnsFrom": [
             "client_id"
           ],
+          "tableTo": "clients",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -435,15 +435,15 @@
         "clients_calendar_id_calendars_id_fk": {
           "name": "clients_calendar_id_calendars_id_fk",
           "tableFrom": "clients",
-          "tableTo": "calendars",
           "columnsFrom": [
             "calendar_id"
           ],
+          "tableTo": "calendars",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "restrict"
         }
       },
       "compositePrimaryKeys": {},
@@ -522,24 +522,24 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "clock_events_employee_id_employees_id_fk": {
           "name": "clock_events_employee_id_employees_id_fk",
           "tableFrom": "clock_events",
-          "tableTo": "employees",
           "columnsFrom": [
             "employee_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -675,37 +675,37 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "day_change_requests_employee_id_employees_id_fk": {
           "name": "day_change_requests_employee_id_employees_id_fk",
           "tableFrom": "day_change_requests",
-          "tableTo": "employees",
           "columnsFrom": [
             "employee_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "day_change_requests_decided_by_id_employees_id_fk": {
           "name": "day_change_requests_decided_by_id_employees_id_fk",
           "tableFrom": "day_change_requests",
-          "tableTo": "employees",
           "columnsFrom": [
             "decided_by_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -807,24 +807,24 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "day_entries_employee_id_employees_id_fk": {
           "name": "day_entries_employee_id_employees_id_fk",
           "tableFrom": "day_entries",
-          "tableTo": "employees",
           "columnsFrom": [
             "employee_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -927,15 +927,15 @@
         "employee_photos_employee_id_employees_id_fk": {
           "name": "employee_photos_employee_id_employees_id_fk",
           "tableFrom": "employee_photos",
-          "tableTo": "employees",
           "columnsFrom": [
             "employee_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -1075,9 +1075,9 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "employees_manager_idx": {
           "name": "employees_manager_idx",
@@ -1090,9 +1090,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "employees_department_idx": {
           "name": "employees_department_idx",
@@ -1105,37 +1105,37 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "employees_department_id_departments_id_fk": {
           "name": "employees_department_id_departments_id_fk",
           "tableFrom": "employees",
-          "tableTo": "departments",
           "columnsFrom": [
             "department_id"
           ],
+          "tableTo": "departments",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "employees_manager_id_employees_id_fk": {
           "name": "employees_manager_id_employees_id_fk",
           "tableFrom": "employees",
-          "tableTo": "employees",
           "columnsFrom": [
             "manager_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -1198,24 +1198,24 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "holidays_calendar_id_calendars_id_fk": {
           "name": "holidays_calendar_id_calendars_id_fk",
           "tableFrom": "holidays",
-          "tableTo": "calendars",
           "columnsFrom": [
             "calendar_id"
           ],
+          "tableTo": "calendars",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -1305,37 +1305,37 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "leave_adjustments_employee_id_employees_id_fk": {
           "name": "leave_adjustments_employee_id_employees_id_fk",
           "tableFrom": "leave_adjustments",
-          "tableTo": "employees",
           "columnsFrom": [
             "employee_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "leave_adjustments_created_by_id_employees_id_fk": {
           "name": "leave_adjustments_created_by_id_employees_id_fk",
           "tableFrom": "leave_adjustments",
-          "tableTo": "employees",
           "columnsFrom": [
             "created_by_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -1412,24 +1412,24 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "leave_attachments_leave_request_id_leave_requests_id_fk": {
           "name": "leave_attachments_leave_request_id_leave_requests_id_fk",
           "tableFrom": "leave_attachments",
-          "tableTo": "leave_requests",
           "columnsFrom": [
             "leave_request_id"
           ],
+          "tableTo": "leave_requests",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -1558,37 +1558,37 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "leave_requests_employee_id_employees_id_fk": {
           "name": "leave_requests_employee_id_employees_id_fk",
           "tableFrom": "leave_requests",
-          "tableTo": "employees",
           "columnsFrom": [
             "employee_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "leave_requests_decided_by_id_employees_id_fk": {
           "name": "leave_requests_decided_by_id_employees_id_fk",
           "tableFrom": "leave_requests",
-          "tableTo": "employees",
           "columnsFrom": [
             "decided_by_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -1652,24 +1652,24 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "month_closures_closed_by_id_employees_id_fk": {
           "name": "month_closures_closed_by_id_employees_id_fk",
           "tableFrom": "month_closures",
-          "tableTo": "employees",
           "columnsFrom": [
             "closed_by_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -1765,37 +1765,37 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "schedules_employee_id_employees_id_fk": {
           "name": "schedules_employee_id_employees_id_fk",
           "tableFrom": "schedules",
-          "tableTo": "employees",
           "columnsFrom": [
             "employee_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "schedules_client_shift_id_client_shifts_id_fk": {
           "name": "schedules_client_shift_id_client_shifts_id_fk",
           "tableFrom": "schedules",
-          "tableTo": "client_shifts",
           "columnsFrom": [
             "client_shift_id"
           ],
+          "tableTo": "client_shifts",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -1949,37 +1949,37 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "timesheets_employee_id_employees_id_fk": {
           "name": "timesheets_employee_id_employees_id_fk",
           "tableFrom": "timesheets",
-          "tableTo": "employees",
           "columnsFrom": [
             "employee_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "timesheets_decided_by_id_employees_id_fk": {
           "name": "timesheets_decided_by_id_employees_id_fk",
           "tableFrom": "timesheets",
-          "tableTo": "employees",
           "columnsFrom": [
             "decided_by_id"
           ],
+          "tableTo": "employees",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -2054,10 +2054,10 @@
     }
   },
   "schemas": {},
+  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
-  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

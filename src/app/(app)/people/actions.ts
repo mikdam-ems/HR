@@ -11,6 +11,7 @@ import {
   addAssignment,
   createEmployee,
   endAssignment,
+  putOnShift,
   removeAssignment,
   removeSchedule,
   setSchedule,
@@ -62,6 +63,7 @@ export async function addAssignmentAction(fd: FormData) {
     startDate: str(fd, 'startDate') ?? '',
     endDate: str(fd, 'endDate'),
     primary: bool(fd, 'primary'),
+    shiftId: str(fd, 'shiftId'),
   });
   revalidatePath(`/people/${employeeId}`);
   redirectWith(`/people/${employeeId}`, result, 'created');
@@ -125,4 +127,12 @@ export async function saveDepartmentAction(fd: FormData) {
   const result = id ? await updateDepartment(db, actor.id, id, input) : await createDepartment(db, actor.id, input);
   revalidatePath('/people');
   redirectWith(id ? `/people/departments/${id}` : '/people/departments', result, id ? 'saved' : 'created');
+}
+
+/** Puts someone on one of a client's shifts from a date. */
+export async function putOnShiftAction(fd: FormData) {
+  const actor = await requirePermission('people.manage');
+  const employeeId = str(fd, 'employeeId') ?? '';
+  const result = await putOnShift(await getDb(), actor.id, employeeId, str(fd, 'shiftId') ?? '', str(fd, 'effectiveFrom') ?? '');
+  redirectWith(`/people/${employeeId}`, result);
 }

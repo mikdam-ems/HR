@@ -5,6 +5,7 @@ import {
   endAssignmentAction,
   removeAssignmentAction,
   removeScheduleAction,
+  putOnShiftAction,
   setScheduleAction,
 } from '@/app/(app)/people/actions';
 import { Avatar } from '@/components/Avatar';
@@ -15,6 +16,7 @@ import { resolveDay, scheduledMinutes } from '@/domain';
 import { getDict, holidayLabel, localName } from '@/i18n';
 import { formatDate, formatHours, todayISO } from '@/lib/format';
 import { listClients } from '@/server/clients';
+import { allShifts } from '@/server/shifts';
 import { getEmployeeProfile } from '@/server/people';
 import { can } from '@/server/permissions';
 import { currentStatus } from '@/server/profile';
@@ -40,7 +42,25 @@ export default async function ProfilePage({
   if (!person) notFound();
 
   const manage = can(user, 'people.manage');
-  const [ctx, clientRows] = await Promise.all([loadRulesContext(db), manage ? listClients(db) : Promise.resolve([])]);
+  const [ctx, clientRows, shiftRows] = await Promise.all([
+    loadRulesContext(db),
+    manage ? listClients(db) : Promise.resolve([]),
+    manage ? allShifts(db) : Promise.resolve([]),
+  ]);
+  // Shift pickers, grouped by client: "Hala — Shift A 06:00–14:00".
+  const shiftGroups = clientRows
+    .filter((c) => c.active)
+    .map((c) => ({ client: c, shifts: shiftRows.filter((s) => s.clientId === c.id) }))
+    .filter((g) => g.shifts.length);
+  const shiftOptions = shiftGroups.map((g) => (
+    <optgroup key={g.client.id} label={localName(locale, g.client.nameEn, g.client.nameAr)}>
+      {g.shifts.map((s) => (
+        <option key={s.id} value={s.id}>
+          {s.name} · {s.startTime}–{s.endTime}
+        </option>
+      ))}
+    </optgroup>
+  ));
   const today = todayISO();
   const day = resolveDay(ctx, person.id, today);
   const name = localName(locale, person.nameEn, person.nameAr);
@@ -269,6 +289,13 @@ export default async function ProfilePage({
                 <label htmlFor="endDate">{t.profile.to}</label>
                 <input id="endDate" name="endDate" type="date" />
               </div>
+              <div className="field">
+                <label htmlFor="shiftId">{t.shifts.shift}</label>
+                <select id="shiftId" name="shiftId" defaultValue="">
+                  <option value="">{t.shifts.noShift}</option>
+                  {shiftOptions}
+                </select>
+              </div>
               <label className="check">
                 <input
                   type="checkbox"
@@ -341,8 +368,31 @@ export default async function ProfilePage({
             </tbody>
           </table>
         </div>
+        {manage && shiftGroups.length ? (
+          <form action={putOnShiftAction} className="card">
+            <input type="hidden" name="employeeId" value={person.id} />
+            <h3>{t.shifts.putOn}</h3>
+            <div className="grid-form">
+              <div className="field">
+                <label htmlFor="shiftPick">{t.shifts.shift}</label>
+                <select id="shiftPick" name="shiftId" required>
+                  {shiftOptions}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="shiftFrom">{t.profile.effectiveFrom}</label>
+                <input id="shiftFrom" name="effectiveFrom" type="date" required defaultValue={today} />
+              </div>
+            </div>
+            <span className="muted small">{t.shifts.putOnHint}</span>
+            <div>
+              <button className="btn btn-primary">{t.shifts.putOnButton}</button>
+            </div>
+          </form>
+        ) : null}
         {manage ? (
           <form action={setScheduleAction} className="card">
+            <h3>{t.shifts.custom}</h3>
             <input type="hidden" name="employeeId" value={person.id} />
             <div className="grid-form">
               <div className="field">
