@@ -8,6 +8,7 @@ Each person's days off, work week and overtime follow the client they're assigne
 - **Brand directions (product):** [HR Product Brand Directions](https://claude.ai/artifact/FYrBeJ1ZjgnWcodFgSfYNK)
 - **Brand book (Kadr, draft):** [Kadr Brand Book](https://claude.ai/artifact/G9offKCj1BEQp3zFnLXHJX) · assets in [docs/brand/kadr](docs/brand/kadr)
 - **Technical design:** [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md)
+- **How we work (issues, board, pull requests, automatic checks):** [docs/HOW_WE_WORK.md](docs/HOW_WE_WORK.md)
 
 ## Status
 
