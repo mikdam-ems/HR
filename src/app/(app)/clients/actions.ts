@@ -12,6 +12,7 @@ import {
   updateClient,
 } from '@/server/clients';
 import { audit } from '@/server/audit';
+import { createSeason, deleteSeason } from '@/server/seasons';
 import { requirePermission } from '@/server/session';
 import { createShift, deactivateShift, updateShift } from '@/server/shifts';
 import { setSetting } from '@/server/settings';
@@ -127,6 +128,32 @@ export async function saveShiftAction(fd: FormData) {
   const result = id ? await updateShift(db, actor.id, id, input) : await createShift(db, actor.id, input);
   revalidatePath(`/clients/${clientId}`);
   redirectWith(`/clients/${clientId}`, result, id ? 'saved' : 'created');
+}
+
+/** Adds Ramadan / summer hours to a client. */
+export async function addSeasonAction(fd: FormData) {
+  const actor = await requirePermission('clients.manage');
+  const clientId = str(fd, 'clientId') ?? '';
+  const result = await createSeason(await getDb(), actor.id, {
+    clientId,
+    name: str(fd, 'name') ?? '',
+    fromDate: str(fd, 'fromDate') ?? '',
+    toDate: str(fd, 'toDate') ?? '',
+    startTime: str(fd, 'startTime') ?? '',
+    endTime: str(fd, 'endTime') ?? '',
+    breakMinutes: Number(str(fd, 'breakMinutes') ?? 0),
+    clientShiftId: str(fd, 'clientShiftId') || null,
+  });
+  revalidatePath('/', 'layout');
+  redirectWith(`/clients/${clientId}`, result, 'created');
+}
+
+export async function removeSeasonAction(fd: FormData) {
+  const actor = await requirePermission('clients.manage');
+  const clientId = str(fd, 'clientId') ?? '';
+  const result = await deleteSeason(await getDb(), actor.id, str(fd, 'id') ?? '');
+  revalidatePath('/', 'layout');
+  redirectWith(`/clients/${clientId}`, result, 'removed');
 }
 
 export async function retireShiftAction(fd: FormData) {

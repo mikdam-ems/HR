@@ -8,6 +8,7 @@ Each person's days off, work week and overtime follow the client they're assigne
 - **Brand directions (product):** [HR Product Brand Directions](https://claude.ai/artifact/FYrBeJ1ZjgnWcodFgSfYNK)
 - **Brand book (Kadr, draft):** [Kadr Brand Book](https://claude.ai/artifact/G9offKCj1BEQp3zFnLXHJX) · assets in [docs/brand/kadr](docs/brand/kadr)
 - **Technical design:** [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md)
+- **How we work (issues, board, pull requests, automatic checks):** [docs/HOW_WE_WORK.md](docs/HOW_WE_WORK.md)
 
 ## Status
 
@@ -85,7 +86,9 @@ Only people added by HR can sign in, and only with a Google account on the allow
 | Attach a document (e.g. a medical report) to a leave request | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Record that they told the client about their leave (the client is informed, not asked) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Clock in / out and take breaks, with a live timer — on the site or with `/ems in` in Slack ([setup](slack/README.md)) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Say where they're working (Office, Client site or Remote) when they clock in; the last choice is remembered | ✓ | ✓ | ✓ | ✓ | ✓ |
 | See who on their team is working or on a break right now, and their attendance log | | ✓ | ✓ | ✓ | ✓ |
+| **Today board**: their team (managers) or everyone (HR, Finance, Admin) as working, on a break, not in yet, late, absent, on leave or off, filtered by client, department and place | | ✓ | ✓ | ✓ | ✓ |
 | See their own attendance log (every clock in, break and out) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | See department and client pages, and the org chart (pyramid or outline) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | See a client's weekly shift roster (who works which shift each day, and coverage per shift) | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -113,7 +116,8 @@ in Settings.
 `SLACK_BOT_TOKEN` is set they also go out as Slack DMs, and when the VAPID keys are set people can turn on browser
 notifications from the 🔔 (on iPhone, add the site to the Home Screen first). A daily job (`/api/cron/daily`,
 08:00 Amman) reminds people on their last working day to submit the month, and posts today's birthdays and work
-anniversaries to `SLACK_CELEBRATIONS_CHANNEL`. See [slack/README.md](slack/README.md) and `.env.example`.
+anniversaries to `SLACK_CELEBRATIONS_CHANNEL`. The same job tells anyone still clocked in from an earlier day
+(an hour after their shift should have ended) to enter when they left, once per forgotten session. See [slack/README.md](slack/README.md) and `.env.example`.
 
 **Changing a day is a request.** When someone changes a day (hours, leave on the day, a note) it goes to their manager;
 the timesheet only changes once it's approved. At month end the person still submits the whole month for a final

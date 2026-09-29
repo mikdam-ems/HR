@@ -1,7 +1,9 @@
 import { sql } from 'drizzle-orm';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type DB } from '@/db';
+import { ammanInstant } from '@/lib/format';
 import { createCalendar, createClient } from '../clients';
+import { clock, clockOutAt } from '../clock';
 import { runDaily } from '../daily';
 import { listNotifications } from '../notify';
 import { addAssignment, createEmployee, setSchedule } from '../people';
@@ -13,7 +15,7 @@ beforeAll(async () => {
   db = await createDb('memory');
 });
 beforeEach(async () => {
-  await db.execute(sql`TRUNCATE audit_log, notifications, day_entries, timesheets, assignments, schedules, clients, calendars, settings, employees CASCADE`);
+  await db.execute(sql`TRUNCATE audit_log, clock_events, notifications, day_entries, timesheets, assignments, schedules, clients, calendars, settings, employees CASCADE`);
 });
 
 // 2026-09-30 is a Wednesday, the last Sunday–Thursday working day of September is Wed 30th.
@@ -52,6 +54,38 @@ describe('runDaily', () => {
     await createEmployee(db, null, { email: 'a@ems.com', nameEn: 'A', hireDate: '2021-09-28' });
     const b = await createEmployee(db, null, { email: 'b@ems.com', nameEn: 'B', birthDate: '1994-09-28' });
     expect(b.ok).toBe(true);
-    expect(await runDaily(db, at('2026-09-28'))).toEqual({ reminded: 0, celebrations: 2, posted: false });
+    expect(await runDaily(db, at('2026-09-28'))).toEqual({ reminded: 0, nudged: 0, celebrations: 2, posted: false });
+  });
+
+  it('nudges someone still clocked in from yesterday, once, but not a night shift that is still running', async () => {
+    const cal = await createCalendar(db, null, { name: 'Jordan', workWeek: [0, 1, 2, 3, 4] });
+    if (!cal.ok) throw new Error('cal');
+    const client = await createClient(db, null, { nameEn: 'Hala', calendarId: cal.value });
+    if (!client.ok) throw new Error('client');
+    const local = (s: string) => ammanInstant(s.slice(0, 10), s.slice(11, 16));
+    const moath = await person('moath@ems.com', client.value);
+    const hala = await person('hala@ems.com', client.value);
+    await setSchedule(db, null, { employeeId: hala.id, effectiveFrom: '2026-01-01', startTime: '23:00', endTime: '09:00' });
+    const rama = await person('rama@ems.com', client.value);
+
+    await clock(db, moath.id, 'in', local('2026-09-28 09:00')); // forgot to clock out
+    await clock(db, hala.id, 'in', local('2026-09-28 23:00')); // night shift, ends 09:00
+    await clock(db, rama.id, 'in', local('2026-09-28 09:00'));
+    await clock(db, rama.id, 'out', local('2026-09-28 17:30'));
+
+    // The cron runs at 08:00 Amman.
+    expect((await runDaily(db, local('2026-09-29 08:00'))).nudged).toBe(1);
+    expect((await runDaily(db, local('2026-09-29 08:00'))).nudged).toBe(0);
+    const [note] = await listNotifications(db, moath.id);
+    expect(note).toMatchObject({ kind: 'clock_open', link: '/', data: { date: '2026-09-28' } });
+    expect(await listNotifications(db, hala.id)).toHaveLength(0);
+    expect(await listNotifications(db, rama.id)).toHaveLength(0);
+
+    // Next morning Hala still hasn't clocked out: now she's nudged. Moath, who fixed his day, isn't again.
+    expect((await clockOutAt(db, moath.id, '2026-09-28', '17:30', local('2026-09-29 09:00'))).ok).toBe(true);
+    expect((await runDaily(db, local('2026-09-30 08:00'))).nudged).toBe(1);
+    const nudges = async (id: string) => (await listNotifications(db, id)).filter((n) => n.kind === 'clock_open');
+    expect(await nudges(hala.id)).toHaveLength(1);
+    expect(await nudges(moath.id)).toHaveLength(1);
   });
 });

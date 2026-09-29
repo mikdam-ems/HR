@@ -24,6 +24,10 @@ export type ErrorCode =
   | 'pending_changes'
   | 'clock_invalid'
   | 'unknown_shift'
+  | 'month_closed'
+  | 'season_overlap'
+  | 'delegation_overlap'
+  | 'swap_not_possible'
   | 'forbidden';
 
 export type Result<T = void> = { ok: true; value: T } | { ok: false; error: ErrorCode; detail?: string };
@@ -83,6 +87,8 @@ export const assignmentInput = z.object({
   primary: z.boolean().default(true),
   /** Optional: the client shift they work, applied as their schedule from the start date. */
   shiftId: z.string().uuid().nullish().transform((v) => v ?? null),
+  /** Optional: who leads delivery on this project, told about this person's leave. */
+  deliveryLeadId: z.string().uuid().nullish().transform((v) => v ?? null),
 });
 export type AssignmentInput = z.input<typeof assignmentInput>;
 

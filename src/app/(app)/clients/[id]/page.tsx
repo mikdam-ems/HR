@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Reveal } from '@/components/Reveal';
 import { notFound } from 'next/navigation';
-import { retireShiftAction, saveShiftAction, updateClientAction } from '@/app/(app)/clients/actions';
+import { addSeasonAction, removeSeasonAction, retireShiftAction, saveShiftAction, updateClientAction } from '@/app/(app)/clients/actions';
 import { Avatar } from '@/components/Avatar';
 import { StatusLine } from '@/components/StatusLine';
 import { Flash } from '@/components/Flash';
@@ -11,6 +11,7 @@ import type { Dict } from '@/i18n/en';
 import { formatDate, formatHours, todayISO } from '@/lib/format';
 import { getClientProfile, listCalendars, type ClientProfile } from '@/server/clients';
 import { upcomingLeaveForClient } from '@/server/leave';
+import { listSeasons } from '@/server/seasons';
 import { listShifts, shiftRoster } from '@/server/shifts';
 import { windowMinutes } from '@/domain';
 import type { ClientShiftRow } from '@/db/schema';
@@ -34,11 +35,12 @@ export default async function ClientPage({
   if (!profile) notFound();
   const { client, current, upcoming, past, upcomingHolidays } = profile;
   const manage = can(user, 'clients.manage');
-  const [calendarRows, leave, shifts, roster] = await Promise.all([
+  const [calendarRows, leave, shifts, roster, seasons] = await Promise.all([
     manage ? listCalendars(db) : Promise.resolve([]),
     client.isInternal ? Promise.resolve([]) : upcomingLeaveForClient(db, client.id, today),
     listShifts(db, client.id),
     shiftRoster(db, client.id, today),
+    listSeasons(db, client.id),
   ]);
   const shiftOf = new Map(shifts.flatMap((sh) => (roster[sh.id] ?? []).map((id) => [id, sh.name] as const)));
   const byId = new Map(current.map((a) => [a.employee.id, a.employee]));
@@ -164,6 +166,101 @@ export default async function ClientPage({
               <div className="card reveal-card">
                 <h3>{t.shifts.add}</h3>
                 <ShiftForm clientId={client.id} t={t} nextOrder={shifts.length} />
+              </div>
+            </Reveal>
+          ) : null}
+        </section>
+
+        <section className="card span-12" aria-labelledby="seasons">
+          <div className="stack" style={{ gap: 2 }}>
+            <h2 id="seasons">{t.seasons.title}</h2>
+            <span className="muted small">{t.seasons.hint}</span>
+          </div>
+          {seasons.length ? (
+            <ul className="shift-list">
+              {seasons.map((se) => {
+                const shift = shifts.find((sh) => sh.id === se.clientShiftId);
+                const state = se.fromDate <= today && today <= se.toDate ? 'now' : se.toDate < today ? 'past' : null;
+                return (
+                  <li key={se.id} className="shift-row">
+                    <div className="shift-main">
+                      <strong>{se.name}</strong>
+                      <span className="shift-hours" dir="ltr">
+                        {se.startTime}–{se.endTime}
+                      </span>
+                      <span className="muted small">
+                        {d(se.fromDate)} – {d(se.toDate)} ·{' '}
+                        {fmt(t.shifts.perDay, { hours: formatHours(Math.max(0, windowMinutes(se.startTime, se.endTime) - se.breakMinutes), locale) })}
+                      </span>
+                    </div>
+                    <div className="row" style={{ gap: 8 }}>
+                      <span className="where-chip">{shift ? shift.name : t.seasons.everyone}</span>
+                      {state ? <span className={`badge ${state === 'now' ? 'badge-brand' : 'badge-weekend'}`}>{t.seasons[state]}</span> : null}
+                    </div>
+                    {manage ? (
+                      <form action={removeSeasonAction}>
+                        <input type="hidden" name="id" value={se.id} />
+                        <input type="hidden" name="clientId" value={client.id} />
+                        <button className="btn btn-small btn-danger">{t.seasons.remove}</button>
+                      </form>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <span className="muted">{t.seasons.none}</span>
+          )}
+          {manage ? (
+            <Reveal label={t.seasons.add} cancelLabel={t.form.cancel}>
+              <div className="card reveal-card">
+                <h3>{t.seasons.add}</h3>
+                <form action={addSeasonAction} className="stack" style={{ marginTop: 12 }}>
+                  <input type="hidden" name="clientId" value={client.id} />
+                  <div className="grid-form">
+                    <div className="field">
+                      <label htmlFor="season-name">{t.seasons.name}</label>
+                      <input id="season-name" name="name" type="text" required maxLength={60} placeholder={t.seasons.namePlaceholder} />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="season-from">{t.seasons.from}</label>
+                      <input id="season-from" name="fromDate" type="date" required />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="season-to">{t.seasons.to}</label>
+                      <input id="season-to" name="toDate" type="date" required />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="season-start">{t.shifts.start}</label>
+                      <input id="season-start" name="startTime" type="time" required defaultValue="09:00" />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="season-end">{t.shifts.end}</label>
+                      <input id="season-end" name="endTime" type="time" required defaultValue="15:00" />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="season-break">{t.shifts.break}</label>
+                      <input id="season-break" name="breakMinutes" type="number" min={0} max={240} defaultValue={0} />
+                    </div>
+                    {shifts.length > 1 ? (
+                      <div className="field">
+                        <label htmlFor="season-shift">{t.seasons.appliesTo}</label>
+                        <select id="season-shift" name="clientShiftId" defaultValue="">
+                          <option value="">{t.seasons.everyone}</option>
+                          {shifts.map((sh) => (
+                            <option key={sh.id} value={sh.id}>
+                              {sh.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
+                  </div>
+                  <span className="muted small">{t.seasons.closedHint}</span>
+                  <button className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>
+                    {t.seasons.add}
+                  </button>
+                </form>
               </div>
             </Reveal>
           ) : null}

@@ -2,12 +2,17 @@ import Link from 'next/link';
 import { decideLeaveAction } from '@/app/(app)/time-off/actions';
 import { decideAction, decideDayChangeAction } from '@/app/(app)/timesheet/actions';
 import { Avatar } from '@/components/Avatar';
+import { DelegationCard } from '@/components/DelegationCard';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { fmt, getDict, holidayLabel, localName, type Locale } from '@/i18n';
 import type { Dict } from '@/i18n/en';
 import { formatDate, formatHours } from '@/lib/format';
 import { clientsToInform, getBalances, listAttachments, listPendingLeave, teamOff } from '@/server/leave';
+import { listDelegations } from '@/server/delegation';
+import { listPendingSwaps } from '@/server/swaps';
+import { decideSwapAction } from '@/app/(app)/swaps/actions';
+import { listEmployees } from '@/server/people';
 import { requireUser } from '@/server/session';
 import { getSettings } from '@/server/settings';
 import { getMonth, listPendingApprovals, listPendingDayChanges, type MonthView, type PendingChange } from '@/server/timesheets';
@@ -17,16 +22,24 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const { t, locale } = await getDict();
   const search = await searchParams;
   const db = await getDb();
-  const [items, leaveItems, appSettings, changes] = await Promise.all([
+  const [items, leaveItems, appSettings, changes, people, delegations, swaps] = await Promise.all([
     listPendingApprovals(db, user),
     listPendingLeave(db, user),
     getSettings(db),
     listPendingDayChanges(db, user),
+    listEmployees(db),
+    user.isManager ? listDelegations(db, user.id) : Promise.resolve([]),
+    listPendingSwaps(db, user),
   ]);
+  // Standing in for another manager today: say for whom, and mark their team's requests.
+  const managerName = new Map(people.map((p) => [p.id, localName(locale, p.nameEn, p.nameAr)]));
+  const standIn = (user.standingInFor ?? []).map((id) => managerName.get(id) ?? '').filter(Boolean);
+  const forWhom = (managerId: string | null) =>
+    managerId && managerId !== user.id && user.standingInFor?.includes(managerId) ? fmt(t.delegation.forManager, { name: managerName.get(managerId) ?? '' }) : null;
   // One item is open at a time: a timesheet (?t=) or a leave request (?l=).
   const leave = leaveItems.find((l) => l.id === search.l) ?? (search.t || items.length ? undefined : leaveItems[0]);
   const current = leave ? undefined : (items.find((i) => i.timesheet.id === search.t) ?? items[0]);
-  const total = items.length + leaveItems.length + changes.length;
+  const total = items.length + leaveItems.length + changes.length + swaps.length;
   const monthly = items.length + leaveItems.length;
   const view = current ? await getMonth(db, user, current.employee.id, current.timesheet.year, current.timesheet.month) : null;
   const month = view?.ok ? view.value : null;
@@ -41,6 +54,41 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         <h1>{t.approvals.title}</h1>
         <span className="muted">{total ? fmt(t.approvals.waiting, { count: total }) : t.approvals.none}</span>
       </div>
+      {standIn.length ? <div className="flash flash-info">{fmt(t.delegation.standingIn, { names: standIn.join(', ') })}</div> : null}
+
+      {swaps.length ? (
+        <section className="card" aria-labelledby="swaps">
+          <h2 id="swaps">{t.swaps.approvalsTitle}</h2>
+          <ul className="list-rows">
+            {swaps.map(({ swap, requester, colleague }) => (
+              <li key={swap.id}>
+                <span className="stack" style={{ gap: 0 }}>
+                  <strong style={{ fontWeight: 500 }}>
+                    {fmt(t.swaps.approvalsLine, {
+                      a: localName(locale, requester.nameEn, requester.nameAr),
+                      b: localName(locale, colleague.nameEn, colleague.nameAr),
+                      date: formatDate(swap.date, locale, { weekday: 'short', day: 'numeric', month: 'short' }),
+                    })}
+                  </strong>
+                  {swap.note ? <span className="muted small">{swap.note}</span> : null}
+                  {forWhom(requester.managerId) ? <span className="muted small">{forWhom(requester.managerId)}</span> : null}
+                </span>
+                <span className="row" style={{ gap: 6 }}>
+                  {(['approve', 'decline'] as const).map((outcome) => (
+                    <form key={outcome} action={decideSwapAction}>
+                      <input type="hidden" name="id" value={swap.id} />
+                      <input type="hidden" name="outcome" value={outcome} />
+                      <button className={`btn btn-small${outcome === 'approve' ? ' btn-primary' : ''}`}>
+                        {outcome === 'approve' ? t.swaps.approve : t.swaps.decline}
+                      </button>
+                    </form>
+                  ))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {changes.length ? <DayChanges changes={changes} t={t} locale={locale} /> : null}
 
@@ -55,7 +103,10 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                     {i.timesheet.submittedAt ? formatDate(i.timesheet.submittedAt.toISOString().slice(0, 10), locale, { day: 'numeric', month: 'short' }) : ''}
                   </span>
                 </span>
-                <span className="small">{monthLabel(i.timesheet.year, i.timesheet.month)}</span>
+                <span className="small">
+                  {monthLabel(i.timesheet.year, i.timesheet.month)}
+                  {forWhom(i.employee.managerId) ? <span className="muted"> · {forWhom(i.employee.managerId)}</span> : null}
+                </span>
                 <span className="small" style={{ fontWeight: 600, color: i.changedDays ? 'var(--warn-fg)' : 'var(--brand-900)' }}>
                   {i.changedDays ? fmt(t.approvals.changedDays, { count: i.changedDays }) : t.approvals.matches}
                   {i.issues ? ` · ${fmt(t.approvals.toCheck, { count: i.issues })}` : ''}
@@ -73,6 +124,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                 <span className="small">
                   {t.timesheet.leaveTypes[l.type]} · {formatDate(l.fromDate, locale, { day: 'numeric', month: 'short' })}
                   {l.toDate !== l.fromDate ? ` – ${formatDate(l.toDate, locale, { day: 'numeric', month: 'short' })}` : ''}
+                  {forWhom(l.employee.managerId) ? <span className="muted"> · {forWhom(l.employee.managerId)}</span> : null}
                 </span>
                 <span className="small" style={{ fontWeight: 600, color: 'var(--info-fg)' }}>
                   {fmt(t.timesheet.days, { n: l.daysUsed })}
@@ -157,6 +209,9 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           </section>
           ) : null}
         </div>
+      ) : null}
+      {user.isManager ? (
+        <DelegationCard manager={user} delegations={delegations} people={people} own back="/approvals" t={t} locale={locale} />
       ) : null}
     </>
   );

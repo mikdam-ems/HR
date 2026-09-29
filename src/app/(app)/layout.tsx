@@ -6,6 +6,7 @@ import { BrandSwitch } from '@/components/BrandSwitch';
 import { LanguageSwitch } from '@/components/LanguageSwitch';
 import { StatusLine } from '@/components/StatusLine';
 import { NavLinks } from '@/components/NavLinks';
+import { listPendingSwaps } from '@/server/swaps';
 import { StatusBubble } from '@/components/StatusBubble';
 import { TopClock } from '@/components/Clock';
 import { toClockData } from '@/lib/clockData';
@@ -30,9 +31,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   const [{ t, locale }, brand] = await Promise.all([getDict(), getBrand()]);
   const name = localName(locale, user.nameEn, user.nameAr);
-  const approver = user.isManager || user.roles.includes('admin');
+  const approver = user.isManager || user.roles.includes('admin') || !!user.standingInFor?.length;
   const db = await getDb();
-  const pending = approver ? (await countPendingApprovals(db, user)) + (await countPendingLeave(db, user)) : 0;
+  const pending = approver
+    ? (await countPendingApprovals(db, user)) + (await countPendingLeave(db, user)) + (await listPendingSwaps(db, user)).length
+    : 0;
   const [myClock, ctx, recent, unread] = await Promise.all([
     clockView(db, user.id),
     loadRulesContext(db),
@@ -53,6 +56,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ...(approver
       ? [{ href: '/approvals', label: t.nav.approvals, badge: pending || undefined }]
       : []),
+    ...(user.isManager || can(user, 'reports.view') ? [{ href: '/today', label: t.nav.today }] : []),
     { href: '/people', label: t.nav.people },
     ...(can(user, 'reports.view') ? [{ href: '/reports', label: t.nav.reports }] : []),
     ...(can(user, 'clients.manage') ? [{ href: '/clients', label: t.nav.clients }] : []),

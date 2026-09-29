@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import { type ExportColumns, exportColumns } from '@/domain';
 import { en } from '@/i18n/en';
 import { todayISO } from '@/lib/format';
+import type { AttendanceMonth } from './attendance';
 import { EMS_LOGO_PNG_BASE64 } from './excelLogo';
 import type { MonthReport, ReportRow } from './reports';
 
@@ -295,7 +296,7 @@ function personSheet(wb: ExcelJS.Workbook, logo: number, p: PersonMonth, year: n
 }
 
 /** The first sheet: everyone's month at a glance, each name linking to their own sheet. */
-function summarySheet(wb: ExcelJS.Workbook, logo: number, people: PersonMonth[], report: MonthReport, monthLabel: string) {
+function summarySheet(wb: ExcelJS.Workbook, logo: number, people: PersonMonth[], report: MonthReport, monthLabel: string, title: string) {
   const ws = wb.addWorksheet('Summary', {
     views: [{ showGridLines: false }],
     pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
@@ -319,7 +320,7 @@ function summarySheet(wb: ExcelJS.Workbook, logo: number, people: PersonMonth[],
   ];
   const last = cols.length + 1;
   ws.columns = [{ width: 2.4 }, ...cols.map((c) => ({ width: c.width }))];
-  header(ws, logo, 'Monthly Timesheets', monthLabel, last);
+  header(ws, logo, title, monthLabel, last);
   sectionBar(ws, 5, 2, last, `Team summary · ${people.length} ${people.length === 1 ? 'person' : 'people'}${report.closed ? ' · month closed' : ''}`);
   const headRow = 7;
   tableHead(ws, headRow, cols.map((c, i) => [2 + i, c.head, c.align]));
@@ -381,8 +382,11 @@ function summarySheet(wb: ExcelJS.Workbook, logo: number, people: PersonMonth[],
   note.font = font(9, C.subtle);
 }
 
-/** Flat day-by-day data for filtering and pivot tables. */
-function dataSheet(wb: ExcelJS.Workbook, people: PersonMonth[]) {
+const PLACE_NAMES = { office: 'Office', client_site: 'Client site', remote: 'Remote' } as const;
+
+/** Flat day-by-day data for filtering and pivot tables. "Where" is the place chosen at that day's first clock-in. */
+function dataSheet(wb: ExcelJS.Workbook, people: PersonMonth[], attendance?: AttendanceMonth) {
+  const places = new Map((attendance?.rows ?? []).map((r) => [r.employee.id, new Map(Object.entries(r.places))]));
   const ws = wb.addWorksheet('Data', { views: [{ state: 'frozen', ySplit: 1 }] });
   ws.columns = [
     { header: 'Employee', key: 'name', width: 24 },
@@ -397,11 +401,13 @@ function dataSheet(wb: ExcelJS.Workbook, people: PersonMonth[]) {
     { header: 'Other leave hrs', key: 'other', width: 10 },
     { header: 'Leave type', key: 'leave', width: 14 },
     { header: 'Note', key: 'note', width: 40 },
+    { header: 'Where', key: 'where', width: 12 },
   ];
   for (const p of people) {
     const byDate = new Map(p.row.summary.days.map((d) => [d.day.date, d]));
     for (const d of p.days) {
       const md = byDate.get(d.date)!;
+      const place = places.get(p.row.employee.id)?.get(d.date);
       ws.addRow({
         name: p.row.employee.nameEn,
         date: d.date,
@@ -415,6 +421,7 @@ function dataSheet(wb: ExcelJS.Workbook, people: PersonMonth[]) {
         other: hrs(d.other),
         leave: md.entry.leave?.type ?? '',
         note: p.row.notes[d.date] ?? '',
+        where: place ? PLACE_NAMES[place] : '',
       });
     }
   }
@@ -423,11 +430,58 @@ function dataSheet(wb: ExcelJS.Workbook, people: PersonMonth[]) {
   head.fill = fill(C.bar);
   head.alignment = { vertical: 'middle', wrapText: true };
   head.height = 28;
-  ws.autoFilter = { from: 'A1', to: 'L1' };
+  ws.autoFilter = { from: 'A1', to: 'M1' };
+}
+
+/** Late, absent and forgotten clock-outs per person, from the clock (see the Attendance tab in Reports). */
+function attendanceSheet(wb: ExcelJS.Workbook, attendance: AttendanceMonth) {
+  const ws = wb.addWorksheet('Attendance', { views: [{ state: 'frozen', ySplit: 1 }] });
+  ws.columns = [
+    { header: 'Employee', key: 'name', width: 24 },
+    { header: 'Department', key: 'dept', width: 22 },
+    { header: 'Days in', key: 'daysIn', width: 9 },
+    { header: 'Late days', key: 'lateDays', width: 9 },
+    { header: 'Late hrs', key: 'lateHrs', width: 9 },
+    { header: 'Absent days', key: 'absent', width: 10 },
+    { header: 'Forgot to clock out', key: 'forgot', width: 12 },
+    { header: 'Office days', key: 'office', width: 10 },
+    { header: 'Client-site days', key: 'site', width: 10 },
+    { header: 'Remote days', key: 'remote', width: 10 },
+    { header: 'Note', key: 'note', width: 28 },
+  ];
+  for (const r of attendance.rows) {
+    const tt = r.totals;
+    ws.addRow(
+      r.onClock
+        ? {
+            name: r.employee.nameEn,
+            dept: r.department?.nameEn ?? '',
+            daysIn: tt.daysIn,
+            lateDays: tt.lateDays,
+            lateHrs: hrs(tt.lateMinutes),
+            absent: tt.absentDays,
+            forgot: tt.forgotOut,
+            office: tt.places.office,
+            site: tt.places.client_site,
+            remote: tt.places.remote,
+          }
+        : { name: r.employee.nameEn, dept: r.department?.nameEn ?? '', note: 'Not using the clock yet' },
+    );
+  }
+  const head = ws.getRow(1);
+  head.font = font(10, C.white, true);
+  head.fill = fill(C.bar);
+  head.alignment = { vertical: 'middle', wrapText: true };
+  head.height = 32;
+  ws.autoFilter = { from: 'A1', to: 'K1' };
 }
 
 /** The Finance export in the look of the official EMS timesheet: a summary, then one sheet per person. */
-export async function buildTimesheetWorkbook(report: MonthReport): Promise<Buffer> {
+export async function buildTimesheetWorkbook(
+  report: MonthReport,
+  attendance?: AttendanceMonth,
+  title = 'Monthly Timesheets',
+): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'EMS People & Culture';
   wb.created = new Date();
@@ -435,8 +489,9 @@ export async function buildTimesheetWorkbook(report: MonthReport): Promise<Buffe
   const monthLabel = `${MONTHS[report.month - 1]} ${report.year}`;
   const names = sheetNames(report.rows);
   const people = report.rows.map((r, i) => personMonth(r, names[i]!));
-  summarySheet(wb, logo, people, report, monthLabel);
+  summarySheet(wb, logo, people, report, monthLabel, title);
+  if (attendance) attendanceSheet(wb, attendance);
   for (const p of people) personSheet(wb, logo, p, report.year, report.month, monthLabel);
-  dataSheet(wb, people);
+  dataSheet(wb, people, attendance);
   return Buffer.from(await wb.xlsx.writeBuffer());
 }

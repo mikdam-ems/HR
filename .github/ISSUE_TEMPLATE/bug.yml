@@ -1,0 +1,26 @@
+name: Bug
+description: Something that works wrongly.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to see it
+      description: Steps, the person you were signed in as (their role), the date, and a screenshot if you have one.
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Does it affect pay or approved hours?
+      description: Anything that changes hours, overtime, leave balances or a closed month is critical.
+      options: ['No', 'Yes — hours, overtime, leave or payroll']
+    validations:
+      required: true

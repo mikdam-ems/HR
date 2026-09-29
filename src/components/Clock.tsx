@@ -3,7 +3,10 @@
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { clockAction, clockOutAtAction } from '@/app/(app)/clock/actions';
+import type { WorkLocation } from '@/db/schema';
 import type { ClockState } from '@/domain';
+
+const LOCATIONS: WorkLocation[] = ['office', 'client_site', 'remote'];
 
 export interface ClockData {
   state: ClockState;
@@ -16,6 +19,10 @@ export interface ClockData {
   openFrom: { date: string; label: string } | null;
   /** A full day today (the scheduled minutes, e.g. 8h30); 0 on a day off, where any work is overtime. */
   targetMs: number;
+  /** Where the current session is worked from. */
+  location: WorkLocation | null;
+  /** Their last choice, picked in advance for the next clock-in. */
+  usualLocation: WorkLocation | null;
 }
 
 export interface ClockLabels {
@@ -40,6 +47,8 @@ export interface ClockLabels {
   left: string;
   of: string;
   log: string;
+  where: string;
+  locations: Record<WorkLocation, string>;
 }
 
 /** Milliseconds since the page was rendered — the server totals plus this give a live clock. */
@@ -95,9 +104,12 @@ export function ClockCard({ data, labels }: { data: ClockData; labels: ClockLabe
     <section className={`card clock-card clock-${data.state}`} aria-live="polite">
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <span className="eyebrow">{labels.title}</span>
-        <span className="clock-state">
-          <span className="clock-dot" aria-hidden="true" />
-          {stateLabel}
+        <span className="row" style={{ gap: 8 }}>
+          {data.location ? <span className="where-chip">{labels.locations[data.location]}</span> : null}
+          <span className="clock-state">
+            <span className="clock-dot" aria-hidden="true" />
+            {stateLabel}
+          </span>
         </span>
       </div>
 
@@ -144,12 +156,28 @@ export function ClockCard({ data, labels }: { data: ClockData; labels: ClockLabe
               </div>
             );
           })()}
-          <div className="row">
-            {data.state === 'out' ? <Action kind="in" label={labels.in} primary /> : null}
-            {data.state === 'working' ? <Action kind="break_start" label={labels.breakStart} /> : null}
-            {data.state === 'break' ? <Action kind="break_end" label={labels.breakEnd} primary /> : null}
-            {data.state !== 'out' ? <Action kind="out" label={labels.out} /> : null}
-          </div>
+          {data.state === 'out' ? (
+            <form action={clockAction} className="clock-in-form">
+              <input type="hidden" name="kind" value="in" />
+              <input type="hidden" name="back" value={back} />
+              <fieldset className="where-picker">
+                <legend className="small">{labels.where}</legend>
+                {LOCATIONS.map((w) => (
+                  <label key={w}>
+                    <input type="radio" name="location" value={w} defaultChecked={data.usualLocation === w} />
+                    <span>{labels.locations[w]}</span>
+                  </label>
+                ))}
+              </fieldset>
+              <button className="btn btn-primary">{labels.in}</button>
+            </form>
+          ) : (
+            <div className="row">
+              {data.state === 'working' ? <Action kind="break_start" label={labels.breakStart} /> : null}
+              {data.state === 'break' ? <Action kind="break_end" label={labels.breakEnd} primary /> : null}
+              <Action kind="out" label={labels.out} />
+            </div>
+          )}
         </>
       )}
       <span className="row muted small" style={{ justifyContent: 'space-between' }}>
