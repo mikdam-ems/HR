@@ -382,8 +382,13 @@ function summarySheet(wb: ExcelJS.Workbook, logo: number, people: PersonMonth[],
   note.font = font(9, C.subtle);
 }
 
-/** Flat day-by-day data for filtering and pivot tables. */
-function dataSheet(wb: ExcelJS.Workbook, people: PersonMonth[]) {
+const PLACE_NAMES = { office: 'Office', client_site: 'Client site', remote: 'Remote' } as const;
+
+/** Flat day-by-day data for filtering and pivot tables. "Where" is the place chosen at that day's first clock-in. */
+function dataSheet(wb: ExcelJS.Workbook, people: PersonMonth[], attendance?: AttendanceMonth) {
+  const places = new Map(
+    (attendance?.rows ?? []).map((r) => [r.employee.id, new Map(r.days.flatMap((d) => (d.place ? [[d.date, d.place]] : [])))]),
+  );
   const ws = wb.addWorksheet('Data', { views: [{ state: 'frozen', ySplit: 1 }] });
   ws.columns = [
     { header: 'Employee', key: 'name', width: 24 },
@@ -398,11 +403,13 @@ function dataSheet(wb: ExcelJS.Workbook, people: PersonMonth[]) {
     { header: 'Other leave hrs', key: 'other', width: 10 },
     { header: 'Leave type', key: 'leave', width: 14 },
     { header: 'Note', key: 'note', width: 40 },
+    { header: 'Where', key: 'where', width: 12 },
   ];
   for (const p of people) {
     const byDate = new Map(p.row.summary.days.map((d) => [d.day.date, d]));
     for (const d of p.days) {
       const md = byDate.get(d.date)!;
+      const place = places.get(p.row.employee.id)?.get(d.date);
       ws.addRow({
         name: p.row.employee.nameEn,
         date: d.date,
@@ -416,6 +423,7 @@ function dataSheet(wb: ExcelJS.Workbook, people: PersonMonth[]) {
         other: hrs(d.other),
         leave: md.entry.leave?.type ?? '',
         note: p.row.notes[d.date] ?? '',
+        where: place ? PLACE_NAMES[place] : '',
       });
     }
   }
@@ -424,7 +432,7 @@ function dataSheet(wb: ExcelJS.Workbook, people: PersonMonth[]) {
   head.fill = fill(C.bar);
   head.alignment = { vertical: 'middle', wrapText: true };
   head.height = 28;
-  ws.autoFilter = { from: 'A1', to: 'L1' };
+  ws.autoFilter = { from: 'A1', to: 'M1' };
 }
 
 /** Late, absent and forgotten clock-outs per person, from the clock (see the Attendance tab in Reports). */
@@ -482,6 +490,6 @@ export async function buildTimesheetWorkbook(report: MonthReport, attendance?: A
   summarySheet(wb, logo, people, report, monthLabel);
   if (attendance) attendanceSheet(wb, attendance);
   for (const p of people) personSheet(wb, logo, p, report.year, report.month, monthLabel);
-  dataSheet(wb, people);
+  dataSheet(wb, people, attendance);
   return Buffer.from(await wb.xlsx.writeBuffer());
 }

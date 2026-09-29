@@ -132,6 +132,20 @@ describe('month report', () => {
     expect(linaRow('Absent days')).toBe(1); // the 15th: no clock-in
     expect(linaRow('Client-site days')).toBe(1);
     expect(row('khaled')('Note')).toBe('Not using the clock yet');
+
+    // The Data sheet says where each clocked day was worked (#18); other days stay empty.
+    const data = wb.getWorksheet('Data')!;
+    const dataHead = (data.getRow(1).values as unknown[]).slice(1);
+    const where = (name: string, date: string) => {
+      let value: unknown = null;
+      data.eachRow((x) => {
+        const v = x.values as unknown[];
+        if (v[1] === name && v[2] === date) value = v[dataHead.indexOf('Where') + 1] ?? '';
+      });
+      return value;
+    };
+    expect(where('lina', '2026-09-14')).toBe('Client site');
+    expect(where('lina', '2026-09-15')).toBe('');
   });
 });
 
