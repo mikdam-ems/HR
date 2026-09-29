@@ -1,0 +1,189 @@
+{
+  "kadr": {
+    "cobalt": {
+      "50": {
+        "$type": "color",
+        "$value": "#EEF1FD"
+      },
+      "100": {
+        "$type": "color",
+        "$value": "#DCE3FB"
+      },
+      "200": {
+        "$type": "color",
+        "$value": "#B7C4F6"
+      },
+      "300": {
+        "$type": "color",
+        "$value": "#8A9EEF"
+      },
+      "400": {
+        "$type": "color",
+        "$value": "#5572E6"
+      },
+      "500": {
+        "$type": "color",
+        "$value": "#2F4FDE"
+      },
+      "600": {
+        "$type": "color",
+        "$value": "#1B3BD1"
+      },
+      "700": {
+        "$type": "color",
+        "$value": "#152FA8"
+      },
+      "800": {
+        "$type": "color",
+        "$value": "#10247F"
+      },
+      "900": {
+        "$type": "color",
+        "$value": "#0B1A5C"
+      }
+    },
+    "saffron": {
+      "100": {
+        "$type": "color",
+        "$value": "#FDF1D5"
+      },
+      "300": {
+        "$type": "color",
+        "$value": "#F9D57F"
+      },
+      "500": {
+        "$type": "color",
+        "$value": "#F5B82E"
+      },
+      "700": {
+        "$type": "color",
+        "$value": "#B7820F"
+      }
+    },
+    "neutral": {
+      "graphite": {
+        "$type": "color",
+        "$value": "#1A1D24",
+        "$description": "Text, dark surfaces"
+      },
+      "steel": {
+        "$type": "color",
+        "$value": "#6A7385",
+        "$description": "Secondary text"
+      },
+      "cloud": {
+        "$type": "color",
+        "$value": "#F3F5F9",
+        "$description": "App canvas"
+      },
+      "white": {
+        "$type": "color",
+        "$value": "#FFFFFF"
+      }
+    },
+    "status": {
+      "ok-bg": {
+        "$type": "color",
+        "$value": "#DFF5EE"
+      },
+      "ok-fg": {
+        "$type": "color",
+        "$value": "#0D6B53"
+      },
+      "warn-bg": {
+        "$type": "color",
+        "$value": "#FDF1D5"
+      },
+      "warn-fg": {
+        "$type": "color",
+        "$value": "#7A5408"
+      },
+      "danger-bg": {
+        "$type": "color",
+        "$value": "#FBE4E2"
+      },
+      "danger-fg": {
+        "$type": "color",
+        "$value": "#B3261E"
+      }
+    },
+    "dark": {
+      "night": {
+        "$type": "color",
+        "$value": "#0E1117"
+      },
+      "surface": {
+        "$type": "color",
+        "$value": "#161A22"
+      },
+      "cobalt-light": {
+        "$type": "color",
+        "$value": "#8FA3FF",
+        "$description": "Links and focus on dark"
+      }
+    },
+    "role": {
+      "accent": {
+        "$type": "color",
+        "$value": "{kadr.cobalt.600}",
+        "$description": "Primary actions; text on it is white"
+      },
+      "placed": {
+        "$type": "color",
+        "$value": "{kadr.saffron.500}",
+        "$description": "The placed person, overtime; text on it is graphite"
+      },
+      "canvas": {
+        "$type": "color",
+        "$value": "{kadr.neutral.cloud}"
+      },
+      "ink": {
+        "$type": "color",
+        "$value": "{kadr.neutral.graphite}"
+      },
+      "muted": {
+        "$type": "color",
+        "$value": "{kadr.neutral.steel}"
+      }
+    },
+    "radius": {
+      "sm": {
+        "$type": "dimension",
+        "$value": "6px"
+      },
+      "md": {
+        "$type": "dimension",
+        "$value": "8px"
+      },
+      "lg": {
+        "$type": "dimension",
+        "$value": "12px"
+      }
+    },
+    "font": {
+      "display": {
+        "$type": "fontFamily",
+        "$value": [
+          "Archivo",
+          "Noto Kufi Arabic",
+          "sans-serif"
+        ]
+      },
+      "ui": {
+        "$type": "fontFamily",
+        "$value": [
+          "IBM Plex Sans",
+          "IBM Plex Sans Arabic",
+          "sans-serif"
+        ]
+      },
+      "data": {
+        "$type": "fontFamily",
+        "$value": [
+          "IBM Plex Mono",
+          "monospace"
+        ]
+      }
+    }
+  }
+}
