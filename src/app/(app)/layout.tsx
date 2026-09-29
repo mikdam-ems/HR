@@ -1,8 +1,11 @@
-import { setLocaleAction, signOutAction } from '@/app/actions';
+import { signOutAction } from '@/app/actions';
 import Link from 'next/link';
 import { Avatar } from '@/components/Avatar';
-import { EmsLogo } from '@/components/EmsLogo';
-import { BackField, NavLinks } from '@/components/NavLinks';
+import { BrandLogo } from '@/components/BrandLogo';
+import { BrandSwitch } from '@/components/BrandSwitch';
+import { LanguageSwitch } from '@/components/LanguageSwitch';
+import { StatusLine } from '@/components/StatusLine';
+import { NavLinks } from '@/components/NavLinks';
 import { StatusBubble } from '@/components/StatusBubble';
 import { TopClock } from '@/components/Clock';
 import { toClockData } from '@/lib/clockData';
@@ -11,6 +14,7 @@ import { loadRulesContext } from '@/server/rulesContext';
 import { resolveDay } from '@/domain';
 import { todayISO } from '@/lib/format';
 import { demoMode } from '@/auth';
+import { brandPreview, getBrand } from '@/brand';
 import { getDict, localName } from '@/i18n';
 import { can } from '@/server/permissions';
 import { getDb } from '@/db';
@@ -24,7 +28,7 @@ import { countUnread, listNotifications } from '@/server/notify';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const { t, locale } = await getDict();
+  const [{ t, locale }, brand] = await Promise.all([getDict(), getBrand()]);
   const name = localName(locale, user.nameEn, user.nameAr);
   const approver = user.isManager || user.roles.includes('admin');
   const db = await getDb();
@@ -60,9 +64,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="topbar">
         <div className="topbar-inner">
           <Link href="/" className="brand">
-            <EmsLogo />
-            <span className="divider" aria-hidden="true" />
-            <span className="brand-name">{t.appName}</span>
+            <BrandLogo brand={brand} appName={t.appName} />
           </Link>
           <nav className="topnav" aria-label="Main">
             <NavLinks links={links} />
@@ -75,29 +77,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               vapidKey={process.env.VAPID_PUBLIC_KEY ?? null}
               labels={t.notifications}
             />
-            <details className="lang">
-              <summary aria-label={t.nav.language} title={t.nav.language}>
-                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                  <path
-                    d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0 0c2.4-2.4 3.6-5.4 3.6-9S14.4 5.4 12 3m0 18c-2.4-2.4-3.6-5.4-3.6-9S9.6 5.4 12 3M3.6 9h16.8M3.6 15h16.8"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <span lang={locale}>{locale === 'ar' ? 'ع' : 'EN'}</span>
-              </summary>
-              <form action={setLocaleAction} className="lang-menu card">
-                <BackField />
-                <button name="locale" value="en" aria-pressed={locale === 'en'} lang="en">
-                  English
-                </button>
-                <button name="locale" value="ar" aria-pressed={locale === 'ar'} lang="ar">
-                  العربية
-                </button>
-              </form>
-            </details>
             <details className="me">
               <summary aria-label={name}>
                 <Avatar person={user} status={user.status} />
@@ -105,6 +84,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <div className="me-menu card">
                 <strong>{name}</strong>
                 <span className="muted small">{user.email}</span>
+                <StatusLine status={user.status ?? null} presets={t.status.presets} />
+                <div className="prefs">
+                  <LanguageSwitch locale={locale} label={t.nav.language} />
+                  {brandPreview ? <BrandSwitch brand={brand} labels={t.brand} /> : null}
+                </div>
                 <Link className="btn btn-small" href="/profile">
                   {t.nav.profile}
                 </Link>

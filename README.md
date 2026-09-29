@@ -5,6 +5,8 @@ Each person's days off, work week and overtime follow the client they're assigne
 
 - **Plan (product):** [EMS People & Culture — Plan v0.1](https://claude.ai/code/artifact/2644cbbc-032f-4bd5-9c32-532e915d4536)
 - **Wireframes:** [People & Culture Wireframes](https://claude.ai/artifact/5aTvRyU8yfekwc93seUufT)
+- **Brand directions (product):** [HR Product Brand Directions](https://claude.ai/artifact/FYrBeJ1ZjgnWcodFgSfYNK)
+- **Brand book (Kadr, draft):** [Kadr Brand Book](https://claude.ai/artifact/G9offKCj1BEQp3zFnLXHJX) · assets in [docs/brand/kadr](docs/brand/kadr)
 - **Technical design:** [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md)
 
 ## Status
@@ -32,6 +34,15 @@ npm test          # rules engine + database tests (in-memory PostgreSQL)
 npm run typecheck
 npm run build
 ```
+
+## Brand preview (Kadr)
+
+The app can wear the proposed product brand, **Kadr** ([brand book](https://claude.ai/artifact/G9offKCj1BEQp3zFnLXHJX)), so it can be judged on the real screens before deciding.
+Only the look and the product name change; features and data are the same.
+
+- Everyone has an **EMS / Kadr** switch on the sign-in page, in the account menu (click your avatar) and on My profile. It's per person and remembered.
+- EMS People & Culture stays the default until someone switches. `BRAND=kadr` makes Kadr the default instead.
+- `BRAND_PREVIEW=false` hides the switch (demo sites always keep it).
 
 ## Demo site (Vercel + Neon, free)
 

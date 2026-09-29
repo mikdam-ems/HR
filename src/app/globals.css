@@ -1432,8 +1432,9 @@ body::before {
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow), inset 0 0 0 1px var(--glass-edge);
 }
-.me-menu.card:not(.card-dark) {
-  background: var(--glass-strong);
+.me .me-menu.card:not(.card-dark) {
+  /* Solid, so the page never shows through behind the menu's switches */
+  background: var(--surface);
 }
 .card-dark {
   background: linear-gradient(145deg, #2b4404 0%, var(--hero) 70%);
@@ -1544,6 +1545,19 @@ body::before {
 .profile-hero .status-chip {
   align-self: center;
 }
+/* Status in words beside a person; long ones end in "…" so rows and cards keep their shape. */
+.status-line {
+  display: block;
+  max-width: 34ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+  font-weight: 400;
+}
+.pyr-card .status-line {
+  max-width: 100%;
+}
 .photo-input {
   display: flex;
   align-items: center;
@@ -1602,6 +1616,9 @@ html[dir='rtl'] .status-fab {
 }
 .status-fab.has-status .status-fab-emoji {
   background: var(--brand-200);
+}
+.status-fab:not(.has-status) .status-fab-emoji {
+  color: var(--muted);
 }
 .status-fab-text {
   overflow: hidden;
@@ -1736,13 +1753,6 @@ html[dir='rtl'] .status-fab {
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow), inset 0 0 0 1px var(--glass-edge);
-}
-.topbar-end .segmented {
-  background: transparent;
-  padding: 0;
-}
-.topbar-end .segmented button {
-  min-height: 38px;
 }
 .me summary {
   display: block;
@@ -2123,13 +2133,6 @@ a.brand {
   backdrop-filter: none;
   box-shadow: none;
 }
-.topbar-end .segmented {
-  padding: 5px;
-  background: var(--glass);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow), inset 0 0 0 1px var(--glass-edge);
-}
 .me summary .avatar {
   width: 44px;
   height: 44px;
@@ -2491,6 +2494,232 @@ a.clock-pill {
   margin-top: 8px;
 }
 
+/* ---------- Preference switches: language, brand preview (account menu, My profile, sign-in) ---------- */
+.pref-switch {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.signin .pref-switch {
+  align-self: center;
+  align-items: center;
+}
+.me-menu .prefs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-block: 12px;
+  border-block: 1px solid var(--hairline);
+}
+
+/* ---------- Kadr brand (html[data-brand='kadr']) ----------
+ * The proposed product brand, see docs/brand/kadr. It remaps the tokens above to cobalt, saffron and cool greys,
+ * squares off the corners, and swaps the few gradients that hard-code EMS green. Text on cobalt is white; text on
+ * saffron is graphite, never white. */
+html[data-brand='kadr'] {
+  --brand-50: #eef1fd;
+  --brand-100: #dce3fb;
+  --brand-200: #c9d3f8;
+  --brand-600: #1b3bd1;
+  --brand-700: #152fa8;
+  --brand-900: #10247f;
+  --brand-950: #0b1a5c;
+  --accent: var(--brand-600);
+  --accent-hover: var(--brand-700);
+  --on-accent: #ffffff;
+  --hero: #1a1d24;
+  --kadr-mark: var(--brand-600);
+  --kadr-placed: #f5b82e;
+
+  --canvas: #f3f5f9;
+  --canvas-2: #e9edf4;
+  --canvas-3: #dde2eb;
+  --ink: #1a1d24;
+  --text: #3a404d;
+  --muted: #505869;
+  --faint: #6a7385;
+  --hairline: rgba(26, 29, 36, 0.07);
+  --ring: rgba(26, 29, 36, 0.14);
+
+  --r-card: 12px;
+  --r-md: 10px;
+  --r-sm: 8px;
+  --r-pill: 8px;
+  --shadow: 0 1px 2px rgba(26, 29, 36, 0.04), 0 4px 16px rgba(26, 29, 36, 0.04);
+  --shadow-lift: 0 8px 24px rgba(26, 29, 36, 0.1);
+
+  /* Borders over shadows: near-opaque white with a hairline edge */
+  --glass: rgba(255, 255, 255, 0.92);
+  --glass-strong: #ffffff;
+  --glass-edge: rgba(26, 29, 36, 0.08);
+
+  --font: 'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --font-display: 'Archivo', 'Noto Kufi Arabic', 'IBM Plex Sans', system-ui, sans-serif;
+}
+html[data-brand='kadr'][dir='rtl'] {
+  --font: 'IBM Plex Sans Arabic', 'IBM Plex Sans', system-ui, sans-serif;
+  --font-display: 'Noto Kufi Arabic', 'Archivo', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+}
+html[data-brand='kadr'] a {
+  text-decoration-color: rgba(27, 59, 209, 0.35);
+}
+html[data-brand='kadr'] h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 104%;
+}
+html[data-brand='kadr'][dir='rtl'] h1 {
+  font-weight: 700;
+  line-height: 1.4;
+}
+html[data-brand='kadr'] body::before {
+  background:
+    radial-gradient(50% 45% at 100% 0%, rgba(27, 59, 209, 0.07) 0%, transparent 70%),
+    linear-gradient(180deg, #f5f7fb 0%, #eef1f7 100%);
+}
+html[data-brand='kadr'] .topbar {
+  background: rgba(243, 245, 249, 0.8);
+}
+html[data-brand='kadr'] tbody tr:hover td {
+  background: var(--brand-50);
+}
+
+/* Logo: the mark plus the wordmark. Kept on wide screens; the mark alone below 1100px. */
+.kadr-mark {
+  display: block;
+  flex-shrink: 0;
+}
+.kadr-wordmark {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 112%;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+html[dir='rtl'] .kadr-wordmark {
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+@media (max-width: 1540px) {
+  html[data-brand='kadr'] .brand-name.kadr-wordmark {
+    display: inline;
+  }
+}
+@media (max-width: 1100px) {
+  html[data-brand='kadr'] .brand-name.kadr-wordmark {
+    display: none;
+  }
+}
+
+/* Dark cards: graphite instead of deep green */
+html[data-brand='kadr'] .card-dark,
+html[data-brand='kadr'] .pyramid > li > .pyr-card {
+  background: linear-gradient(145deg, #2a303c 0%, var(--hero) 70%);
+}
+
+/* Clock: cobalt while working, saffron on a break */
+html[data-brand='kadr'] .clock-card.clock-working,
+html[data-brand='kadr'] .bento .card.clock-card.clock-working {
+  background: linear-gradient(145deg, rgba(220, 227, 251, 0.95), rgba(238, 241, 253, 0.75));
+}
+html[data-brand='kadr'] .clock-card.clock-break,
+html[data-brand='kadr'] .bento .card.clock-card.clock-break {
+  background: linear-gradient(145deg, rgba(253, 241, 213, 0.95), rgba(255, 255, 255, 0.7));
+}
+html[data-brand='kadr'] .clock-working .clock-dot {
+  box-shadow: 0 0 0 0 rgba(27, 59, 209, 0.5);
+  animation-name: kadr-clock-pulse;
+}
+@keyframes kadr-clock-pulse {
+  70% {
+    box-shadow: 0 0 0 8px rgba(27, 59, 209, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(27, 59, 209, 0);
+  }
+}
+html[data-brand='kadr'] .clock-break .clock-dot {
+  background: var(--kadr-placed);
+}
+html[data-brand='kadr'] .progress-over span {
+  background: linear-gradient(90deg, var(--accent) 0%, var(--kadr-placed) 100%);
+}
+
+/* Sign-in: a cobalt brand panel beside the form */
+html[data-brand='kadr'] .signin {
+  grid-template-columns: minmax(0, 380px) minmax(0, 420px);
+  place-content: center;
+  place-items: stretch;
+}
+html[data-brand='kadr'] .signin .card {
+  border-radius: 0 var(--r-card) var(--r-card) 0;
+  justify-content: center;
+}
+html[data-brand='kadr'][dir='rtl'] .signin .card {
+  border-radius: var(--r-card) 0 0 var(--r-card);
+}
+.signin-panel {
+  --kadr-mark: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 32px;
+  border-radius: var(--r-card) 0 0 var(--r-card);
+  background: var(--brand-600);
+  color: #ffffff;
+}
+html[dir='rtl'] .signin-panel {
+  border-radius: 0 var(--r-card) var(--r-card) 0;
+}
+.signin-panel .kadr-wordmark {
+  color: #ffffff;
+  font-size: 24px;
+}
+.signin-tagline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.2;
+  color: #ffffff;
+  text-wrap: balance;
+}
+.signin-endorse {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c3ccf5;
+}
+html[dir='rtl'] .signin-endorse {
+  font-family: var(--font);
+  letter-spacing: 0;
+}
+@media (max-width: 800px) {
+  html[data-brand='kadr'] .signin {
+    grid-template-columns: minmax(0, 420px);
+    align-content: start;
+  }
+  .signin-panel,
+  html[dir='rtl'] .signin-panel {
+    border-radius: var(--r-card) var(--r-card) 0 0;
+    gap: 16px;
+  }
+  html[data-brand='kadr'] .signin .card,
+  html[data-brand='kadr'][dir='rtl'] .signin .card {
+    border-radius: 0 0 var(--r-card) var(--r-card);
+  }
+  .signin-tagline {
+    font-size: 22px;
+  }
+}
+
 /* ---------- notifications bell ---------- */
 .bell {
   position: relative;
@@ -2739,67 +2968,6 @@ a.clock-pill {
 }
 .close-people .person:hover {
   background: var(--canvas-2);
-}
-
-/* ---------- language menu ---------- */
-.lang {
-  position: relative;
-}
-.lang summary {
-  list-style: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 38px;
-  padding: 0 8px;
-  border-radius: var(--r-pill);
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 600;
-}
-.lang summary::-webkit-details-marker {
-  display: none;
-}
-.lang summary:hover,
-.lang[open] summary {
-  background: var(--canvas-2);
-}
-.topbar .lang-menu.card:not(.card-dark) {
-  position: absolute;
-  inset-inline-end: 0;
-  top: calc(100% + 14px);
-  min-width: 160px;
-  padding: 6px;
-  gap: 2px;
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-lift);
-  background: var(--surface);
-  z-index: 30;
-}
-.lang-menu button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 10px 12px;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: none;
-  color: var(--ink);
-  font: inherit;
-  text-align: start;
-  cursor: pointer;
-}
-.lang-menu button:hover {
-  background: var(--canvas-2);
-}
-.lang-menu button[aria-pressed='true'] {
-  font-weight: 700;
-}
-.lang-menu button[aria-pressed='true']::after {
-  content: '✓';
-  color: var(--brand-700);
 }
 
 /* ---------- reveal: forms open on demand ---------- */

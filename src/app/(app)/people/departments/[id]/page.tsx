@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { saveDepartmentAction } from '@/app/(app)/people/actions';
 import { Avatar } from '@/components/Avatar';
+import { StatusLine } from '@/components/StatusLine';
 import { DayBadge } from '@/components/DayBadge';
 import { DepartmentFields } from '@/components/DepartmentFields';
 import { Flash } from '@/components/Flash';
@@ -104,11 +105,7 @@ export default async function DepartmentPage({
                     <span className="stack" style={{ gap: 2, minWidth: 0 }}>
                       <strong>{localName(locale, m.nameEn, m.nameAr)}</strong>
                       <span className="muted small">{m.jobTitle}</span>
-                      {status ? (
-                        <span className="small">
-                          {status.emoji} {status.text ?? t.status.presets[status.emoji as keyof typeof t.status.presets] ?? ''}
-                        </span>
-                      ) : null}
+                      <StatusLine status={status} presets={t.status.presets} />
                       <span className="row" style={{ gap: 6, marginTop: 4 }}>
                         {onLeave.has(m.id) ? (
                           <span className="badge status-submitted">{t.timesheet.leaveTypes[onLeave.get(m.id)!]}</span>

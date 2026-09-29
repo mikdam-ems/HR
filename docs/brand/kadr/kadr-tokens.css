@@ -1,0 +1,61 @@
+/*
+ * Kadr brand tokens (draft v1.0). See the Kadr Brand Book:
+ * https://claude.ai/artifact/G9offKCj1BEQp3zFnLXHJX
+ * Text on cobalt is white; text on saffron is graphite, never white.
+ */
+:root {
+  --kadr-cobalt-50: #eef1fd;
+  --kadr-cobalt-100: #dce3fb;
+  --kadr-cobalt-200: #b7c4f6;
+  --kadr-cobalt-300: #8a9eef;
+  --kadr-cobalt-400: #5572e6;
+  --kadr-cobalt-500: #2f4fde;
+  --kadr-cobalt-600: #1b3bd1; /* brand */
+  --kadr-cobalt-700: #152fa8;
+  --kadr-cobalt-800: #10247f;
+  --kadr-cobalt-900: #0b1a5c;
+  --kadr-saffron-100: #fdf1d5;
+  --kadr-saffron-300: #f9d57f;
+  --kadr-saffron-500: #f5b82e; /* brand */
+  --kadr-saffron-700: #b7820f;
+  --kadr-graphite: #1a1d24;
+  --kadr-steel: #6a7385;
+  --kadr-cloud: #f3f5f9;
+  --kadr-white: #ffffff;
+
+  --accent: var(--kadr-cobalt-600);
+  --accent-hover: var(--kadr-cobalt-700);
+  --on-accent: #ffffff;
+  --placed: var(--kadr-saffron-500); /* the placed person, overtime */
+  --on-placed: var(--kadr-graphite);
+  --canvas: var(--kadr-cloud);
+  --surface: var(--kadr-white);
+  --ink: var(--kadr-graphite);
+  --muted: var(--kadr-steel);
+
+  --ok-bg: #dff5ee;
+  --ok-fg: #0d6b53;
+  --warn-bg: #fdf1d5;
+  --warn-fg: #7a5408;
+  --danger-bg: #fbe4e2;
+  --danger-fg: #b3261e;
+
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+
+  --font-display: 'Archivo', 'Noto Kufi Arabic', system-ui, sans-serif;
+  --font-ui: 'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --font-data: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+/* Dark mode: links and focus use cobalt light; buttons stay cobalt 600 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #0e1117;
+    --surface: #161a22;
+    --ink: #eef1f7;
+    --muted: #9098aa;
+    --link: #8fa3ff;
+  }
+}

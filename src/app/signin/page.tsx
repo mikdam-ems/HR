@@ -1,7 +1,10 @@
 import { redirect } from 'next/navigation';
+import { BrandSwitch } from '@/components/BrandSwitch';
 import { EmsLogo } from '@/components/EmsLogo';
+import { KadrMark } from '@/components/KadrMark';
 import { setLocaleAction, signInDevAction, signInGoogleAction } from '@/app/actions';
 import { demoMode, devLoginEnabled, googleEnabled } from '@/auth';
+import { brandPreview, getBrand } from '@/brand';
 import { getDb } from '@/db';
 import { getDict } from '@/i18n';
 import type { Dict } from '@/i18n/en';
@@ -10,7 +13,7 @@ import { getCurrentUser } from '@/server/session';
 
 export default async function SignInPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   if (await getCurrentUser()) redirect('/');
-  const { t, locale } = await getDict();
+  const [{ t, locale }, brand] = await Promise.all([getDict(), getBrand()]);
   const { error } = await searchParams;
   const errorText = error
     ? (t.signIn.errors[error as keyof Dict['signIn']['errors']] ?? t.signIn.errors.default)
@@ -19,12 +22,24 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="signin">
+      {brand === 'kadr' ? (
+        <aside className="signin-panel">
+          <span className="brand">
+            <KadrMark size={36} />
+            <span className="kadr-wordmark">{t.appName}</span>
+          </span>
+          <p className="signin-tagline">{t.brand.tagline}</p>
+          <span className="signin-endorse">{t.brand.byEms}</span>
+        </aside>
+      ) : null}
       <div className="card">
-        <div className="brand" style={{ padding: 0 }}>
-          <EmsLogo />
-          <span className="divider" aria-hidden="true" />
-          <span>{t.appName}</span>
-        </div>
+        {brand === 'kadr' ? null : (
+          <div className="brand" style={{ padding: 0 }}>
+            <EmsLogo />
+            <span className="divider" aria-hidden="true" />
+            <span>{t.appName}</span>
+          </div>
+        )}
         <div className="stack" style={{ gap: 4 }}>
           <h1>{t.signIn.title}</h1>
           <p className="muted" style={{ margin: 0 }}>
@@ -75,6 +90,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
             العربية
           </button>
         </form>
+        {brandPreview ? <BrandSwitch brand={brand} labels={t.brand} back="/signin" /> : null}
       </div>
     </div>
   );
