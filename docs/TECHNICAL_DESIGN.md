@@ -148,4 +148,5 @@ These replace the manager's line-by-line review of the Excel sheet.
 | 3. Timesheets | 5–6 | Month view, edit day, submit/approve/return | **Done** — month calendar + day panel, approvals inbox, totals frozen at submit/approval |
 | 4. Time off | 7–8 | Requests, balances, approvals inbox | **Done** — preview before sending, approval writes to the timesheet, HR adjustments |
 | 5. Finish | 9–10 | Org chart, Finance export, Arabic RTL | **Done** — Reports page, Excel export (summary + every day), month closing |
-| 6. Pilot | 11–12 | 3 people run it alongside Excel for a month | Not started |
+| 6. Pilot | 11–12 | 3 people run it alongside Excel for a month | Not started ([#14](https://github.com/mikdam-ems/HR/issues/14)) |
+| 7. Workforce operations | — | From the competitor research: Today board, clock-in place, forgotten clock-out reminder, attendance report, seasonal hours, client hours export, stand-in approvals, shift swaps, delivery lead | **Done** — [#22](https://github.com/mikdam-ems/HR/pull/22); rules in `domain/presence.ts`, `dayRules.ts` (seasons, swaps), `server/permissions.ts` (`decidesFor`) |
