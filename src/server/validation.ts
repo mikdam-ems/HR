@@ -64,6 +64,8 @@ export const employeeInput = z.object({
   managerId: z.string().uuid().nullish().transform((v) => v ?? null),
   departmentId: z.string().uuid().nullish().transform((v) => v ?? null),
   hireDate: isoDate.nullish().transform((v) => v ?? null),
+  // Left out (e.g. by an import) means unchanged; null clears it.
+  birthDate: isoDate.nullish(),
   // Everyone is an employee; extra roles are added on top.
   roles: z
     .array(z.enum(roleEnum.enumValues))

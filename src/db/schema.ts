@@ -52,6 +52,8 @@ export const employees = pgTable(
     departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'set null' }),
     managerId: uuid('manager_id').references((): AnyPgColumn => employees.id, { onDelete: 'set null' }),
     hireDate: date('hire_date', { mode: 'string' }),
+    /** Only the day and month are ever shown (for birthday wishes); the year is kept private. */
+    birthDate: date('birth_date', { mode: 'string' }),
     roles: roleEnum('roles').array().notNull().default(['employee']),
     active: boolean('active').notNull().default(true),
     /** Written by the person themselves. */
@@ -336,6 +338,42 @@ export const clockEvents = pgTable(
   (t) => [index('clock_events_employee_at_idx').on(t.employeeId, t.at)],
 );
 
+/** Something a person should know about (a request to approve, a decision on theirs). Shown under the bell. */
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    /** What happened, e.g. leave_requested, day_change_decided — used to pick the words in each language. */
+    kind: text('kind').notNull(),
+    /** Words for the message: names, dates, outcome. */
+    data: jsonb('data').notNull().default({}),
+    /** Where clicking it goes, e.g. /approvals. */
+    link: text('link').notNull().default('/'),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index('notifications_employee_idx').on(t.employeeId, t.createdAt)],
+);
+
+/** A browser that agreed to receive push notifications for this person. */
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('push_subscriptions_endpoint_idx').on(t.endpoint)],
+);
+
 /** HR corrections to a balance: carry-over from last year, opening balances, fixes. Positive or negative. */
 export const leaveAdjustments = pgTable(
   'leave_adjustments',
@@ -449,6 +487,7 @@ export type TimesheetRow = typeof timesheets.$inferSelect;
 export type DayEntryRow = typeof dayEntries.$inferSelect;
 export type DayChangeRow = typeof dayChangeRequests.$inferSelect;
 export type ClockEventRow = typeof clockEvents.$inferSelect;
+export type NotificationRow = typeof notifications.$inferSelect;
 export type Calendar = typeof calendars.$inferSelect;
 export type HolidayRow = typeof holidays.$inferSelect;
 export type ClientRow = typeof clients.$inferSelect;

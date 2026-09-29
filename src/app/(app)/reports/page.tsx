@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { closeMonthAction, reopenMonthAction } from '@/app/(app)/reports/actions';
+import { closeMonthAction, remindAction, reopenMonthAction } from '@/app/(app)/reports/actions';
+import { Avatar } from '@/components/Avatar';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { fmt, getDict, localName } from '@/i18n';
@@ -8,6 +9,10 @@ import { formatDate, formatHours, todayISO } from '@/lib/format';
 import { can } from '@/server/permissions';
 import { monthReport } from '@/server/reports';
 import { requirePermission } from '@/server/session';
+
+const STATUSES = ['approved', 'submitted', 'returned', 'draft'] as const;
+/** Groups shown as people lists: whoever still has something to do, the most actionable first. */
+const PENDING = ['draft', 'returned', 'submitted'] as const;
 
 function parseMonth(value: string | undefined): string {
   const m = /^(\d{4})-(\d{2})$/.exec(value ?? '');
@@ -31,6 +36,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     .sort((a, b) => a.nameEn.localeCompare(b.nameEn));
   const rows = deptFilter ? report.rows.filter((r) => r.department?.id === deptFilter) : report.rows;
   const approved = report.rows.length - report.notApproved.length;
+  const byStatus = Object.fromEntries(STATUSES.map((st) => [st, report.rows.filter((r) => r.status === st)])) as Record<
+    (typeof STATUSES)[number],
+    typeof report.rows
+  >;
   const leaveTotal = (r: (typeof report.rows)[number]) =>
     Object.entries(r.totals.leaveDaysByType)
       .map(([k, v]) => `${v} ${t.timesheet.leaveTypes[k as keyof Dict['timesheet']['leaveTypes']]}`)
@@ -78,28 +87,72 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           ) : null}
         </div>
       ) : can(user, 'months.close') && report.rows.length ? (
-        <div className="card" style={{ padding: 16 }}>
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <span className="muted">{t.reports.closeHint}</span>
-            <form action={closeMonthAction}>
-              <input type="hidden" name="month" value={month} />
-              <button className="btn btn-primary" disabled={report.notApproved.length > 0}>
-                {t.reports.close}
-              </button>
-            </form>
+        <section className="card close-card" aria-labelledby="close-title">
+          <div className="close-head">
+            <div className="stack" style={{ gap: 4 }}>
+              <h2 id="close-title">{t.reports.closeTitle}</h2>
+              <span className="muted small">{report.notApproved.length ? t.reports.closeHint : t.reports.allApproved}</span>
+            </div>
+            <div className="row" style={{ gap: 8 }}>
+              {report.notApproved.some((r) => r.status === 'draft' || r.status === 'returned') ? (
+                <form action={remindAction} title={t.reports.remindHint}>
+                  <input type="hidden" name="month" value={month} />
+                  <button className="btn">{t.reports.remind}</button>
+                </form>
+              ) : null}
+              <form action={closeMonthAction}>
+                <input type="hidden" name="month" value={month} />
+                <button className="btn btn-primary" disabled={report.notApproved.length > 0}>
+                  {t.reports.close}
+                </button>
+              </form>
+            </div>
           </div>
-          {report.notApproved.length ? (
-            <span className="small">
-              <strong>{t.reports.waitingFor}</strong>{' '}
-              {report.notApproved.map((r, i) => (
-                <span key={r.employee.id}>
-                  {i ? ', ' : ''}
-                  {localName(locale, r.employee.nameEn, r.employee.nameAr)} ({t.timesheet.status[r.status]})
-                </span>
-              ))}
-            </span>
-          ) : null}
-        </div>
+
+          <div className="close-progress" role="img" aria-label={fmt(t.reports.progress, { approved, total: report.rows.length })}>
+            {STATUSES.map((st) =>
+              byStatus[st].length ? (
+                <span key={st} className={`close-seg seg-${st}`} style={{ flexGrow: byStatus[st].length }} />
+              ) : null,
+            )}
+          </div>
+          <ul className="close-legend">
+            {STATUSES.map((st) => (
+              <li key={st} className={byStatus[st].length ? undefined : 'muted'}>
+                <span className={`close-dot seg-${st}`} aria-hidden="true" />
+                {t.reports.groups[st]} <strong>{byStatus[st].length}</strong>
+              </li>
+            ))}
+          </ul>
+
+          {PENDING.filter((st) => byStatus[st].length).map((st) => (
+            <details key={st} className="close-group" open>
+              <summary>
+                <span className={`close-dot seg-${st}`} aria-hidden="true" />
+                {t.reports.groups[st]} <span className="muted">· {byStatus[st].length}</span>
+              </summary>
+              <ul className="close-people">
+                {byStatus[st].map((r) => (
+                  <li key={r.employee.id}>
+                    <Link className="person" href={`/timesheet/${r.employee.id}?month=${month}`}>
+                      <Avatar person={r.employee} size="sm" />
+                      <span className="stack" style={{ gap: 0 }}>
+                        {localName(locale, r.employee.nameEn, r.employee.nameAr)}
+                        <span className="muted small">
+                          {st === 'submitted' && r.manager
+                            ? fmt(t.reports.withManager, { name: localName(locale, r.manager.nameEn, r.manager.nameAr) })
+                            : r.department
+                              ? localName(locale, r.department.nameEn, r.department.nameAr)
+                              : r.employee.jobTitle ?? ''}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ))}
+        </section>
       ) : null}
 
       <div className="table-wrap">

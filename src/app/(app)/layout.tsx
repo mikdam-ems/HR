@@ -21,6 +21,10 @@ import { getDb } from '@/db';
 import { requireUser } from '@/server/session';
 import { countPendingLeave } from '@/server/leave';
 import { countPendingApprovals } from '@/server/timesheets';
+import { NotificationBell } from '@/components/NotificationBell';
+import { notificationText, type NotificationKind } from '@/lib/notificationText';
+import { formatDate, timeOfDay } from '@/lib/format';
+import { countUnread, listNotifications } from '@/server/notify';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -29,7 +33,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const approver = user.isManager || user.roles.includes('admin');
   const db = await getDb();
   const pending = approver ? (await countPendingApprovals(db, user)) + (await countPendingLeave(db, user)) : 0;
-  const [myClock, ctx] = await Promise.all([clockView(db, user.id), loadRulesContext(db)]);
+  const [myClock, ctx, recent, unread] = await Promise.all([
+    clockView(db, user.id),
+    loadRulesContext(db),
+    listNotifications(db, user.id, 12),
+    countUnread(db, user.id),
+  ]);
+  const bellItems = recent.map((n) => ({
+    id: n.id,
+    ...notificationText(t, locale, n.kind as NotificationKind, n.data as Record<string, unknown>),
+    when: `${formatDate(todayISO(n.createdAt), locale, { day: 'numeric', month: 'short' })} · ${timeOfDay(n.createdAt)}`,
+    unread: !n.readAt,
+  }));
   const clockData = toClockData(myClock, locale, resolveDay(ctx, user.id, todayISO()).expectedMinutes);
   const links = [
     { href: '/', label: t.nav.home },
@@ -56,6 +71,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </nav>
           <div className="topbar-end">
             <TopClock data={clockData} labels={t.clock} />
+            <NotificationBell
+              items={bellItems}
+              unread={unread}
+              vapidKey={process.env.VAPID_PUBLIC_KEY ?? null}
+              labels={t.notifications}
+            />
             <details className="me">
               <summary aria-label={name}>
                 <Avatar person={user} status={user.status} />

@@ -48,6 +48,7 @@ async function loadRulesContextUncached(db: DB): Promise<RulesContext> {
       end: s.endTime,
       breakMinutes: s.breakMinutes,
       shiftCode: s.shiftCode ?? undefined,
+      clientShiftId: s.clientShiftId ?? undefined,
     })),
   };
 }

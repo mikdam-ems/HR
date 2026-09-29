@@ -5,7 +5,8 @@ import { createDb, type DB } from '@/db';
 import { createCalendar, createClient, setHoliday } from '../clients';
 import { createRequest, decideRequest } from '../leave';
 import { addAssignment, createEmployee, setSchedule } from '../people';
-import { buildMonthWorkbook, closeMonth, monthReport, reopenMonth } from '../reports';
+import { buildMonthWorkbook, closeMonth, monthReport, remindUnsubmitted, reopenMonth } from '../reports';
+import { listNotifications } from '../notify';
 import { setSetting } from '../settings';
 import { approveMonth, getMonth, listPendingApprovals, returnMonth, submitMonth, type Actor } from '../timesheets';
 import { saveDay } from './approve';
@@ -76,17 +77,30 @@ describe('month report', () => {
     if (!r.ok) throw new Error(r.error);
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load((await buildMonthWorkbook(r.value)) as unknown as ArrayBuffer);
-    const summary = wb.getWorksheet('Summary 2026-09')!;
-    const header = (summary.getRow(1).values as unknown[]).slice(1);
-    const linaRow = summary.getRow(3).values as unknown[];
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Summary', 'khaled', 'lina', 'Data']);
+
+    // Summary: a row per person, the name linking to their sheet.
+    const summary = wb.getWorksheet('Summary')!;
+    const header = (summary.getRow(7).values as unknown[]).slice(1);
+    const linaRow = summary.getRow(9).values as unknown[];
     const col = (name: string) => linaRow[header.indexOf(name) + 1];
-    expect(col('Employee')).toBe('lina');
+    expect(col('Employee')).toMatchObject({ text: 'lina', hyperlink: "#'lina'!A1" });
     expect(col('Working days')).toBe(21);
-    expect(col('Hours worked')).toBe(162);
-    expect(col('Regular OT hours')).toBe(2);
-    expect(col('Annual leave days')).toBe(1);
-    const days = wb.getWorksheet('Days 2026-09')!;
-    expect(days.rowCount).toBe(1 + 2 * 30);
+    expect(col('OT hrs')).toBe(2);
+    expect(col('PL hrs')).toBe(8);
+    expect(col('Client hrs')).toBe(20 * 8);
+
+    // The person's sheet: details, and one row per day with a Total Hrs row.
+    const sheet = wb.getWorksheet('lina')!;
+    expect(sheet.getCell('C7').value).toBe('lina');
+    const rows: unknown[][] = [];
+    sheet.eachRow((row) => rows.push(row.values as unknown[]));
+    const total = rows.find((r) => r[2] === 'Total Hrs')!;
+    expect(total[3]).toMatchObject({ formula: expect.stringMatching(/^SUM\(C\d+:C\d+\)$/), result: 160 });
+    const sept15 = rows.find((r) => r[2] instanceof Date && (r[2] as Date).toISOString().startsWith('2026-09-15'))!;
+    expect(sept15[7]).toBe(2); // OT
+    expect(sept15[10]).toBe('Release');
+    expect(wb.getWorksheet('Data')!.rowCount).toBe(1 + 2 * 30);
   });
 });
 
@@ -120,5 +134,14 @@ describe('closing a month', () => {
     expect((await reopenMonth(db, admin, 2026, 9)).ok).toBe(true);
     const r = await monthReport(db, hr, 2026, 9);
     expect(r.ok && r.value.closed).toBe(false);
+  });
+});
+
+describe('reminding people to submit', () => {
+  it('notifies only those who have not submitted, and only HR/admin may send it', async () => {
+    const { lina, hr } = await setup();
+    expect(await remindUnsubmitted(db, lina, 2026, 9)).toMatchObject({ ok: false, error: 'forbidden' });
+    expect(await remindUnsubmitted(db, hr, 2026, 9)).toEqual({ ok: true, value: 2 });
+    expect((await listNotifications(db, lina.id))[0]).toMatchObject({ kind: 'timesheet_reminder', link: '/timesheet?month=2026-09' });
   });
 });

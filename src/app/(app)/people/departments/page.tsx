@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Reveal } from '@/components/Reveal';
 import { saveDepartmentAction } from '@/app/(app)/people/actions';
 import { Avatar } from '@/components/Avatar';
 import { DepartmentFields } from '@/components/DepartmentFields';
@@ -65,13 +66,15 @@ export default async function DepartmentsPage({ searchParams }: { searchParams: 
       </div>
 
       {manage ? (
-        <form action={saveDepartmentAction} className="card">
-          <h2>{t.departments.add}</h2>
-          <DepartmentFields t={t} people={people} />
-          <div>
-            <button className="btn btn-primary">{t.departments.add}</button>
-          </div>
-        </form>
+        <Reveal label={t.departments.add} cancelLabel={t.form.cancel} primary>
+          <form action={saveDepartmentAction} className="card">
+            <h2>{t.departments.add}</h2>
+            <DepartmentFields t={t} people={people} />
+            <div>
+              <button className="btn btn-primary">{t.departments.add}</button>
+            </div>
+          </form>
+        </Reveal>
       ) : null}
     </>
   );
