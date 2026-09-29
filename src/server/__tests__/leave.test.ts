@@ -1,6 +1,8 @@
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type DB } from '@/db';
+import { assignments } from '@/db/schema';
+import { listNotifications } from '../notify';
 import { createCalendar, createClient, setHoliday } from '../clients';
 import {
   addAdjustment,
@@ -18,7 +20,7 @@ import {
   previewRequest,
   teamOff,
 } from '../leave';
-import { addAssignment, createEmployee, setSchedule } from '../people';
+import { addAssignment, createEmployee, setDeliveryLead, setSchedule } from '../people';
 import { setSetting } from '../settings';
 import { getMonth, submitMonth, type Actor } from '../timesheets';
 
@@ -237,5 +239,35 @@ describe('telling the client', () => {
     const { lina } = await setup();
     await db.execute(sql`UPDATE clients SET is_internal = true`);
     expect(await clientsToInform(db, lina.id, '2026-09-20', '2026-09-21')).toEqual([]);
+  });
+});
+
+describe('telling the delivery lead', () => {
+  it('tells the lead when leave is requested and decided; the manager is only asked, once', async () => {
+    const { khaled, lina, sami } = await setup();
+    const [linaJob] = await db.select().from(assignments).where(eq(assignments.employeeId, lina.id));
+    expect(await setDeliveryLead(db, null, linaJob!.id, lina.id)).toMatchObject({ error: 'invalid_input' });
+    expect((await setDeliveryLead(db, null, linaJob!.id, sami.id)).ok).toBe(true);
+
+    const id = await createRequest(db, lina, { type: 'annual', fromDate: '2026-10-04', toDate: '2026-10-05' });
+    if (!id.ok) throw new Error(id.error);
+    const kinds = async (who: string) => (await listNotifications(db, who)).map((n) => n.kind).sort();
+    expect(await kinds(sami.id)).toEqual(['leave_fyi_requested']);
+    expect(await kinds(khaled.id)).toEqual(['leave_requested']);
+
+    // Khaled approves. Sami can't decide it: being told isn't being asked.
+    expect(await decideRequest(db, sami, id.value, 'approve', null)).toMatchObject({ error: 'forbidden' });
+    expect((await decideRequest(db, khaled, id.value, 'approve', null)).ok).toBe(true);
+    const [latest] = await listNotifications(db, sami.id);
+    expect(latest).toMatchObject({ kind: 'leave_fyi_decided', data: { outcome: 'approved', name: 'lina@x.com' } });
+    expect(latest!.link).toMatch(/^\/clients\//);
+  });
+
+  it('doesn’t tell a lead who is also the approver twice', async () => {
+    const { khaled, lina } = await setup();
+    const [linaJob] = await db.select().from(assignments).where(eq(assignments.employeeId, lina.id));
+    await setDeliveryLead(db, null, linaJob!.id, khaled.id);
+    await createRequest(db, lina, { type: 'annual', fromDate: '2026-10-04', toDate: '2026-10-05' });
+    expect((await listNotifications(db, khaled.id)).map((n) => n.kind)).toEqual(['leave_requested']);
   });
 });

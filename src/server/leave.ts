@@ -1,8 +1,9 @@
 import { cache } from 'react';
-import { and, asc, desc, eq, gte, inArray, lte, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, or } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DB } from '@/db';
 import {
+  assignments,
   clients,
   dayEntries,
   employees,
@@ -207,6 +208,7 @@ export async function createRequest(
       from: row!.fromDate,
       to: row!.toDate,
     }, `/approvals?l=${row!.id}`);
+    await tellLeads(db, row!, 'leave_fyi_requested');
   }
   if (attachment) {
     const [file] = await db
@@ -340,8 +342,42 @@ export async function decideRequest(
   return ok(undefined);
 }
 
-function tellDecision(db: DB, req: LeaveRequestRow, outcome: 'approved' | 'declined', note: string | null) {
-  return notify(db, [req.employeeId], 'leave_decided', { outcome, type: req.type, from: req.fromDate, to: req.toDate, note }, '/time-off');
+async function tellDecision(db: DB, req: LeaveRequestRow, outcome: 'approved' | 'declined', note: string | null) {
+  await notify(db, [req.employeeId], 'leave_decided', { outcome, type: req.type, from: req.fromDate, to: req.toDate, note }, '/time-off');
+  await tellLeads(db, req, 'leave_fyi_decided', outcome);
+}
+
+/**
+ * Tells the delivery leads of the projects someone is on during their leave. They're informed, never asked:
+ * the manager decides. Leads who are also the approver, or the person themselves, aren't told twice.
+ */
+async function tellLeads(db: DB, req: LeaveRequestRow, kind: 'leave_fyi_requested' | 'leave_fyi_decided', outcome?: 'approved' | 'declined') {
+  const [me] = await db.select().from(employees).where(eq(employees.id, req.employeeId));
+  if (!me) return;
+  const onLeave = await db
+    .select()
+    .from(assignments)
+    .where(
+      and(
+        eq(assignments.employeeId, req.employeeId),
+        lte(assignments.startDate, req.toDate),
+        or(isNull(assignments.endDate), gte(assignments.endDate, req.fromDate)),
+      ),
+    );
+  const approvers = new Set(await approversOf(db, me));
+  const told = new Set<string>();
+  for (const a of onLeave) {
+    const lead = a.deliveryLeadId;
+    if (!lead || lead === me.id || approvers.has(lead) || told.has(lead)) continue;
+    told.add(lead);
+    await notify(
+      db,
+      [lead],
+      kind,
+      { name: me.nameEn, nameAr: me.nameAr, type: req.type, from: req.fromDate, to: req.toDate, outcome: outcome ?? null },
+      `/clients/${a.clientId}`,
+    );
+  }
 }
 
 /** The person can cancel a pending request, or approved leave that hasn't started yet. */

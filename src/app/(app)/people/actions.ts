@@ -16,6 +16,7 @@ import {
   removeSchedule,
   setSchedule,
   updateEmployee,
+  setDeliveryLead,
 } from '@/server/people';
 import { createDepartment, updateDepartment } from '@/server/departments';
 import { can } from '@/server/permissions';
@@ -65,9 +66,19 @@ export async function addAssignmentAction(fd: FormData) {
     endDate: str(fd, 'endDate'),
     primary: bool(fd, 'primary'),
     shiftId: str(fd, 'shiftId'),
+    deliveryLeadId: str(fd, 'deliveryLeadId') || null,
   });
   revalidatePath(`/people/${employeeId}`);
   redirectWith(`/people/${employeeId}`, result, 'created');
+}
+
+/** Sets who leads delivery on an assignment; they're told about this person's leave. */
+export async function setDeliveryLeadAction(fd: FormData) {
+  const actor = await requirePermission('people.manage');
+  const employeeId = str(fd, 'employeeId') ?? '';
+  const result = await setDeliveryLead(await getDb(), actor.id, str(fd, 'id') ?? '', str(fd, 'deliveryLeadId') || null);
+  revalidatePath(`/people/${employeeId}`);
+  redirectWith(`/people/${employeeId}`, result, 'saved');
 }
 
 export async function endAssignmentAction(fd: FormData) {

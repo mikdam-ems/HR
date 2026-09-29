@@ -101,6 +101,8 @@ export async function addAssignment(db: DB, actorId: string | null, input: Assig
   if (a.primary && overlapping.some((e) => e.primary)) return fail('primary_overlap');
 
   const { shiftId, ...assignment } = a;
+  const lead = await checkLead(db, a.employeeId, a.deliveryLeadId);
+  if (!lead.ok) return lead;
   if (shiftId) {
     const [shift] = await db.select().from(clientShifts).where(eq(clientShifts.id, shiftId));
     if (!shift || shift.clientId !== a.clientId) return fail('unknown_shift');
@@ -112,6 +114,30 @@ export async function addAssignment(db: DB, actorId: string | null, input: Assig
     if (!applied.ok) return applied;
   }
   return ok(row!.id);
+}
+
+/** A delivery lead must be someone else who works here. */
+async function checkLead(db: DB, employeeId: string, leadId: string | null): Promise<Result<void>> {
+  if (!leadId) return ok(undefined);
+  if (leadId === employeeId) return fail('invalid_input', 'someone can’t be their own delivery lead');
+  const [lead] = await db.select().from(employees).where(eq(employees.id, leadId));
+  return lead?.active ? ok(undefined) : fail('not_found', 'delivery lead');
+}
+
+/** Sets or clears who leads delivery on an assignment (they're told about the person's leave). */
+export async function setDeliveryLead(
+  db: DB,
+  actorId: string | null,
+  assignmentId: string,
+  leadId: string | null,
+): Promise<Result<void>> {
+  const [before] = await db.select().from(assignments).where(eq(assignments.id, assignmentId));
+  if (!before) return fail('not_found');
+  const lead = await checkLead(db, before.employeeId, leadId);
+  if (!lead.ok) return lead;
+  const [after] = await db.update(assignments).set({ deliveryLeadId: leadId }).where(eq(assignments.id, assignmentId)).returning();
+  await audit(db, { actorId, action: 'update', entity: 'assignment', entityId: assignmentId, before, after });
+  return ok(undefined);
 }
 
 export async function endAssignment(

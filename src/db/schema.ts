@@ -126,6 +126,8 @@ export const assignments = pgTable(
     /** Inclusive. Null = open-ended. */
     endDate: date('end_date', { mode: 'string' }),
     primary: boolean('primary').notNull().default(true),
+    /** The EMS person leading delivery on this project: told about leave, never asked to approve it. */
+    deliveryLeadId: uuid('delivery_lead_id').references((): AnyPgColumn => employees.id, { onDelete: 'set null' }),
     ...timestamps,
   },
   (t) => [index('assignments_employee_idx').on(t.employeeId)],

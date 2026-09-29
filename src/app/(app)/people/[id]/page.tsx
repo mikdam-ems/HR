@@ -3,6 +3,7 @@ import { Reveal } from '@/components/Reveal';
 import { notFound } from 'next/navigation';
 import {
   addAssignmentAction,
+  setDeliveryLeadAction,
   endAssignmentAction,
   removeAssignmentAction,
   removeScheduleAction,
@@ -19,7 +20,7 @@ import { getDict, holidayLabel, localName } from '@/i18n';
 import { formatDate, formatHours, todayISO } from '@/lib/format';
 import { listClients } from '@/server/clients';
 import { allShifts } from '@/server/shifts';
-import { getEmployeeProfile } from '@/server/people';
+import { getEmployeeProfile, listEmployees } from '@/server/people';
 import { can } from '@/server/permissions';
 import { currentStatus } from '@/server/profile';
 import { loadRulesContext } from '@/server/rulesContext';
@@ -44,11 +45,21 @@ export default async function ProfilePage({
   if (!person) notFound();
 
   const manage = can(user, 'people.manage');
-  const [ctx, clientRows, shiftRows] = await Promise.all([
+  const [ctx, clientRows, shiftRows, everyone] = await Promise.all([
     loadRulesContext(db),
     manage ? listClients(db) : Promise.resolve([]),
     manage ? allShifts(db) : Promise.resolve([]),
+    listEmployees(db, { includeInactive: true }),
   ]);
+  const byId = new Map(everyone.map((e) => [e.id, e]));
+  // Anyone else still working here can lead delivery on this person's project.
+  const leadOptions = everyone
+    .filter((e) => e.active && e.id !== person.id)
+    .map((e) => (
+      <option key={e.id} value={e.id}>
+        {localName(locale, e.nameEn, e.nameAr)}
+      </option>
+    ));
   // Shift pickers, grouped by client: "Hala — Shift A 06:00–14:00".
   const shiftGroups = clientRows
     .filter((c) => c.active)
@@ -214,13 +225,14 @@ export default async function ProfilePage({
                 <th>{t.profile.from}</th>
                 <th>{t.profile.to}</th>
                 <th>{t.profile.primary}</th>
+                <th title={t.profile.deliveryLeadHint}>{t.profile.deliveryLead}</th>
                 {manage ? <th /> : null}
               </tr>
             </thead>
             <tbody>
               {person.assignments.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="muted">
+                  <td colSpan={6} className="muted">
                     {t.profile.noAssignments}
                   </td>
                 </tr>
@@ -235,6 +247,30 @@ export default async function ProfilePage({
                     <td>{formatDate(a.startDate, locale)}</td>
                     <td>{a.endDate ? formatDate(a.endDate, locale) : t.profile.open}</td>
                     <td>{a.primary ? t.profile.primary : t.profile.secondary}</td>
+                    <td>
+                      {manage ? (
+                        <form action={setDeliveryLeadAction} className="row" style={{ gap: 6 }}>
+                          <input type="hidden" name="id" value={a.id} />
+                          <input type="hidden" name="employeeId" value={person.id} />
+                          <select
+                            name="deliveryLeadId"
+                            defaultValue={a.deliveryLeadId ?? ''}
+                            aria-label={t.profile.deliveryLead}
+                            style={{ width: 180, minHeight: 32 }}
+                          >
+                            <option value="">{t.profile.noLead}</option>
+                            {leadOptions}
+                          </select>
+                          <button className="btn btn-small">{t.form.save}</button>
+                        </form>
+                      ) : a.deliveryLeadId && byId.get(a.deliveryLeadId) ? (
+                        <Link href={`/people/${a.deliveryLeadId}`}>
+                          {localName(locale, byId.get(a.deliveryLeadId)!.nameEn, byId.get(a.deliveryLeadId)!.nameAr)}
+                        </Link>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
                     {manage ? (
                       <td>
                         <div className="row">
@@ -293,6 +329,13 @@ export default async function ProfilePage({
                   <input id="endDate" name="endDate" type="date" />
                 </div>
                 <div className="field">
+                  <label htmlFor="deliveryLeadId">{t.profile.deliveryLead}</label>
+                  <select id="deliveryLeadId" name="deliveryLeadId" defaultValue="">
+                    <option value="">{t.profile.noLead}</option>
+                    {leadOptions}
+                  </select>
+                </div>
+                <div className="field">
                   <label htmlFor="shiftId">{t.shifts.shift}</label>
                   <select id="shiftId" name="shiftId" defaultValue="">
                     <option value="">{t.shifts.noShift}</option>
@@ -309,6 +352,7 @@ export default async function ProfilePage({
                 </label>
               </div>
               <span className="muted small">{t.profile.primaryHint}</span>
+              <span className="muted small">{t.profile.deliveryLeadHint}</span>
               <div>
                 <button className="btn btn-primary">{t.profile.addAssignment}</button>
               </div>
