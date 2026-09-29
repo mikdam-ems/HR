@@ -386,9 +386,7 @@ const PLACE_NAMES = { office: 'Office', client_site: 'Client site', remote: 'Rem
 
 /** Flat day-by-day data for filtering and pivot tables. "Where" is the place chosen at that day's first clock-in. */
 function dataSheet(wb: ExcelJS.Workbook, people: PersonMonth[], attendance?: AttendanceMonth) {
-  const places = new Map(
-    (attendance?.rows ?? []).map((r) => [r.employee.id, new Map(r.days.flatMap((d) => (d.place ? [[d.date, d.place]] : [])))]),
-  );
+  const places = new Map((attendance?.rows ?? []).map((r) => [r.employee.id, new Map(Object.entries(r.places))]));
   const ws = wb.addWorksheet('Data', { views: [{ state: 'frozen', ySplit: 1 }] });
   ws.columns = [
     { header: 'Employee', key: 'name', width: 24 },

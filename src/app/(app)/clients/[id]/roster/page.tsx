@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Avatar } from '@/components/Avatar';
+import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { addDays, weekdayOf, type RosterCell } from '@/domain';
 import { fmt, getDict, localName } from '@/i18n';
@@ -28,7 +29,8 @@ export default async function RosterPage({
   const { t, locale } = await getDict();
   const db = await getDb();
   const today = todayISO();
-  const asked = (await searchParams).week;
+  const search = await searchParams;
+  const asked = search.week;
   // Weeks start on Sunday, like the EMS work week.
   const anchor = asked && ISO.test(asked) ? asked : today;
   const from = addDays(anchor, -weekdayOf(anchor));
@@ -66,6 +68,7 @@ export default async function RosterPage({
 
   return (
     <>
+      <Flash search={search} t={t} />
       <Link href={`/clients/${client.id}`} className="small back-link">
         <span className="flip" aria-hidden="true">←</span> {localName(locale, client.nameEn, client.nameAr)}
       </Link>

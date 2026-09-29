@@ -71,6 +71,14 @@ describe('monthAttendanceReport', () => {
       places: { office: 1, client_site: 1, remote: 1 },
     });
 
+    // Where each clocked day was worked, for the export: finished days and today alike.
+    expect(row.places).toEqual({ '2026-09-20': 'office', '2026-09-21': 'client_site', '2026-09-24': 'remote' });
+    await clockOutAt(db, rama.id, '2026-09-24', '17:30', t('2026-09-27 09:00'));
+    await clock(db, rama.id, 'in', t('2026-09-27 09:05'), 'web', 'office');
+    const later = await monthAttendanceReport(db, boss.value, 2026, 9, t('2026-09-27 10:00'));
+    if (!later.ok) throw new Error(later.error);
+    expect(later.value.rows.find((r) => r.employee.id === rama.id)!.places['2026-09-27']).toBe('office');
+
     const never = result.value.rows.find((r) => r.employee.id === lina.id)!;
     expect(never).toMatchObject({ onClock: false, days: [], totals: { absentDays: 0 } });
   });

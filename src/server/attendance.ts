@@ -35,6 +35,8 @@ export interface AttendanceRow {
   totals: AttendanceTotals;
   /** Finished days (before today) since they started using the clock. */
   days: AttendanceDayRow[];
+  /** Where each clocked day of the month was worked, today included (for the export's Where column). */
+  places: Record<string, WorkPlace>;
 }
 
 export interface AttendanceMonth {
@@ -123,6 +125,7 @@ export async function monthAttendanceReport(
       onClock: !!first && first <= days[days.length - 1]!,
       totals: summarizeAttendance(dayRows),
       days: dayRows,
+      places: Object.fromEntries([...sessions].flatMap(([date, s]) => (s.place && days.includes(date) ? [[date, s.place]] : []))),
     });
   }
   return ok({ year, month, rows });
