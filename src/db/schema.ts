@@ -406,6 +406,33 @@ export const pushSubscriptions = pgTable(
   (t) => [uniqueIndex('push_subscriptions_endpoint_idx').on(t.endpoint)],
 );
 
+export const swapStatusEnum = pgEnum('swap_status', ['asked', 'accepted', 'approved', 'declined', 'cancelled']);
+export type SwapStatus = (typeof swapStatusEnum.enumValues)[number];
+
+/**
+ * Two people on the same client swap shifts for one day: the requester asks, the colleague accepts, the requester's
+ * manager (or stand-in) approves. Approved swaps feed the rules engine (domain ShiftSwap); schedules are untouched.
+ */
+export const shiftSwaps = pgTable(
+  'shift_swaps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requesterId: uuid('requester_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    colleagueId: uuid('colleague_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    date: date('date', { mode: 'string' }).notNull(),
+    status: swapStatusEnum('status').notNull().default('asked'),
+    note: text('note'),
+    decidedById: uuid('decided_by_id').references(() => employees.id, { onDelete: 'set null' }),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index('shift_swaps_date_idx').on(t.date)],
+);
+
 /**
  * A manager away (on leave, travelling) hands their approvals to a colleague for some dates. During them the stand-in
  * sees and decides the manager's team's requests; every decision records whom it was made for.
@@ -555,3 +582,4 @@ export type AssignmentRow = typeof assignments.$inferSelect;
 export type ScheduleRow = typeof schedules.$inferSelect;
 export type ClientShiftRow = typeof clientShifts.$inferSelect;
 export type SeasonalHoursRow = typeof seasonalHours.$inferSelect;
+export type ShiftSwapRow = typeof shiftSwaps.$inferSelect;

@@ -10,6 +10,8 @@ import type { Dict } from '@/i18n/en';
 import { formatDate, formatHours } from '@/lib/format';
 import { clientsToInform, getBalances, listAttachments, listPendingLeave, teamOff } from '@/server/leave';
 import { listDelegations } from '@/server/delegation';
+import { listPendingSwaps } from '@/server/swaps';
+import { decideSwapAction } from '@/app/(app)/swaps/actions';
 import { listEmployees } from '@/server/people';
 import { requireUser } from '@/server/session';
 import { getSettings } from '@/server/settings';
@@ -20,13 +22,14 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const { t, locale } = await getDict();
   const search = await searchParams;
   const db = await getDb();
-  const [items, leaveItems, appSettings, changes, people, delegations] = await Promise.all([
+  const [items, leaveItems, appSettings, changes, people, delegations, swaps] = await Promise.all([
     listPendingApprovals(db, user),
     listPendingLeave(db, user),
     getSettings(db),
     listPendingDayChanges(db, user),
     listEmployees(db),
     user.isManager ? listDelegations(db, user.id) : Promise.resolve([]),
+    listPendingSwaps(db, user),
   ]);
   // Standing in for another manager today: say for whom, and mark their team's requests.
   const managerName = new Map(people.map((p) => [p.id, localName(locale, p.nameEn, p.nameAr)]));
@@ -36,7 +39,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   // One item is open at a time: a timesheet (?t=) or a leave request (?l=).
   const leave = leaveItems.find((l) => l.id === search.l) ?? (search.t || items.length ? undefined : leaveItems[0]);
   const current = leave ? undefined : (items.find((i) => i.timesheet.id === search.t) ?? items[0]);
-  const total = items.length + leaveItems.length + changes.length;
+  const total = items.length + leaveItems.length + changes.length + swaps.length;
   const monthly = items.length + leaveItems.length;
   const view = current ? await getMonth(db, user, current.employee.id, current.timesheet.year, current.timesheet.month) : null;
   const month = view?.ok ? view.value : null;
@@ -52,6 +55,40 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         <span className="muted">{total ? fmt(t.approvals.waiting, { count: total }) : t.approvals.none}</span>
       </div>
       {standIn.length ? <div className="flash flash-info">{fmt(t.delegation.standingIn, { names: standIn.join(', ') })}</div> : null}
+
+      {swaps.length ? (
+        <section className="card" aria-labelledby="swaps">
+          <h2 id="swaps">{t.swaps.approvalsTitle}</h2>
+          <ul className="list-rows">
+            {swaps.map(({ swap, requester, colleague }) => (
+              <li key={swap.id}>
+                <span className="stack" style={{ gap: 0 }}>
+                  <strong style={{ fontWeight: 500 }}>
+                    {fmt(t.swaps.approvalsLine, {
+                      a: localName(locale, requester.nameEn, requester.nameAr),
+                      b: localName(locale, colleague.nameEn, colleague.nameAr),
+                      date: formatDate(swap.date, locale, { weekday: 'short', day: 'numeric', month: 'short' }),
+                    })}
+                  </strong>
+                  {swap.note ? <span className="muted small">{swap.note}</span> : null}
+                  {forWhom(requester.managerId) ? <span className="muted small">{forWhom(requester.managerId)}</span> : null}
+                </span>
+                <span className="row" style={{ gap: 6 }}>
+                  {(['approve', 'decline'] as const).map((outcome) => (
+                    <form key={outcome} action={decideSwapAction}>
+                      <input type="hidden" name="id" value={swap.id} />
+                      <input type="hidden" name="outcome" value={outcome} />
+                      <button className={`btn btn-small${outcome === 'approve' ? ' btn-primary' : ''}`}>
+                        {outcome === 'approve' ? t.swaps.approve : t.swaps.decline}
+                      </button>
+                    </form>
+                  ))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {changes.length ? <DayChanges changes={changes} t={t} locale={locale} /> : null}
 

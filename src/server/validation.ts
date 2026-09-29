@@ -27,6 +27,7 @@ export type ErrorCode =
   | 'month_closed'
   | 'season_overlap'
   | 'delegation_overlap'
+  | 'swap_not_possible'
   | 'forbidden';
 
 export type Result<T = void> = { ok: true; value: T } | { ok: false; error: ErrorCode; detail?: string };

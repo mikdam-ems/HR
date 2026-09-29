@@ -120,6 +120,13 @@
       "when": 1790688403907,
       "tag": "0016_approval_delegations",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790688781711,
+      "tag": "0017_shift_swaps",
+      "breakpoints": true
     }
   ]
 }

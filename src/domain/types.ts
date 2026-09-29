@@ -67,6 +67,13 @@ export interface SeasonalHours {
   clientShiftId?: string;
 }
 
+/** An approved shift swap: on `date`, `a` and `b` work each other's shift. Their usual schedules are untouched. */
+export interface ShiftSwap {
+  date: ISODate;
+  a: string;
+  b: string;
+}
+
 /**
  * How the system classifies a day for one person. Rules are applied in this order:
  * 1. client_holiday   – any assigned client has a public holiday (day off, no leave used)
@@ -91,6 +98,8 @@ export interface ResolvedDay {
   schedule: Schedule | null;
   /** Name of the seasonal hours that replaced the usual ones on this day, e.g. "Ramadan 2027". */
   seasonName?: string;
+  /** Set when they swapped shifts with this colleague for the day. */
+  swappedWith?: string;
 }
 
 /** Everything the rules need to know. Loaded from the database in the app; built by hand in tests. */
@@ -103,6 +112,8 @@ export interface RulesContext {
   schedules: readonly Schedule[];
   /** Ramadan and other seasonal hours per client. */
   seasonalHours?: readonly SeasonalHours[];
+  /** Approved one-day shift swaps. */
+  swaps?: readonly ShiftSwap[];
 }
 
 export type LeaveType =

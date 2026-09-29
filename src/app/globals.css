@@ -2687,6 +2687,11 @@ a.presence:hover {
   outline-offset: 2px;
 }
 
+.swap-mark {
+  color: var(--brand-700);
+  font-weight: 700;
+}
+
 /* ---------- Kadr brand (html[data-brand='kadr']) ----------
  * The proposed product brand, see docs/brand/kadr. It remaps the tokens above to cobalt, saffron and cool greys,
  * squares off the corners, and swaps the few gradients that hard-code EMS green. Text on cobalt is white; text on

@@ -22,6 +22,19 @@ export function scheduleOn(ctx: RulesContext, employeeId: string, date: ISODate)
   return found;
 }
 
+/** The colleague someone swapped shifts with on this date, if an approved swap says so. */
+export function swapPartner(ctx: RulesContext, employeeId: string, date: ISODate): string | null {
+  const swap = ctx.swaps?.find((s) => s.date === date && (s.a === employeeId || s.b === employeeId));
+  return swap ? (swap.a === employeeId ? swap.b : swap.a) : null;
+}
+
+/** The hours someone works on a date: their own schedule, or their swap partner's shift for that one day. */
+export function workingScheduleOn(ctx: RulesContext, employeeId: string, date: ISODate): Schedule | null {
+  const partner = swapPartner(ctx, employeeId, date);
+  const theirs = partner ? scheduleOn(ctx, partner, date) : null;
+  return theirs ? { ...theirs, employeeId } : scheduleOn(ctx, employeeId, date);
+}
+
 /** Seasonal hours at the person's primary client on this date that apply to their usual schedule, if any. */
 export function seasonOn(ctx: RulesContext, clientId: string, usual: Schedule | null, date: ISODate): SeasonalHours | null {
   if (!usual) return null;
@@ -53,7 +66,8 @@ function holidayOn(calendar: WorkCalendar, date: ISODate): Holiday | undefined {
 export function resolveDay(ctx: RulesContext, employeeId: string, date: ISODate): ResolvedDay {
   const active = activeAssignments(ctx, employeeId, date);
   const primary = primaryAssignment(active);
-  const usual = scheduleOn(ctx, employeeId, date);
+  const usual = workingScheduleOn(ctx, employeeId, date);
+  const partner = swapPartner(ctx, employeeId, date);
   // Ramadan (or other seasonal) hours at the primary client replace the usual hours for those days.
   const season = primary ? seasonOn(ctx, primary.clientId, usual, date) : null;
   const schedule: Schedule | null =
@@ -65,6 +79,7 @@ export function resolveDay(ctx: RulesContext, employeeId: string, date: ISODate)
     primaryClientId: primary?.clientId ?? null,
     schedule,
     ...(season ? { seasonName: season.name } : {}),
+    ...(partner ? { swappedWith: partner } : {}),
   };
 
   if (!primary) return { ...base, dayType: 'unassigned', expectedMinutes: 0 };

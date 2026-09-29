@@ -11,6 +11,8 @@ import { listEmployees } from '@/server/people';
 import { can } from '@/server/permissions';
 import { requireUser } from '@/server/session';
 import { weekRoster } from '@/server/shifts';
+import { mySwaps } from '@/server/swaps';
+import { cancelSwapAction, requestSwapAction, respondSwapAction } from '@/app/(app)/swaps/actions';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -31,7 +33,12 @@ export default async function RosterPage({
   const anchor = asked && ISO.test(asked) ? asked : today;
   const from = addDays(anchor, -weekdayOf(anchor));
   const id = (await params).id;
-  const [profile, roster, people] = await Promise.all([getClientProfile(db, id, today), weekRoster(db, id, from), listEmployees(db, { includeInactive: true })]);
+  const [profile, roster, people, swaps] = await Promise.all([
+    getClientProfile(db, id, today),
+    weekRoster(db, id, from),
+    listEmployees(db, { includeInactive: true }),
+    mySwaps(db, user.id),
+  ]);
   if (!profile) notFound();
   const { client } = profile;
   const byId = new Map(people.map((p) => [p.id, p]));
@@ -49,6 +56,12 @@ export default async function RosterPage({
     }))
     .filter((g) => g.rows.length || roster.coverage[g.id]);
   const shiftName = new Map(roster.shifts.map((s) => [s.id, s.name]));
+  // People on this client can ask a colleague here to swap a shift.
+  const onThisClient = roster.rows.some((r) => r.employeeId === user.id);
+  const colleagues = roster.rows
+    .map((r) => byId.get(r.employeeId))
+    .filter((p): p is NonNullable<typeof p> => !!p && p.active && p.id !== user.id)
+    .sort((a, b) => a.nameEn.localeCompare(b.nameEn));
   const link = (w: string) => `/clients/${client.id}/roster?week=${w}`;
 
   return (
@@ -140,6 +153,83 @@ export default async function RosterPage({
         </div>
       )}
       <p className="muted small">{t.roster.privacy}</p>
+
+      {onThisClient ? (
+        <section className="card" aria-labelledby="swap">
+          <div className="stack" style={{ gap: 2 }}>
+            <h2 id="swap">{t.swaps.title}</h2>
+            <span className="muted small">{t.swaps.hint}</span>
+          </div>
+          <form action={requestSwapAction} className="row" style={{ alignItems: 'flex-end' }}>
+            <input type="hidden" name="back" value={link(from)} />
+            <div className="field">
+              <label htmlFor="swap-with">{t.swaps.colleague}</label>
+              <select id="swap-with" name="colleagueId" required style={{ width: 220 }}>
+                {colleagues.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {localName(locale, p.nameEn, p.nameAr)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="swap-date">{t.swaps.date}</label>
+              <input id="swap-date" name="date" type="date" required min={today} />
+            </div>
+            <div className="field">
+              <label htmlFor="swap-note">{t.swaps.note}</label>
+              <input id="swap-note" name="note" type="text" maxLength={300} style={{ width: 240 }} />
+            </div>
+            <button className="btn btn-primary">{t.swaps.ask}</button>
+          </form>
+
+          <h3>{t.swaps.yours}</h3>
+          {swaps.length ? (
+            <ul className="list-rows">
+              {swaps.map((s) => {
+                const mine = s.requesterId === user.id;
+                const other = byId.get(mine ? s.colleagueId : s.requesterId);
+                const date = formatDate(s.date, locale, { weekday: 'short', day: 'numeric', month: 'short' });
+                const name = other ? localName(locale, other.nameEn, other.nameAr) : '';
+                return (
+                  <li key={s.id}>
+                    <span className="stack" style={{ gap: 0 }}>
+                      <span>{fmt(mine ? t.swaps.youAsked : t.swaps.theyAsked, { name, date })}</span>
+                      {s.note ? <span className="muted small">{s.note}</span> : null}
+                    </span>
+                    <span className="row" style={{ gap: 6 }}>
+                      {!mine && s.status === 'asked' ? (
+                        <>
+                          <span className="badge badge-brand">{t.swaps.waitingForYou}</span>
+                          {(['accept', 'decline'] as const).map((answer) => (
+                            <form key={answer} action={respondSwapAction}>
+                              <input type="hidden" name="id" value={s.id} />
+                              <input type="hidden" name="answer" value={answer} />
+                              <input type="hidden" name="back" value={link(from)} />
+                              <button className={`btn btn-small${answer === 'accept' ? ' btn-primary' : ''}`}>{t.swaps[answer]}</button>
+                            </form>
+                          ))}
+                        </>
+                      ) : (
+                        <span className={`badge ${s.status === 'approved' ? 'status-approved' : 'status-submitted'}`}>{t.swaps.status[s.status]}</span>
+                      )}
+                      {mine && s.status !== 'approved' ? (
+                        <form action={cancelSwapAction}>
+                          <input type="hidden" name="id" value={s.id} />
+                          <input type="hidden" name="back" value={link(from)} />
+                          <button className="btn btn-small">{t.swaps.withdraw}</button>
+                        </form>
+                      ) : null}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <span className="muted">{t.swaps.none}</span>
+          )}
+        </section>
+      ) : null}
     </>
   );
 }
@@ -156,12 +246,21 @@ function Cell({ cell, own, names, t, showLeave }: { cell: RosterCell; own: strin
   switch (cell.kind) {
     case 'shift':
       // Show the shift name only when it differs from the row's usual shift; hours otherwise.
-      return (cell.shiftId ?? '') !== own && cell.shiftId ? (
-        <strong>{names.get(cell.shiftId) ?? ''}</strong>
-      ) : (
-        <span dir="ltr">
-          {cell.start}–{cell.end}
-        </span>
+      return (
+        <>
+          {cell.swapped ? (
+            <span className="swap-mark" title={t.roster.swapped} aria-label={t.roster.swapped}>
+              ⇄{' '}
+            </span>
+          ) : null}
+          {(cell.shiftId ?? '') !== own && cell.shiftId ? (
+            <strong>{names.get(cell.shiftId) ?? ''}</strong>
+          ) : (
+            <span dir="ltr">
+              {cell.start}–{cell.end}
+            </span>
+          )}
+        </>
       );
     case 'leave':
       return <>{showLeave ? t.roster.leave : t.roster.off}</>;

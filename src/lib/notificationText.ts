@@ -12,7 +12,10 @@ export type NotificationKind =
   | 'timesheet_reminder'
   | 'clock_open'
   | 'leave_fyi_requested'
-  | 'leave_fyi_decided';
+  | 'leave_fyi_decided'
+  | 'swap_requested'
+  | 'swap_accepted'
+  | 'swap_decided';
 
 const fill = (template: string, vars: Record<string, string>) =>
   template.replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? '');
@@ -30,6 +33,7 @@ export function notificationText(
   const vars: Record<string, string> = {
     name: (locale === 'ar' && str('nameAr')) || str('name'),
     by: str('by'),
+    other: (locale === 'ar' && str('otherAr')) || str('other'),
     note: str('note'),
     date: date('date'),
     dates: str('to') && str('to') !== str('from') ? `${date('from')} – ${date('to')}` : date('from'),

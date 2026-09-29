@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import type { DB } from '@/db';
-import { assignments, calendars, clients, holidays, schedules, seasonalHours } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+import { assignments, calendars, clients, holidays, schedules, seasonalHours, shiftSwaps } from '@/db/schema';
 import type { RulesContext, Weekday, WorkCalendar } from '@/domain';
 import { getSettings } from './settings';
 
@@ -11,13 +12,14 @@ const EMPTY_HOME: WorkCalendar = { id: 'none', name: 'No home calendar set', wor
  * a handful of clients) loading it all is cheaper and simpler than filtering.
  */
 async function loadRulesContextUncached(db: DB): Promise<RulesContext> {
-  const [calRows, holidayRows, clientRows, assignmentRows, scheduleRows, seasonRows, appSettings] = await Promise.all([
+  const [calRows, holidayRows, clientRows, assignmentRows, scheduleRows, seasonRows, swapRows, appSettings] = await Promise.all([
     db.select().from(calendars),
     db.select().from(holidays),
     db.select().from(clients),
     db.select().from(assignments),
     db.select().from(schedules),
     db.select().from(seasonalHours),
+    db.select().from(shiftSwaps).where(eq(shiftSwaps.status, 'approved')),
     getSettings(db),
   ]);
 
@@ -51,6 +53,7 @@ async function loadRulesContextUncached(db: DB): Promise<RulesContext> {
       shiftCode: s.shiftCode ?? undefined,
       clientShiftId: s.clientShiftId ?? undefined,
     })),
+    swaps: swapRows.map((s) => ({ date: s.date, a: s.requesterId, b: s.colleagueId })),
     seasonalHours: seasonRows.map((s) => ({
       clientId: s.clientId,
       name: s.name,

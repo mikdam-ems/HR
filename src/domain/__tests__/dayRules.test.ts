@@ -117,3 +117,38 @@ describe('seasonal hours (Ramadan)', () => {
     expect(totals.regularOvertimeMinutes).toBe(2 * 60);
   });
 });
+
+describe('shift swaps', () => {
+  // Omar and Lina both work at Jadwa: Omar mornings, Lina evenings (with Jadwa's Ramadan hours per shift).
+  const swapCtx = (swaps = [{ date: '2026-10-05', a: 'omar', b: 'lina' }]) => ({
+    ...ctx,
+    schedules: [
+      ...ctx.schedules.filter((s) => s.employeeId !== 'omar' && s.employeeId !== 'lina'),
+      { employeeId: 'omar', effectiveFrom: '2026-01-01', start: '07:00', end: '15:00', clientShiftId: 'morning' },
+      { employeeId: 'lina', effectiveFrom: '2026-01-01', start: '15:00', end: '23:00', clientShiftId: 'evening' },
+    ],
+    swaps,
+  });
+
+  it('gives each person the other’s shift on that day only', () => {
+    const c = swapCtx();
+    expect(resolveDay(c, 'omar', '2026-10-05')).toMatchObject({
+      schedule: { employeeId: 'omar', start: '15:00', end: '23:00', clientShiftId: 'evening' },
+      swappedWith: 'lina',
+    });
+    expect(resolveDay(c, 'lina', '2026-10-05').schedule).toMatchObject({ start: '07:00', clientShiftId: 'morning' });
+    expect(resolveDay(c, 'omar', '2026-10-06').schedule).toMatchObject({ start: '07:00' });
+    expect(resolveDay(c, 'omar', '2026-10-06').swappedWith).toBeUndefined();
+  });
+
+  it('special hours for a shift follow whoever works it that day', () => {
+    const c = {
+      ...swapCtx(),
+      seasonalHours: [
+        { clientId: 'jadwa', name: 'Ramadan', from: '2026-10-01', to: '2026-10-31', start: '16:00', end: '21:00', clientShiftId: 'evening' },
+      ],
+    };
+    expect(resolveDay(c, 'omar', '2026-10-05')).toMatchObject({ expectedMinutes: 5 * 60, seasonName: 'Ramadan' });
+    expect(resolveDay(c, 'lina', '2026-10-05')).toMatchObject({ expectedMinutes: 8 * 60 });
+  });
+});
