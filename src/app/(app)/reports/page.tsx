@@ -192,6 +192,23 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             </section>
           ) : null}
 
+          <form action="/reports/client-export" className="row" title={t.reports.clientHoursHint}>
+            <input type="hidden" name="month" value={month} />
+            <label htmlFor="client-hours" className="small">
+              {t.reports.clientHours}
+            </label>
+            <select id="client-hours" name="client" required style={{ width: 220 }}>
+              {clientRows
+                .filter((c) => !c.isInternal)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {localName(locale, c.nameEn, c.nameAr)}
+                  </option>
+                ))}
+            </select>
+            <button className="btn btn-small">{t.reports.clientHoursButton}</button>
+          </form>
+
           <div className="table-wrap">
             <table>
               <thead>

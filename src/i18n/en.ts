@@ -683,6 +683,9 @@ export const en = {
     none: 'No one had a client assignment this month.',
     frozenNote: 'Approved months show the totals the manager approved.',
     tabs: { timesheets: 'Timesheets', attendance: 'Attendance' },
+    clientHours: 'Hours for a client',
+    clientHoursHint: 'Excel of this month for one client: each person whose main client it was, only the days it was, with each timesheet’s approval status.',
+    clientHoursButton: 'Download client hours',
     attendance: {
       intro: 'Finished days of the month, counted from the day each person started using the clock. Late means more than {grace} minutes after the shift started; a workday with no clock-in and no leave is absent.',
       daysIn: 'Days in',

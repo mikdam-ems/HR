@@ -1,7 +1,7 @@
 import { and, between, eq } from 'drizzle-orm';
 import type { DB } from '@/db';
 import { dayEntries, departments, employees, monthClosures, timesheets, type Department, type Employee, type TimesheetRow } from '@/db/schema';
-import { type DayEntry, type MonthSummary, type MonthTotals, daysOfMonth, summarizeMonth } from '@/domain';
+import { type DayEntry, type MonthSummary, type MonthTotals, daysOfMonth, sumMonthDays, summarizeMonth } from '@/domain';
 import { todayISO } from '@/lib/format';
 import { audit } from './audit';
 import { firstClockDates, monthClockMinutes } from './clock';
@@ -141,7 +141,22 @@ export async function reopenMonth(db: DB, actor: Actor, year: number, month: num
   return ok(undefined);
 }
 
+/**
+ * One client's part of a month: the people whose main client it was, and only the days it was. Hours can't be
+ * split between two clients on one day yet, so a day belongs to the person's primary client and is never counted
+ * in two clients' files. Totals are worked out from those days; each person's approval status is kept.
+ */
+export function clientMonthReport(report: MonthReport, clientId: string): MonthReport {
+  const rows = report.rows.flatMap((r) => {
+    const days = r.summary.days.filter((d) => d.day.primaryClientId === clientId);
+    if (!days.length) return [];
+    const totals = sumMonthDays(days);
+    return [{ ...r, totals, summary: { ...r.summary, days, totals } }];
+  });
+  return { ...report, rows, notApproved: rows.filter((r) => r.status !== 'approved') };
+}
+
 /** The Finance export: a team summary, one sheet per person in the official EMS timesheet style, and flat data. */
-export async function buildMonthWorkbook(report: MonthReport, attendance?: AttendanceMonth): Promise<Buffer> {
-  return buildTimesheetWorkbook(report, attendance);
+export async function buildMonthWorkbook(report: MonthReport, attendance?: AttendanceMonth, title?: string): Promise<Buffer> {
+  return buildTimesheetWorkbook(report, attendance, title);
 }

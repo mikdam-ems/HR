@@ -8,7 +8,7 @@ import { clock } from '../clock';
 import { createCalendar, createClient, setHoliday } from '../clients';
 import { createRequest, decideRequest } from '../leave';
 import { addAssignment, createEmployee, setSchedule } from '../people';
-import { buildMonthWorkbook, closeMonth, monthReport, remindUnsubmitted, reopenMonth } from '../reports';
+import { buildMonthWorkbook, clientMonthReport, closeMonth, monthReport, remindUnsubmitted, reopenMonth } from '../reports';
 import { listNotifications } from '../notify';
 import { setSetting } from '../settings';
 import { approveMonth, getMonth, listPendingApprovals, returnMonth, submitMonth, type Actor } from '../timesheets';
@@ -48,7 +48,7 @@ async function setup() {
   const lina = await make('lina@x.com', khaled.id);
   const hr = await make('hr@x.com', admin.id, ['hr'], false);
   const finance = await make('finance@x.com', admin.id, ['finance'], false);
-  return { admin, khaled, lina, hr, finance };
+  return { admin, khaled, lina, hr, finance, jadwaId: jadwa.value, calendarId: sa.value };
 }
 
 async function approveAll(people: { khaled: Actor; lina: Actor; admin: Actor }) {
@@ -146,6 +146,45 @@ describe('month report', () => {
     };
     expect(where('lina', '2026-09-14')).toBe('Client site');
     expect(where('lina', '2026-09-15')).toBe('');
+  });
+});
+
+describe('client hours export', () => {
+  it('has only the people whose main client it was, and only those days, with totals for those days', async () => {
+    const { hr, lina, jadwaId, calendarId } = await setup();
+    // Nour moves from Jadwa to Hala on 16 September.
+    const hala = await createClient(db, null, { nameEn: 'Hala', calendarId });
+    if (!hala.ok) throw new Error('client');
+    const nour = await createEmployee(db, null, { email: 'nour@x.com', nameEn: 'nour', hireDate: '2022-01-01' });
+    if (!nour.ok) throw new Error(nour.error);
+    await addAssignment(db, null, { employeeId: nour.value.id, clientId: jadwaId, startDate: '2026-01-01', endDate: '2026-09-15' });
+    await addAssignment(db, null, { employeeId: nour.value.id, clientId: hala.value, startDate: '2026-09-16' });
+    await setSchedule(db, null, { employeeId: nour.value.id, effectiveFrom: '2026-01-01', startTime: '09:00', endTime: '17:00' });
+    await saveDay(db, lina, lina.id, { date: '2026-09-15', workedMinutes: 600 });
+
+    const r = await monthReport(db, hr, 2026, 9);
+    if (!r.ok) throw new Error(r.error);
+    const atHala = clientMonthReport(r.value, hala.value);
+    expect(atHala.rows.map((x) => x.employee.nameEn)).toEqual(['nour']);
+    const nourAtHala = atHala.rows[0]!;
+    expect(nourAtHala.summary.days[0]!.day.date).toBe('2026-09-16');
+    expect(nourAtHala.totals.workingDays).toBe(10); // 16–30 Sept, Sun–Thu, less Saudi National Day (23rd)
+    expect(nourAtHala.status).toBe('draft');
+
+    const atJadwa = clientMonthReport(r.value, jadwaId);
+    expect(atJadwa.rows.map((x) => x.employee.nameEn)).toEqual(['khaled', 'lina', 'nour']);
+    const nourAtJadwa = atJadwa.rows.find((x) => x.employee.nameEn === 'nour')!;
+    // Every Jadwa day plus every Hala day is the whole month, never more.
+    expect(nourAtJadwa.totals.workingDays + nourAtHala.totals.workingDays).toBe(
+      r.value.rows.find((x) => x.employee.nameEn === 'nour')!.totals.workingDays,
+    );
+    expect(atJadwa.rows.find((x) => x.employee.nameEn === 'lina')!.totals.regularOvertimeMinutes).toBe(120);
+
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load((await buildMonthWorkbook(atHala, undefined, 'Hala · Hours')) as unknown as ArrayBuffer);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Summary', 'nour', 'Data']);
+    expect(wb.getWorksheet('Summary')!.getCell('D2').value).toBe('Hala · Hours');
+    expect(wb.getWorksheet('Data')!.rowCount).toBe(1 + 15);
   });
 });
 

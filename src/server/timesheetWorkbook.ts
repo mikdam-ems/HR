@@ -296,7 +296,7 @@ function personSheet(wb: ExcelJS.Workbook, logo: number, p: PersonMonth, year: n
 }
 
 /** The first sheet: everyone's month at a glance, each name linking to their own sheet. */
-function summarySheet(wb: ExcelJS.Workbook, logo: number, people: PersonMonth[], report: MonthReport, monthLabel: string) {
+function summarySheet(wb: ExcelJS.Workbook, logo: number, people: PersonMonth[], report: MonthReport, monthLabel: string, title: string) {
   const ws = wb.addWorksheet('Summary', {
     views: [{ showGridLines: false }],
     pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
@@ -320,7 +320,7 @@ function summarySheet(wb: ExcelJS.Workbook, logo: number, people: PersonMonth[],
   ];
   const last = cols.length + 1;
   ws.columns = [{ width: 2.4 }, ...cols.map((c) => ({ width: c.width }))];
-  header(ws, logo, 'Monthly Timesheets', monthLabel, last);
+  header(ws, logo, title, monthLabel, last);
   sectionBar(ws, 5, 2, last, `Team summary · ${people.length} ${people.length === 1 ? 'person' : 'people'}${report.closed ? ' · month closed' : ''}`);
   const headRow = 7;
   tableHead(ws, headRow, cols.map((c, i) => [2 + i, c.head, c.align]));
@@ -479,7 +479,11 @@ function attendanceSheet(wb: ExcelJS.Workbook, attendance: AttendanceMonth) {
 }
 
 /** The Finance export in the look of the official EMS timesheet: a summary, then one sheet per person. */
-export async function buildTimesheetWorkbook(report: MonthReport, attendance?: AttendanceMonth): Promise<Buffer> {
+export async function buildTimesheetWorkbook(
+  report: MonthReport,
+  attendance?: AttendanceMonth,
+  title = 'Monthly Timesheets',
+): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'EMS People & Culture';
   wb.created = new Date();
@@ -487,7 +491,7 @@ export async function buildTimesheetWorkbook(report: MonthReport, attendance?: A
   const monthLabel = `${MONTHS[report.month - 1]} ${report.year}`;
   const names = sheetNames(report.rows);
   const people = report.rows.map((r, i) => personMonth(r, names[i]!));
-  summarySheet(wb, logo, people, report, monthLabel);
+  summarySheet(wb, logo, people, report, monthLabel, title);
   if (attendance) attendanceSheet(wb, attendance);
   for (const p of people) personSheet(wb, logo, p, report.year, report.month, monthLabel);
   dataSheet(wb, people, attendance);
