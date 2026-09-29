@@ -11,10 +11,10 @@ export const BRAND_COOKIE = 'brand';
 export const defaultBrand: Brand = process.env.BRAND === 'kadr' ? 'kadr' : 'ems';
 
 /**
- * BRAND_PREVIEW=true lets each person switch brands to compare them. Demo sites always allow it; the live EMS
- * site doesn't, so staff in the pilot keep seeing People & Culture.
+ * Everyone can switch brands to compare them while Kadr is being decided; the default above still decides what
+ * people see until they choose. BRAND_PREVIEW=false hides the switch (demo sites always keep it).
  */
-export const brandPreview = process.env.BRAND_PREVIEW === 'true' || process.env.DEMO_MODE === 'true';
+export const brandPreview = process.env.BRAND_PREVIEW !== 'false' || process.env.DEMO_MODE === 'true';
 
 /** The brand to show, from the person's saved choice (only honoured while preview is on) or the default. */
 export function resolveBrand(saved: string | undefined, opts: { preview: boolean; fallback: Brand }): Brand {

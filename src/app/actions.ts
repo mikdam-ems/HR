@@ -13,7 +13,7 @@ export async function setLocaleAction(fd: FormData) {
   redirect(safePath(str(fd, 'back')));
 }
 
-/** A display preference like the language, so it works before sign-in; it does nothing unless brand preview is on. */
+/** A display preference like the language, so it works before sign-in; it does nothing when the switch is turned off. */
 export async function setBrandAction(fd: FormData) {
   if (brandPreview) {
     const brand = str(fd, 'brand') === 'kadr' ? 'kadr' : 'ems';

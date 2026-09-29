@@ -4,7 +4,7 @@ import { BackField } from '@/components/NavLinks';
 import type { Dict } from '@/i18n/en';
 
 /**
- * Switch between the current EMS look and the proposed Kadr brand. Only rendered while brand preview is on.
+ * Switch between the current EMS look and the proposed Kadr brand. Hidden when BRAND_PREVIEW=false.
  * Returns to `back`, or to the current page when it's not given.
  */
 export function BrandSwitch({ brand, labels, back }: { brand: Brand; labels: Dict['brand']; back?: string }) {

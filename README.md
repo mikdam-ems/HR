@@ -40,9 +40,9 @@ npm run build
 The app can wear the proposed product brand, **Kadr** ([brand book](https://claude.ai/artifact/G9offKCj1BEQp3zFnLXHJX)), so it can be judged on the real screens before deciding.
 Only the look and the product name change; features and data are the same.
 
-- **Demo sites** (`DEMO_MODE=true`) have an **EMS / Kadr** switch on the sign-in page and in the account menu (click your avatar).
-- Anywhere else, `BRAND_PREVIEW=true` adds the same switch, and `BRAND=kadr` makes Kadr the default.
-- With neither set (the live EMS site), nothing changes: everyone sees EMS People & Culture.
+- Everyone has an **EMS / Kadr** switch on the sign-in page, in the account menu (click your avatar) and on My profile. It's per person and remembered.
+- EMS People & Culture stays the default until someone switches. `BRAND=kadr` makes Kadr the default instead.
+- `BRAND_PREVIEW=false` hides the switch (demo sites always keep it).
 
 ## Demo site (Vercel + Neon, free)
 
