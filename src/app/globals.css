@@ -2857,3 +2857,306 @@ a.clock-pill {
   background: var(--canvas);
   box-shadow: none;
 }
+
+/* ---------- date range picker (time off) ---------- */
+.drp {
+  position: relative;
+}
+.drp-field {
+  grid-column: span 2;
+}
+.drp-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--ring);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.drp-trigger:hover,
+.drp-trigger[aria-expanded='true'] {
+  border-color: var(--brand-600);
+}
+.drp-trigger svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+/* Solid (the glass card rule would let the form show through). */
+.drp .drp-pop.card:not(.card-dark) {
+  position: absolute;
+  top: calc(100% + 8px);
+  inset-inline-start: 0;
+  z-index: 40;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 0;
+  gap: 0;
+  background: var(--surface);
+  border-radius: var(--r-md);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+}
+.drp-months {
+  display: flex;
+}
+.drp-month {
+  padding: 18px 22px 10px;
+}
+.drp-second {
+  border-inline-start: 1px solid var(--hairline);
+}
+.drp-month-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.drp-month-head strong {
+  font-size: 15px;
+}
+.drp-nav,
+.drp-nav-space {
+  width: 32px;
+  height: 32px;
+}
+.drp-nav {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.drp-nav:hover {
+  background: var(--canvas-2);
+}
+.drp-show-narrow {
+  display: none;
+}
+.drp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 44px);
+  row-gap: 4px;
+}
+.drp-wd {
+  display: grid;
+  place-items: center;
+  height: 32px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.drp-cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 44px;
+}
+.drp-cell button {
+  position: relative;
+  z-index: 1;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.drp-cell button:hover:not(:disabled) {
+  background: var(--brand-100);
+  color: var(--brand-900);
+}
+.drp-cell button:focus-visible {
+  outline: 2px solid var(--brand-700);
+  outline-offset: 1px;
+}
+/* The band between the first and last day, rounded at its ends like the reference. */
+.drp-band::before {
+  content: '';
+  position: absolute;
+  inset: 2px 0;
+  background: var(--brand-100);
+}
+.drp-band-start::before {
+  inset-inline-start: 2px;
+  border-start-start-radius: 20px;
+  border-end-start-radius: 20px;
+}
+.drp-band-end::before {
+  inset-inline-end: 2px;
+  border-start-end-radius: 20px;
+  border-end-end-radius: 20px;
+}
+.drp-band button {
+  color: var(--brand-900);
+  font-weight: 600;
+}
+.drp-edge button,
+.drp-edge button:hover:not(:disabled) {
+  background: var(--brand-600);
+  color: var(--brand-950);
+  font-weight: 700;
+}
+.drp-today button {
+  background: var(--canvas-2);
+  font-weight: 700;
+}
+.drp-weekend button {
+  color: var(--faint);
+}
+/* A client holiday: a small dot under the number. */
+.drp-holiday button::after {
+  content: '';
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: #8b6fd6;
+}
+.drp-booked button {
+  cursor: not-allowed;
+}
+.drp-approved button {
+  background: var(--info-bg);
+  color: var(--info-fg);
+  font-weight: 600;
+}
+.drp-pending button {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+.drp-legend {
+  list-style: none;
+  margin: 0;
+  padding: 10px 22px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 12.5px;
+  color: var(--muted);
+  border-top: 1px solid var(--hairline);
+}
+.drp-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.drp-key {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.drp-key-approved {
+  background: var(--info-bg);
+  box-shadow: inset 0 0 0 1.5px var(--info-fg);
+}
+.drp-key-pending {
+  background: var(--warn-bg);
+  box-shadow: inset 0 0 0 1.5px var(--warn-fg);
+}
+.drp-key-holiday {
+  width: 7px;
+  height: 7px;
+  background: #8b6fd6;
+}
+.drp-key-weekend {
+  background: var(--canvas-2);
+  box-shadow: inset 0 0 0 1px var(--canvas-3);
+}
+.drp-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--hairline);
+  background: var(--canvas);
+}
+.drp-fields {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.drp-fields input {
+  width: 160px;
+}
+.drp-status {
+  flex: 1;
+  min-width: 160px;
+}
+.drp-actions {
+  display: flex;
+  gap: 8px;
+  margin-inline-start: auto;
+}
+@media (max-width: 760px) {
+  .drp-field {
+    grid-column: auto;
+  }
+  .drp-second,
+  .drp-hide-narrow {
+    display: none;
+  }
+  .drp-show-narrow {
+    display: grid;
+  }
+  .drp .drp-pop.card:not(.card-dark) {
+    position: fixed;
+    inset: auto 16px 16px;
+    top: auto;
+    width: auto;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+  .drp-month {
+    padding: 14px 12px 6px;
+  }
+  .drp-grid {
+    grid-template-columns: repeat(7, 1fr);
+  }
+  .drp-month {
+    flex: 1;
+  }
+  .drp-fields {
+    flex: 1 1 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+  .drp-fields input {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 8px;
+  }
+}
+/* Round the band where a week row starts or ends (the 7 weekday labels come first in the grid). */
+.drp-grid > .drp-band:nth-child(7n + 1)::before {
+  inset-inline-start: 2px;
+  border-start-start-radius: 20px;
+  border-end-start-radius: 20px;
+}
+.drp-grid > .drp-band:nth-child(7n)::before {
+  inset-inline-end: 2px;
+  border-start-end-radius: 20px;
+  border-end-end-radius: 20px;
+}
