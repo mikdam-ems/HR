@@ -1,5 +1,14 @@
 export const en = {
   appName: 'People & Culture',
+  brand: {
+    kadr: 'Kadr',
+    tagline: 'Your people, on your clients’ time.',
+    byEms: 'Kadr by EMS',
+    signInSubtitle: 'Use your work Google account.',
+    preview: 'Brand preview',
+    ems: 'EMS',
+    kadrOption: 'Kadr',
+  },
   nav: {
     reports: 'Reports',
     timeOff: 'Time off',

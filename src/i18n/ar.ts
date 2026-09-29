@@ -4,6 +4,15 @@ type DeepString<T> = { [K in keyof T]: T[K] extends string ? string : T[K] exten
 
 export const ar: DeepString<Dict> = {
   appName: 'الأفراد والثقافة',
+  brand: {
+    kadr: 'كادر',
+    tagline: 'فريقك على توقيت عملائك.',
+    byEms: 'كادر من EMS',
+    signInSubtitle: 'استخدم حساب Google الخاص بعملك.',
+    preview: 'معاينة الهوية',
+    ems: 'EMS',
+    kadrOption: 'كادر',
+  },
   nav: {
     reports: 'التقارير',
     timeOff: 'الإجازات',

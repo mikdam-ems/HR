@@ -15,6 +15,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Every server action must start with `requirePermission(...)` from `src/server/session.ts`.
 - All UI text goes through `src/i18n/en.ts` and `src/i18n/ar.ts` (keep both in sync). Use logical CSS properties (`inline-start`/`inline-end`) so Arabic RTL works.
 - Brand colours are CSS variables in `src/app/globals.css`. Text on the green (`--brand-600`) is `--brand-950`, never white.
+- A second brand, Kadr (`html[data-brand='kadr']`, block at the end of `globals.css`), remaps the same tokens to cobalt; there, `--on-accent` is white. Style with the tokens (`--accent`, `--on-accent`, `--brand-*`, `--r-*`) rather than literal colours so both brands keep working. `src/brand` decides which brand a page gets.
 - Schema changes: edit `src/db/schema.ts`, then `npm run db:generate` and commit the new file in `drizzle/`.
 - Before pushing: `npm test && npm run typecheck && npm run build`.
 - The `clean-code` skill (`.claude/skills/clean-code`) is general guidance. Where it differs, this project's conventions win: server functions return a `Result` (`ok` / `fail`) instead of throwing, functions return `null`/`undefined` for "not found", and short comments explaining *why* are welcome.

@@ -1,7 +1,8 @@
 import { setLocaleAction, signOutAction } from '@/app/actions';
 import Link from 'next/link';
 import { Avatar } from '@/components/Avatar';
-import { EmsLogo } from '@/components/EmsLogo';
+import { BrandLogo } from '@/components/BrandLogo';
+import { BrandSwitch } from '@/components/BrandSwitch';
 import { BackField, NavLinks } from '@/components/NavLinks';
 import { StatusBubble } from '@/components/StatusBubble';
 import { TopClock } from '@/components/Clock';
@@ -11,6 +12,7 @@ import { loadRulesContext } from '@/server/rulesContext';
 import { resolveDay } from '@/domain';
 import { todayISO } from '@/lib/format';
 import { demoMode } from '@/auth';
+import { brandPreview, getBrand } from '@/brand';
 import { getDict, localName } from '@/i18n';
 import { can } from '@/server/permissions';
 import { getDb } from '@/db';
@@ -20,7 +22,7 @@ import { countPendingApprovals } from '@/server/timesheets';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const { t, locale } = await getDict();
+  const [{ t, locale }, brand] = await Promise.all([getDict(), getBrand()]);
   const name = localName(locale, user.nameEn, user.nameAr);
   const approver = user.isManager || user.roles.includes('admin');
   const db = await getDb();
@@ -45,9 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="topbar">
         <div className="topbar-inner">
           <Link href="/" className="brand">
-            <EmsLogo />
-            <span className="divider" aria-hidden="true" />
-            <span className="brand-name">{t.appName}</span>
+            <BrandLogo brand={brand} appName={t.appName} />
           </Link>
           <nav className="topnav" aria-label="Main">
             <NavLinks links={links} />
@@ -70,6 +70,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <div className="me-menu card">
                 <strong>{name}</strong>
                 <span className="muted small">{user.email}</span>
+                {brandPreview ? <BrandSwitch brand={brand} labels={t.brand} /> : null}
                 <Link className="btn btn-small" href="/profile">
                   {t.nav.profile}
                 </Link>

@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { getBrand } from '@/brand';
 import { ar } from './ar';
 import { en, type Dict } from './en';
 
@@ -11,8 +12,14 @@ export async function getLocale(): Promise<Locale> {
 }
 
 export async function getDict(): Promise<{ t: Dict; locale: Locale; dir: 'ltr' | 'rtl' }> {
-  const locale = await getLocale();
-  return { t: (locale === 'ar' ? ar : en) as Dict, locale, dir: locale === 'ar' ? 'rtl' : 'ltr' };
+  const [locale, brand] = await Promise.all([getLocale(), getBrand()]);
+  const dict = (locale === 'ar' ? ar : en) as Dict;
+  // Under the Kadr brand the product is called Kadr everywhere; the rest of the text is shared.
+  const t: Dict =
+    brand === 'kadr'
+      ? { ...dict, appName: dict.brand.kadr, signIn: { ...dict.signIn, subtitle: dict.brand.signInSubtitle } }
+      : dict;
+  return { t, locale, dir: locale === 'ar' ? 'rtl' : 'ltr' };
 }
 
 /**

@@ -13,4 +13,6 @@ Working files for **Kadr by EMS**, the proposed product brand for this HR system
 | `kadr-app-icon.svg` | App icon and favicon source |
 | `kadr-tokens.css` | Colour, radius and font tokens |
 
-These are concept files for review. The name still needs trademark clearance, and the final mark and the Arabic wordmark should be refined by a logo designer before launch. The app itself is unchanged.
+These are concept files for review. The name still needs trademark clearance, and the final mark and the Arabic wordmark should be refined by a logo designer before launch.
+
+The app can already be previewed in Kadr: see **Brand preview** in the main README. The theme is the `html[data-brand='kadr']` block at the end of `src/app/globals.css`, and `public/brand/kadr-icon.svg` is the favicon.
