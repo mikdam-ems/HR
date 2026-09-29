@@ -271,7 +271,10 @@ export function DateRangePicker({
               {labels.legendHoliday}
             </li>
             <li>
-              <span className="drp-key drp-key-weekend" aria-hidden="true" />
+              {/* Weekend days are shown as grey numbers, so the key is a grey number too. */}
+              <span className="drp-key drp-key-weekend" aria-hidden="true">
+                12
+              </span>
               {labels.legendWeekend}
             </li>
           </ul>

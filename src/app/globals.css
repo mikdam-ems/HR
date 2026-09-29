@@ -2750,8 +2750,9 @@ html[dir='rtl'] .signin-endorse {
   height: 18px;
   padding: 0 5px;
   border-radius: 9px;
-  background: var(--brand-600);
-  color: var(--brand-950);
+  /* Accent and its text colour: dark green on EMS green, white on Kadr cobalt. */
+  background: var(--accent);
+  color: var(--on-accent);
   font-size: 11px;
   font-weight: 700;
   line-height: 18px;
@@ -3029,6 +3030,13 @@ html[dir='rtl'] .signin-endorse {
 /* ---------- date range picker (time off) ---------- */
 .drp {
   position: relative;
+  /* Approved leave must not look like the selection: blue next to EMS lime, green next to Kadr cobalt. */
+  --drp-approved-bg: var(--info-bg);
+  --drp-approved-fg: var(--info-fg);
+}
+html[data-brand='kadr'] .drp {
+  --drp-approved-bg: #dff5ee;
+  --drp-approved-fg: #0d6b53;
 }
 .drp-field {
   grid-column: span 2;
@@ -3040,7 +3048,8 @@ html[dir='rtl'] .signin-endorse {
   width: 100%;
   min-height: 44px;
   padding: 0 14px;
-  border: 1px solid var(--ring);
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--ring);
   border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--ink);
@@ -3049,8 +3058,10 @@ html[dir='rtl'] .signin-endorse {
   cursor: pointer;
 }
 .drp-trigger:hover,
-.drp-trigger[aria-expanded='true'] {
-  border-color: var(--brand-600);
+.drp-trigger[aria-expanded='true'],
+.drp-trigger:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--brand-700);
 }
 .drp-trigger svg {
   flex-shrink: 0;
@@ -3150,7 +3161,8 @@ html[dir='rtl'] .signin-endorse {
   color: var(--brand-900);
 }
 .drp-cell button:focus-visible {
-  outline: 2px solid var(--brand-700);
+  /* Near-black green: 6.7:1 on the green circle, 13.9:1 on white. */
+  outline: 2px solid var(--brand-950);
   outline-offset: 1px;
 }
 /* The band between the first and last day, rounded at its ends like the reference. */
@@ -3176,13 +3188,17 @@ html[dir='rtl'] .signin-endorse {
 }
 .drp-edge button,
 .drp-edge button:hover:not(:disabled) {
-  background: var(--brand-600);
-  color: var(--brand-950);
+  /* EMS: dark green on green (6.7:1). Kadr: white on cobalt (8.1:1). */
+  background: var(--accent);
+  color: var(--on-accent);
   font-weight: 700;
+  /* The brand green alone is only 2:1 against white; the darker rim (4.4:1) makes the chosen days stand out. */
+  box-shadow: inset 0 0 0 2px var(--brand-700);
 }
 .drp-today button {
   background: var(--canvas-2);
   font-weight: 700;
+  box-shadow: inset 0 0 0 1.5px var(--faint);
 }
 .drp-weekend button {
   color: var(--faint);
@@ -3203,9 +3219,10 @@ html[dir='rtl'] .signin-endorse {
   cursor: not-allowed;
 }
 .drp-approved button {
-  background: var(--info-bg);
-  color: var(--info-fg);
+  background: var(--drp-approved-bg);
+  color: var(--drp-approved-fg);
   font-weight: 600;
+  box-shadow: inset 0 0 0 1.5px currentColor;
 }
 .drp-pending button {
   background: var(--warn-bg);
@@ -3236,8 +3253,8 @@ html[dir='rtl'] .signin-endorse {
   border-radius: 50%;
 }
 .drp-key-approved {
-  background: var(--info-bg);
-  box-shadow: inset 0 0 0 1.5px var(--info-fg);
+  background: var(--drp-approved-bg);
+  box-shadow: inset 0 0 0 1.5px var(--drp-approved-fg);
 }
 .drp-key-pending {
   background: var(--warn-bg);
@@ -3249,8 +3266,11 @@ html[dir='rtl'] .signin-endorse {
   background: #8b6fd6;
 }
 .drp-key-weekend {
-  background: var(--canvas-2);
-  box-shadow: inset 0 0 0 1px var(--canvas-3);
+  width: auto;
+  height: auto;
+  color: var(--faint);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
 }
 .drp-foot {
   display: flex;
