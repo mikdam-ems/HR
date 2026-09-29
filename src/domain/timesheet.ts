@@ -142,16 +142,6 @@ export function summarizeMonth(
   clock?: ClockSource,
 ): MonthSummary {
   const byDate = new Map(entries.map((e) => [e.date, e]));
-  const totals: MonthTotals = {
-    expectedMinutes: 0,
-    workedMinutes: 0,
-    regularOvertimeMinutes: 0,
-    specialOvertimeMinutes: 0,
-    offDayOvertimeMinutes: 0,
-    weightedOvertimeMinutes: 0,
-    workingDays: 0,
-    leaveDaysByType: {},
-  };
   const days: MonthDay[] = [];
 
   for (const date of daysOfMonth(year, month)) {
@@ -164,22 +154,38 @@ export function summarizeMonth(
     const changed = entry !== prefilled && (entry.workedMinutes !== prefilled.workedMinutes || !!entry.leave);
     const dayTotals = computeDayTotals(day, entry, rates);
 
-    totals.expectedMinutes += dayTotals.expectedMinutes;
-    totals.workedMinutes += dayTotals.workedMinutes;
-    totals.regularOvertimeMinutes += dayTotals.regularOvertimeMinutes;
-    totals.specialOvertimeMinutes += dayTotals.specialOvertimeMinutes;
-    totals.offDayOvertimeMinutes += dayTotals.offDayOvertimeMinutes;
-    totals.weightedOvertimeMinutes = round2(totals.weightedOvertimeMinutes + dayTotals.weightedOvertimeMinutes);
-    if (isWorkday(day.dayType)) totals.workingDays += 1;
-    if (entry.leave && dayTotals.leaveDays > 0) {
-      const t = entry.leave.type;
-      totals.leaveDaysByType[t] = (totals.leaveDaysByType[t] ?? 0) + dayTotals.leaveDays;
-    }
-
     // In clock mode only past days can be missing hours; today and later are still to come.
     const issues = checkDay(day, entry).filter((i) => !(byClock && i.code === 'missing_hours' && date >= clock.today));
     days.push({ day, entry, changed, totals: dayTotals, issues, ...(byClock ? { clockedMinutes, future } : {}) });
   }
 
-  return { employeeId, year, month, days, totals, issues: days.flatMap((d) => d.issues) };
+  return { employeeId, year, month, days, totals: sumMonthDays(days), issues: days.flatMap((d) => d.issues) };
+}
+
+/** Adds up days of a month: the whole month, or only some of it (e.g. the days spent at one client). */
+export function sumMonthDays(days: readonly MonthDay[]): MonthTotals {
+  const totals: MonthTotals = {
+    expectedMinutes: 0,
+    workedMinutes: 0,
+    regularOvertimeMinutes: 0,
+    specialOvertimeMinutes: 0,
+    offDayOvertimeMinutes: 0,
+    weightedOvertimeMinutes: 0,
+    workingDays: 0,
+    leaveDaysByType: {},
+  };
+  for (const { day, entry, totals: d } of days) {
+    totals.expectedMinutes += d.expectedMinutes;
+    totals.workedMinutes += d.workedMinutes;
+    totals.regularOvertimeMinutes += d.regularOvertimeMinutes;
+    totals.specialOvertimeMinutes += d.specialOvertimeMinutes;
+    totals.offDayOvertimeMinutes += d.offDayOvertimeMinutes;
+    totals.weightedOvertimeMinutes = round2(totals.weightedOvertimeMinutes + d.weightedOvertimeMinutes);
+    if (isWorkday(day.dayType)) totals.workingDays += 1;
+    if (entry.leave && d.leaveDays > 0) {
+      const t = entry.leave.type;
+      totals.leaveDaysByType[t] = (totals.leaveDaysByType[t] ?? 0) + d.leaveDays;
+    }
+  }
+  return totals;
 }

@@ -92,6 +92,41 @@
       "when": 1790606216892,
       "tag": "0012_notifications_birthdays",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790683735688,
+      "tag": "0013_clock_location",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790687731488,
+      "tag": "0014_seasonal_hours",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1790688170218,
+      "tag": "0015_delivery_lead",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790688403907,
+      "tag": "0016_approval_delegations",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790688781711,
+      "tag": "0017_shift_swaps",
+      "breakpoints": true
     }
   ]
 }

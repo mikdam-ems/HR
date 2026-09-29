@@ -126,6 +126,8 @@ export const assignments = pgTable(
     /** Inclusive. Null = open-ended. */
     endDate: date('end_date', { mode: 'string' }),
     primary: boolean('primary').notNull().default(true),
+    /** The EMS person leading delivery on this project: told about leave, never asked to approve it. */
+    deliveryLeadId: uuid('delivery_lead_id').references((): AnyPgColumn => employees.id, { onDelete: 'set null' }),
     ...timestamps,
   },
   (t) => [index('assignments_employee_idx').on(t.employeeId)],
@@ -151,6 +153,30 @@ export const clientShifts = pgTable(
     ...timestamps,
   },
   (t) => [index('client_shifts_client_idx').on(t.clientId)],
+);
+
+/** Different hours at a client for a date range, e.g. "Ramadan 2027: 09:00–15:00". See domain SeasonalHours. */
+export const seasonalHours = pgTable(
+  'seasonal_hours',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    fromDate: date('from_date', { mode: 'string' }).notNull(),
+    /** Inclusive. */
+    toDate: date('to_date', { mode: 'string' }).notNull(),
+    /** HH:MM */
+    startTime: text('start_time').notNull(),
+    /** HH:MM; at or before startTime means the shift runs past midnight. */
+    endTime: text('end_time').notNull(),
+    breakMinutes: integer('break_minutes').notNull().default(0),
+    /** Only people on this client shift; null means everyone at the client. */
+    clientShiftId: uuid('client_shift_id').references(() => clientShifts.id, { onDelete: 'cascade' }),
+    ...timestamps,
+  },
+  (t) => [index('seasonal_hours_client_idx').on(t.clientId)],
 );
 
 export const schedules = pgTable(
@@ -321,6 +347,10 @@ export const leaveAttachments = pgTable(
 
 export const clockKindEnum = pgEnum('clock_kind', ['in', 'out', 'break_start', 'break_end']);
 
+/** Where someone says they're working when they clock in. Self-reported; no GPS. */
+export const workLocationEnum = pgEnum('work_location', ['office', 'client_site', 'remote']);
+export type WorkLocation = (typeof workLocationEnum.enumValues)[number];
+
 /** Clock in / out / breaks, one row per press. Worked time is worked out from these (see domain/clock). */
 export const clockEvents = pgTable(
   'clock_events',
@@ -333,6 +363,8 @@ export const clockEvents = pgTable(
     at: timestamp('at', { withTimezone: true }).notNull(),
     /** Where it came from: web, slack, or 'correction' when someone fixed a forgotten clock-out. */
     source: text('source').notNull().default('web'),
+    /** Set on "in" events only: where this session is being worked from. Null on older events. */
+    location: workLocationEnum('location'),
     ...timestamps,
   },
   (t) => [index('clock_events_employee_at_idx').on(t.employeeId, t.at)],
@@ -372,6 +404,56 @@ export const pushSubscriptions = pgTable(
     ...timestamps,
   },
   (t) => [uniqueIndex('push_subscriptions_endpoint_idx').on(t.endpoint)],
+);
+
+export const swapStatusEnum = pgEnum('swap_status', ['asked', 'accepted', 'approved', 'declined', 'cancelled']);
+export type SwapStatus = (typeof swapStatusEnum.enumValues)[number];
+
+/**
+ * Two people on the same client swap shifts for one day: the requester asks, the colleague accepts, the requester's
+ * manager (or stand-in) approves. Approved swaps feed the rules engine (domain ShiftSwap); schedules are untouched.
+ */
+export const shiftSwaps = pgTable(
+  'shift_swaps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requesterId: uuid('requester_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    colleagueId: uuid('colleague_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    date: date('date', { mode: 'string' }).notNull(),
+    status: swapStatusEnum('status').notNull().default('asked'),
+    note: text('note'),
+    decidedById: uuid('decided_by_id').references(() => employees.id, { onDelete: 'set null' }),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index('shift_swaps_date_idx').on(t.date)],
+);
+
+/**
+ * A manager away (on leave, travelling) hands their approvals to a colleague for some dates. During them the stand-in
+ * sees and decides the manager's team's requests; every decision records whom it was made for.
+ */
+export const approvalDelegations = pgTable(
+  'approval_delegations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    managerId: uuid('manager_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    deputyId: uuid('deputy_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    fromDate: date('from_date', { mode: 'string' }).notNull(),
+    /** Inclusive. */
+    toDate: date('to_date', { mode: 'string' }).notNull(),
+    createdById: uuid('created_by_id').references(() => employees.id, { onDelete: 'set null' }),
+    ...timestamps,
+  },
+  (t) => [index('approval_delegations_manager_idx').on(t.managerId), index('approval_delegations_deputy_idx').on(t.deputyId)],
 );
 
 /** HR corrections to a balance: carry-over from last year, opening balances, fixes. Positive or negative. */
@@ -474,6 +556,11 @@ export const leaveRequestsRelations = relations(leaveRequests, ({ one }) => ({
   employee: one(employees, { fields: [leaveRequests.employeeId], references: [employees.id] }),
 }));
 
+export const approvalDelegationsRelations = relations(approvalDelegations, ({ one }) => ({
+  manager: one(employees, { fields: [approvalDelegations.managerId], references: [employees.id], relationName: 'delegatedFrom' }),
+  deputy: one(employees, { fields: [approvalDelegations.deputyId], references: [employees.id], relationName: 'delegatedTo' }),
+}));
+
 export const departmentsRelations = relations(departments, ({ one, many }) => ({
   head: one(employees, { fields: [departments.headId], references: [employees.id] }),
   members: many(employees),
@@ -494,3 +581,5 @@ export type ClientRow = typeof clients.$inferSelect;
 export type AssignmentRow = typeof assignments.$inferSelect;
 export type ScheduleRow = typeof schedules.$inferSelect;
 export type ClientShiftRow = typeof clientShifts.$inferSelect;
+export type SeasonalHoursRow = typeof seasonalHours.$inferSelect;
+export type ShiftSwapRow = typeof shiftSwaps.$inferSelect;

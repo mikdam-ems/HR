@@ -1,0 +1,35 @@
+# Runs the same checks a contributor runs before pushing (see AGENTS.md), on every pull request
+# and on every push to the main branch, so nothing reaches the pilot without them.
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [claude/practical-volta-vfybbj]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Tests, typecheck and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Tests (rules engine + in-memory database)
+        run: npm test
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build

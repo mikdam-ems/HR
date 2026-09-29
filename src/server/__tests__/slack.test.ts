@@ -5,7 +5,7 @@ import { createDb, type DB } from '@/db';
 import { employees } from '@/db/schema';
 import { ammanInstant } from '@/lib/format';
 import { createEmployee } from '../people';
-import { employeeForSlackUser, parseCommand, runSlackCommand, verifySlackSignature } from '../slack';
+import { employeeForSlackUser, parseCommand, parseLocation, runSlackCommand, verifySlackSignature } from '../slack';
 
 let db: DB;
 beforeAll(async () => {
@@ -67,5 +67,22 @@ describe('slack commands', () => {
     expect(await runSlackCommand(db, id, 'in', t('2026-09-28 13:30'))).toContain('Back at 13:30');
     expect(await runSlackCommand(db, id, 'out', t('2026-09-28 17:30'))).toContain('8h today (breaks 30m)');
     expect(await runSlackCommand(db, id, 'out', t('2026-09-28 17:31'))).toContain('not clocked in');
+  });
+
+  it('understands where someone is working, and remembers it', async () => {
+    expect(parseLocation('in remote')).toBe('remote');
+    expect(parseLocation('in WFH')).toBe('remote');
+    expect(parseLocation('in client site')).toBe('client_site');
+    expect(parseLocation('in on-site')).toBe('client_site');
+    expect(parseLocation('office')).toBe('office');
+    expect(parseLocation('in')).toBeNull();
+
+    const r = await createEmployee(db, null, { email: 'sheraz@ems.com', nameEn: 'Sheraz' });
+    if (!r.ok) throw new Error(r.error);
+    const id = r.value.id;
+    expect(await runSlackCommand(db, id, 'in', t('2026-09-28 09:00'), parseLocation('in site'))).toContain('09:00 · Client site');
+    expect(await runSlackCommand(db, id, 'status', t('2026-09-28 10:00'))).toContain('Client site');
+    await runSlackCommand(db, id, 'out', t('2026-09-28 17:00'));
+    expect(await runSlackCommand(db, id, 'in', t('2026-09-29 09:00'))).toContain('· Client site');
   });
 });

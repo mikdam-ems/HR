@@ -1,5 +1,5 @@
 import { getDb } from '@/db';
-import { employeeForSlackUser, parseCommand, runSlackCommand, slackEmail, verifySlackSignature } from '@/server/slack';
+import { employeeForSlackUser, parseCommand, parseLocation, runSlackCommand, slackEmail, verifySlackSignature } from '@/server/slack';
 
 const reply = (text: string) => Response.json({ response_type: 'ephemeral', text });
 
@@ -31,5 +31,5 @@ export async function POST(request: Request) {
       "I couldn't find you in EMS People & Culture. Your Slack email must match your EMS account — ask People & Culture to add you.",
     );
   }
-  return reply(await runSlackCommand(db, person.id, action));
+  return reply(await runSlackCommand(db, person.id, action, new Date(), parseLocation(form.get('text') ?? '')));
 }

@@ -1,8 +1,8 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, sql } from 'drizzle-orm';
 import type { DB } from '@/db';
-import { auditLog, employees, notifications } from '@/db/schema';
-import { daysOfMonth, resolveDay } from '@/domain';
-import { todayISO } from '@/lib/format';
+import { auditLog, clockEvents, employees, notifications } from '@/db/schema';
+import { addDays, daysOfMonth, resolveDay, stateAfter, toMinutes } from '@/domain';
+import { ammanInstant, todayISO } from '@/lib/format';
 import { audit } from './audit';
 import { celebrations } from './celebrations';
 import { notify, siteUrl, slackPost } from './notify';
@@ -11,6 +11,8 @@ import { monthStatus } from './timesheets';
 
 export interface DailyReport {
   reminded: number;
+  /** People told they left a clock session open. */
+  nudged: number;
   celebrations: number;
   posted: boolean;
 }
@@ -19,9 +21,54 @@ export interface DailyReport {
 export async function runDaily(db: DB, now = new Date()): Promise<DailyReport> {
   const today = todayISO(now);
   const reminded = await remindTimesheets(db, today);
+  const nudged = await nudgeOpenSessions(db, now);
   const parties = await celebrations(db, today, 1);
   const posted = parties.length ? await postCelebrations(db, today, parties) : false;
-  return { reminded, celebrations: parties.length, posted };
+  return { reminded, nudged, celebrations: parties.length, posted };
+}
+
+/** A night shift may legitimately still be running; wait this long after its scheduled end before nudging. */
+const NUDGE_AFTER_SHIFT_MS = 60 * 60_000;
+/** How far back to look for a forgotten session. Older ones were nudged already, or predate the clock. */
+const OPEN_SESSION_LOOKBACK_MS = 14 * 24 * 3600_000;
+
+/**
+ * Tells people who are still clocked in from an earlier day, once per forgotten session, so the day's hours
+ * don't run on into overtime nobody worked. The notification links to Home, where they enter when they left.
+ */
+async function nudgeOpenSessions(db: DB, now: Date): Promise<number> {
+  const today = todayISO(now);
+  const [ctx, people, events, already] = await Promise.all([
+    loadRulesContext(db),
+    db.select({ id: employees.id }).from(employees).where(eq(employees.active, true)),
+    db
+      .select()
+      .from(clockEvents)
+      .where(gte(clockEvents.at, new Date(now.getTime() - OPEN_SESSION_LOOKBACK_MS)))
+      .orderBy(asc(clockEvents.at)),
+    db
+      .select({ employeeId: notifications.employeeId, data: notifications.data })
+      .from(notifications)
+      .where(eq(notifications.kind, 'clock_open')),
+  ]);
+  const told = new Set(already.map((n) => `${n.employeeId}:${(n.data as { date?: string }).date}`));
+  let nudged = 0;
+  for (const { id } of people) {
+    const mine = events.filter((e) => e.employeeId === id);
+    if (stateAfter(mine).state === 'out') continue;
+    const lastIn = [...mine].reverse().find((e) => e.kind === 'in');
+    const date = lastIn ? todayISO(lastIn.at) : null;
+    if (!date || date >= today || told.has(`${id}:${date}`)) continue;
+    const schedule = resolveDay(ctx, id, date).schedule;
+    if (schedule) {
+      const overnight = toMinutes(schedule.end) <= toMinutes(schedule.start);
+      const shiftEnd = ammanInstant(overnight ? addDays(date, 1) : date, schedule.end);
+      if (now.getTime() < shiftEnd.getTime() + NUDGE_AFTER_SHIFT_MS) continue;
+    }
+    await notify(db, [id], 'clock_open', { date }, '/');
+    nudged++;
+  }
+  return nudged;
 }
 
 /**

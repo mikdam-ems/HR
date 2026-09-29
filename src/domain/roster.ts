@@ -2,7 +2,8 @@ import { resolveDay } from './dayRules';
 import type { ISODate, RulesContext } from './types';
 
 export type RosterCell =
-  | { kind: 'shift'; shiftId: string | null; start: string; end: string }
+  /** `swapped`: they swapped shifts with a colleague that day. */
+  | { kind: 'shift'; shiftId: string | null; start: string; end: string; swapped?: boolean }
   | { kind: 'off' }
   | { kind: 'holiday' }
   | { kind: 'leave' }
@@ -42,7 +43,7 @@ export function rosterWeek(
       if (onLeave(employeeId, date)) return { kind: 'leave' };
       const shiftId = day.schedule.clientShiftId ?? null;
       (coverage[shiftId ?? ''] ??= days.map(() => 0))[i]!++;
-      return { kind: 'shift', shiftId, start: day.schedule.start, end: day.schedule.end };
+      return { kind: 'shift', shiftId, start: day.schedule.start, end: day.schedule.end, ...(day.swappedWith ? { swapped: true } : {}) };
     }),
   }));
   return { rows, coverage };

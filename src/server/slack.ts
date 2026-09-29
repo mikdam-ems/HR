@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import type { DB } from '@/db';
-import { employees } from '@/db/schema';
+import { employees, type WorkLocation } from '@/db/schema';
 import { type ClockKind, msToMinutes } from '@/domain';
 import { formatHours, timeOfDay } from '@/lib/format';
 import { type ClockView, clock, clockView } from './clock';
@@ -45,9 +45,24 @@ export function parseCommand(command: string, text: string): SlackAction {
   return WORDS[word] ?? 'help';
 }
 
+/** `/ems in remote`, `/ems in site`, `/ems in office` (and a few everyday words for each). */
+const PLACES: Record<string, WorkLocation> = {
+  office: 'office', ems: 'office',
+  site: 'client_site', client: 'client_site', onsite: 'client_site',
+  remote: 'remote', home: 'remote', wfh: 'remote',
+};
+
+const PLACE_NAMES: Record<WorkLocation, string> = { office: 'Office', client_site: 'Client site', remote: 'Remote' };
+
+/** Where the person says they're working, if they said: `/ems in remote` → remote. */
+export function parseLocation(text: string): WorkLocation | null {
+  for (const word of text.trim().toLowerCase().split(/[\s-]+/)) if (word in PLACES) return PLACES[word]!;
+  return null;
+}
+
 export const HELP = [
   '*EMS clock*',
-  '`/ems in` — clock in',
+  '`/ems in` — clock in (add `office`, `site` or `remote` to say where; otherwise your last choice is kept)',
   '`/ems break` — start a break',
   '`/ems back` — back from a break',
   '`/ems out` — clock out',
@@ -65,7 +80,7 @@ export function describe(action: SlackAction, v: ClockView): string {
   }
   switch (action) {
     case 'in':
-      return `✅ Clocked in at ${at}. Have a good day!`;
+      return `✅ Clocked in at ${at}${v.location ? ` · ${PLACE_NAMES[v.location]}` : ''}. Have a good day!`;
     case 'break_start':
       return `☕ Break started at ${at} · ${worked(v)} worked so far. Type \`/ems back\` when you return.`;
     case 'break_end':
@@ -73,7 +88,10 @@ export function describe(action: SlackAction, v: ClockView): string {
     case 'out':
       return `👋 Clocked out at ${at} · ${worked(v)} today${breaks(v)}. See you tomorrow!`;
     default:
-      if (v.state === 'working') return `🟢 Working since ${v.since ? timeOfDay(v.since) : at} · ${worked(v)} today${breaks(v)}.`;
+      if (v.state === 'working') {
+        const place = v.location ? ` · ${PLACE_NAMES[v.location]}` : '';
+        return `🟢 Working since ${v.since ? timeOfDay(v.since) : at}${place} · ${worked(v)} today${breaks(v)}.`;
+      }
       if (v.state === 'break') return `☕ On a break since ${v.since ? timeOfDay(v.since) : at} · ${worked(v)} worked today.`;
       return v.today.workedMs ? `⚪ Clocked out · ${worked(v)} today${breaks(v)}.` : '⚪ Not clocked in today. Type `/ems in` to start.';
   }
@@ -106,7 +124,13 @@ export async function employeeForSlackUser(
 }
 
 /** Runs a slash command for a person and returns the reply text. */
-export async function runSlackCommand(db: DB, employeeId: string, action: SlackAction, now = new Date()): Promise<string> {
+export async function runSlackCommand(
+  db: DB,
+  employeeId: string,
+  action: SlackAction,
+  now = new Date(),
+  location: WorkLocation | null = null,
+): Promise<string> {
   if (action === 'help') return HELP;
   if (action === 'status') return describe('status', await clockView(db, employeeId, now));
 
@@ -115,7 +139,7 @@ export async function runSlackCommand(db: DB, employeeId: string, action: SlackA
   if (before.openFrom) return describe(action, before);
   // "/ems in" during a break means "I'm back".
   if (kind === 'in' && before.state === 'break') kind = 'break_end';
-  const result = await clock(db, employeeId, kind, now, 'slack');
+  const result = await clock(db, employeeId, kind, now, 'slack', location);
   if (!result.ok) return refusal(kind, before);
   return describe(kind, await clockView(db, employeeId, now));
 }

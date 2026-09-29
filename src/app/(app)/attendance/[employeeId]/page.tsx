@@ -61,7 +61,8 @@ export default async function AttendancePage({
       const rec = log[date];
       const worked = rec ? msToMinutes(rec.day.workedMs) : 0;
       const target = isWorkday(day.dayType) ? day.expectedMinutes : 0;
-      return { date, day, rec, worked, target, over: Math.max(0, worked - target) };
+      const where = rec?.events.find((e) => e.kind === 'in' && e.location)?.location ?? null;
+      return { date, day, rec, worked, target, over: Math.max(0, worked - target), where };
     })
     .filter((r) => r.rec || isWorkday(r.day.dayType));
 
@@ -153,6 +154,7 @@ export default async function AttendancePage({
                           {r.rec.events.map((e) => (
                             <li key={e.id}>
                               <span dir="ltr">{timeOfDay(e.at)}</span> · {t.attendance.kinds[e.kind]}
+                              {e.location ? ` · ${t.clock.locations[e.location]}` : ''}
                               <span className="muted"> · {t.attendance.sources[e.source as keyof typeof t.attendance.sources] ?? e.source}</span>
                             </li>
                           ))}
@@ -160,7 +162,14 @@ export default async function AttendancePage({
                       </details>
                     ) : null}
                   </td>
-                  <td dir="ltr">{r.rec ? timeOfDay(r.rec.day.firstIn) : '—'}</td>
+                  <td>
+                    <bdi dir="ltr">{r.rec ? timeOfDay(r.rec.day.firstIn) : '—'}</bdi>
+                    {r.where ? (
+                      <span className="muted small" style={{ display: 'block' }}>
+                        {t.clock.locations[r.where]}
+                      </span>
+                    ) : null}
+                  </td>
                   <td dir="ltr">{r.rec?.day.lastOut ? timeOfDay(r.rec.day.lastOut) : r.rec?.day.open ? '…' : '—'}</td>
                   <td>{r.rec && r.rec.day.breakMs >= 60_000 ? formatHours(msToMinutes(r.rec.day.breakMs), locale) : '—'}</td>
                   <td>

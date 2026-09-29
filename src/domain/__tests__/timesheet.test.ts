@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveDay } from '../dayRules';
-import { checkDay, computeDayTotals, summarizeMonth } from '../timesheet';
+import { checkDay, computeDayTotals, sumMonthDays, summarizeMonth } from '../timesheet';
 import type { DayEntry } from '../types';
 import { ctx, rates } from './fixtures';
 
@@ -145,5 +145,24 @@ describe('clock mode starts on the first clock-in', () => {
     const never = summarizeMonth(ctx, 'omar', 2026, 9, [], rates, { minutes: {}, today: '2026-09-17', since: null });
     expect(never.days.every((d) => d.future === undefined)).toBe(true);
     expect(never.issues.filter((i) => i.code === 'missing_hours')).toEqual([]);
+  });
+});
+
+describe('sumMonthDays', () => {
+  it('totals the whole month exactly as summarizeMonth does', () => {
+    const entries: DayEntry[] = [
+      { date: '2026-09-15', workedMinutes: 600 },
+      { date: '2026-09-16', workedMinutes: 0, leave: { type: 'annual', portion: 1 } },
+    ];
+    const month = summarizeMonth(ctx, 'lina', 2026, 9, entries, rates);
+    expect(sumMonthDays(month.days)).toEqual(month.totals);
+  });
+
+  it('totals only the days given, e.g. those spent at one client', () => {
+    // Sami is on Client B until 30 June and on Jadwa from 1 July.
+    const june = summarizeMonth(ctx, 'sami', 2026, 6, [], rates);
+    const july = summarizeMonth(ctx, 'sami', 2026, 7, [], rates);
+    const atJadwa = [...june.days, ...july.days].filter((d) => d.day.primaryClientId === 'jadwa');
+    expect(sumMonthDays(atJadwa)).toEqual(july.totals);
   });
 });
