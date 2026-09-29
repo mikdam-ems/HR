@@ -1,14 +1,16 @@
 import { cancelLeaveAction, markClientNotifiedAction, requestLeaveAction } from '@/app/(app)/time-off/actions';
+import { DateRangePicker } from '@/components/DateRangePicker';
 import { Reveal } from '@/components/Reveal';
 import { Balances } from '@/components/Balances';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { leaveTypeEnum } from '@/db/schema';
-import { isWorkday } from '@/domain';
+import { addDays, isWorkday, leaveCalendarMarks } from '@/domain';
 import { fmt, getDict, holidayLabel, localName } from '@/i18n';
 import type { Dict } from '@/i18n/en';
 import { formatDate, todayISO } from '@/lib/format';
 import { clientsToInform, getBalances, listAttachments, listRequests, previewRequest, type ClientToInform } from '@/server/leave';
+import { loadRulesContext } from '@/server/rulesContext';
 import { requireUser } from '@/server/session';
 
 type LeaveType = (typeof leaveTypeEnum.enumValues)[number];
@@ -27,11 +29,14 @@ export default async function TimeOffPage({ searchParams }: { searchParams: Prom
   const halfDay = search.halfDay === 'on';
   const note = search.note ?? '';
 
-  const [balances, requests, preview] = await Promise.all([
+  const [balances, requests, preview, ctx] = await Promise.all([
     getBalances(db, user.id, year),
     listRequests(db, user.id),
     from ? previewRequest(db, user.id, { type, fromDate: from, toDate: to, halfDay, note }) : Promise.resolve(null),
+    loadRulesContext(db),
   ]);
+  // What the calendar colours: a few months back (sick leave is often entered late) to a year ahead.
+  const marks = leaveCalendarMarks(ctx, user.id, addDays(today, -120), addDays(today, 400), requests);
   const open = requests.filter((r) => (r.status === 'pending' || r.status === 'approved') && r.toDate >= today);
   const [attachments, toInform, ...openClients] = await Promise.all([
     listAttachments(db, requests.map((r) => r.id)),
@@ -71,13 +76,16 @@ export default async function TimeOffPage({ searchParams }: { searchParams: Prom
                   ))}
                 </select>
               </div>
-              <div className="field">
-                <label htmlFor="from">{t.timeOff.from}</label>
-                <input id="from" name="from" type="date" required defaultValue={from} />
-              </div>
-              <div className="field">
-                <label htmlFor="to">{t.timeOff.to}</label>
-                <input id="to" name="to" type="date" defaultValue={search.to ?? ''} />
+              <div className="field drp-field">
+                <span className="label">{t.timeOff.dates}</span>
+                <DateRangePicker
+                  from={from}
+                  to={search.to ?? ''}
+                  today={today}
+                  marks={marks}
+                  locale={locale}
+                  labels={{ ...t.timeOff.calendar, from: t.timeOff.from, to: t.timeOff.to }}
+                />
               </div>
               <label className="check">
                 <input type="checkbox" name="halfDay" defaultChecked={halfDay} />

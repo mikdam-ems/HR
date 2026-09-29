@@ -54,3 +54,47 @@ export interface BalanceInput {
 export function availableBalance(b: BalanceInput): number {
   return b.entitlement + b.carriedOver + b.adjustments - b.taken - b.pending;
 }
+
+export interface LeaveRequestSpan {
+  fromDate: ISODate;
+  toDate: ISODate;
+  status: string;
+  type: string;
+}
+
+export interface LeaveCalendarMarks {
+  /** Days already covered by a pending or approved request — not bookable again. */
+  booked: Record<ISODate, { status: 'pending' | 'approved'; type: string }>;
+  /** Days off anyway (weekend or client holiday), which leave doesn't use. */
+  off: Record<ISODate, { kind: 'weekend' | 'holiday'; name?: string; nameAr?: string }>;
+}
+
+/** What the time-off calendar colours for one person between `from` and `to`. */
+export function leaveCalendarMarks(
+  ctx: RulesContext,
+  employeeId: string,
+  from: ISODate,
+  to: ISODate,
+  requests: readonly LeaveRequestSpan[],
+): LeaveCalendarMarks {
+  const booked: LeaveCalendarMarks['booked'] = {};
+  for (const r of requests) {
+    if (r.status !== 'pending' && r.status !== 'approved') continue;
+    const start = r.fromDate > from ? r.fromDate : from;
+    const end = r.toDate < to ? r.toDate : to;
+    if (start > end) continue;
+    for (const d of eachDay(start, end)) {
+      if (booked[d]?.status === 'approved') continue;
+      booked[d] = { status: r.status, type: r.type };
+    }
+  }
+  const off: LeaveCalendarMarks['off'] = {};
+  for (const d of eachDay(from, to)) {
+    const day = resolveDay(ctx, employeeId, d);
+    if (day.dayType === 'weekend') off[d] = { kind: 'weekend' };
+    else if (day.dayType === 'client_holiday') {
+      off[d] = { kind: 'holiday', ...(day.holidayName ? { name: day.holidayName } : {}), ...(day.holidayNameAr ? { nameAr: day.holidayNameAr } : {}) };
+    }
+  }
+  return { booked, off };
+}
