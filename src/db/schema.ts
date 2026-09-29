@@ -321,6 +321,10 @@ export const leaveAttachments = pgTable(
 
 export const clockKindEnum = pgEnum('clock_kind', ['in', 'out', 'break_start', 'break_end']);
 
+/** Where someone says they're working when they clock in. Self-reported; no GPS. */
+export const workLocationEnum = pgEnum('work_location', ['office', 'client_site', 'remote']);
+export type WorkLocation = (typeof workLocationEnum.enumValues)[number];
+
 /** Clock in / out / breaks, one row per press. Worked time is worked out from these (see domain/clock). */
 export const clockEvents = pgTable(
   'clock_events',
@@ -333,6 +337,8 @@ export const clockEvents = pgTable(
     at: timestamp('at', { withTimezone: true }).notNull(),
     /** Where it came from: web, slack, or 'correction' when someone fixed a forgotten clock-out. */
     source: text('source').notNull().default('web'),
+    /** Set on "in" events only: where this session is being worked from. Null on older events. */
+    location: workLocationEnum('location'),
     ...timestamps,
   },
   (t) => [index('clock_events_employee_at_idx').on(t.employeeId, t.at)],

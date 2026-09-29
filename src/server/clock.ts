@@ -1,7 +1,7 @@
 import { cache } from 'react';
-import { and, asc, desc, eq, gte, inArray, lt, min } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNotNull, lt, min } from 'drizzle-orm';
 import type { DB } from '@/db';
-import { clockEvents } from '@/db/schema';
+import { clockEvents, type WorkLocation } from '@/db/schema';
 import { type ClockDay, type ClockKind, type ClockState, canClock, daysOfMonth, stateAfter, summarizeClock } from '@/domain';
 import { ammanInstant, todayISO } from '@/lib/format';
 import { audit } from './audit';
@@ -20,13 +20,28 @@ async function lastEvent(db: DB, employeeId: string) {
   return row;
 }
 
-/** Clock in, start or end a break, or clock out — only when it follows from the current state. */
+/** Where this person said they worked last time, so clocking in without choosing keeps it. */
+async function rememberedLocation(db: DB, employeeId: string): Promise<WorkLocation | null> {
+  const [row] = await db
+    .select({ location: clockEvents.location })
+    .from(clockEvents)
+    .where(and(eq(clockEvents.employeeId, employeeId), eq(clockEvents.kind, 'in'), isNotNull(clockEvents.location)))
+    .orderBy(desc(clockEvents.at))
+    .limit(1);
+  return row?.location ?? null;
+}
+
+/**
+ * Clock in, start or end a break, or clock out — only when it follows from the current state.
+ * `location` only matters when clocking in; without one, the last place they chose is kept.
+ */
 export async function clock(
   db: DB,
   actorId: string,
   kind: ClockKind,
   now = new Date(),
   source = 'web',
+  location: WorkLocation | null = null,
 ): Promise<Result<void>> {
   const last = await lastEvent(db, actorId);
   const state = stateAfter(last ? [last] : []).state;
@@ -36,7 +51,8 @@ export async function clock(
     return fail('clock_invalid', 'close the open session first');
   }
   const at = last && last.at >= now ? new Date(last.at.getTime() + 1000) : now;
-  const [row] = await db.insert(clockEvents).values({ employeeId: actorId, kind, at, source }).returning();
+  const where = kind === 'in' ? (location ?? (await rememberedLocation(db, actorId))) : null;
+  const [row] = await db.insert(clockEvents).values({ employeeId: actorId, kind, at, source, location: where }).returning();
   await audit(db, { actorId, action: kind, entity: 'clock', entityId: row!.id, after: row });
   return ok(undefined);
 }
@@ -74,6 +90,10 @@ export interface ClockView {
   today: { workedMs: number; breakMs: number; firstIn: Date | null };
   /** Set when a session from an earlier day is still open (a forgotten clock-out). */
   openFrom: { date: string; at: Date } | null;
+  /** Where the current session is being worked from (null when clocked out, or not said). */
+  location: WorkLocation | null;
+  /** The place they chose last time: the default for their next clock-in. */
+  usualLocation: WorkLocation | null;
   now: Date;
 }
 
@@ -88,11 +108,14 @@ async function clockViewUncached(db: DB, employeeId: string, now = new Date()): 
   const days = summarizeClock(events, now, dateOf);
   const today = days.get(todayISO(now));
   const open = [...days.values()].find((d) => d.open);
+  const lastIn = [...events].reverse().find((e) => e.kind === 'in');
   return {
     state,
     since,
     today: { workedMs: today?.workedMs ?? 0, breakMs: today?.breakMs ?? 0, firstIn: today?.firstIn ?? null },
     openFrom: open && open.date !== todayISO(now) ? { date: open.date, at: open.firstIn } : null,
+    location: state !== 'out' ? (lastIn?.location ?? null) : null,
+    usualLocation: await rememberedLocation(db, employeeId),
     now,
   };
 }

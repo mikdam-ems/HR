@@ -12,6 +12,8 @@ export function toClockData(view: ClockView, locale: Locale, targetMinutes: numb
     workedMs: view.today.workedMs,
     breakMs: view.today.breakMs,
     startedAt: view.today.firstIn ? timeOfDay(view.today.firstIn) : null,
+    location: view.location,
+    usualLocation: view.usualLocation,
     openFrom: view.openFrom
       ? {
           date: view.openFrom.date,

@@ -53,6 +53,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ...(approver
       ? [{ href: '/approvals', label: t.nav.approvals, badge: pending || undefined }]
       : []),
+    ...(user.isManager || can(user, 'reports.view') ? [{ href: '/today', label: t.nav.today }] : []),
     { href: '/people', label: t.nav.people },
     ...(can(user, 'reports.view') ? [{ href: '/reports', label: t.nav.reports }] : []),
     ...(can(user, 'clients.manage') ? [{ href: '/clients', label: t.nav.clients }] : []),

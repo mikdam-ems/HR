@@ -3,19 +3,21 @@ import { Avatar } from '@/components/Avatar';
 import { StatusLine } from '@/components/StatusLine';
 import { ClockCard } from '@/components/Clock';
 import { DayBadge } from '@/components/DayBadge';
+import { PresencePill } from '@/components/PresencePill';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { markClientNotifiedAction } from '@/app/(app)/time-off/actions';
 import { addDays, resolveDay } from '@/domain';
 import { clientLabel, fmt, getDict, holidayLabel, localName, plural } from '@/i18n';
 import { toClockData } from '@/lib/clockData';
-import { formatDate, formatHours, timeOfDay, todayISO } from '@/lib/format';
+import { formatDate, formatHours, todayISO } from '@/lib/format';
 import { celebrations } from '@/server/celebrations';
-import { clockView, teamClock } from '@/server/clock';
+import { clockView } from '@/server/clock';
 import { listDepartments } from '@/server/departments';
 import { getEmployeeProfile, listEmployees } from '@/server/people';
 import { currentStatus } from '@/server/profile';
 import { can } from '@/server/permissions';
+import { todayBoard } from '@/server/presence';
 import { loadRulesContext } from '@/server/rulesContext';
 import { requireUser } from '@/server/session';
 import { getSettings } from '@/server/settings';
@@ -54,7 +56,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const overtime = totals ? totals.regularOvertimeMinutes + totals.specialOvertimeMinutes + totals.offDayOvertimeMinutes : 0;
   const progress = totals?.expectedMinutes ? Math.min(100, Math.round((totals.workedMinutes / totals.expectedMinutes) * 100)) : 0;
   const team = (profile?.reports ?? []).filter((r) => r.active);
-  const [myClock, teamNow] = await Promise.all([clockView(db, user.id), teamClock(db, team.map((r) => r.id))]);
+  const [myClock, teamBoard] = await Promise.all([clockView(db, user.id), todayBoard(db, team)]);
+  const teamNow = new Map(teamBoard.map((r) => [r.employee.id, r]));
 
   // Headcount by department, for HR, Finance and the General Manager.
   const headcount = [
@@ -218,7 +221,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
         {team.length ? (
           <section className="card span-6">
-            <h2>{t.home.team}</h2>
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <h2>{t.home.team}</h2>
+              <Link className="small" href="/today">
+                {t.today.open}
+              </Link>
+            </div>
             <ul className="list-rows">
               {team.map((r) => (
                 <li key={r.id}>
@@ -231,14 +239,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     </span>
                   </Link>
                   <span className="row" style={{ gap: 6 }}>
-                    {teamNow[r.id] && teamNow[r.id]!.state !== 'out' ? (
-                      <Link href={`/attendance/${r.id}`} className={`clock-pill clock-${teamNow[r.id]!.state}`}>
-                        <span className="clock-dot" aria-hidden="true" />
-                        {teamNow[r.id]!.state === 'break' ? t.clock.onBreak : t.clock.working}
-                        {teamNow[r.id]!.since ? ` · ${timeOfDay(teamNow[r.id]!.since!)}` : ''}
-                      </Link>
-                    ) : null}
-                    <DayBadge type={resolveDay(ctx, r.id, today).dayType} t={t} />
+                    {teamNow.get(r.id)?.location ? <span className="where-chip">{t.clock.locations[teamNow.get(r.id)!.location!]}</span> : null}
+                    {teamNow.get(r.id) ? <PresencePill row={teamNow.get(r.id)!} t={t} locale={locale} /> : null}
                   </span>
                 </li>
               ))}

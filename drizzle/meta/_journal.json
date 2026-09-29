@@ -92,6 +92,13 @@
       "when": 1790606216892,
       "tag": "0012_notifications_birthdays",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790683735688,
+      "tag": "0013_clock_location",
+      "breakpoints": true
     }
   ]
 }

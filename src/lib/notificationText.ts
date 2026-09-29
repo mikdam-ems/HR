@@ -9,7 +9,8 @@ export type NotificationKind =
   | 'day_change_decided'
   | 'month_submitted'
   | 'month_decided'
-  | 'timesheet_reminder';
+  | 'timesheet_reminder'
+  | 'clock_open';
 
 const fill = (template: string, vars: Record<string, string>) =>
   template.replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? '');

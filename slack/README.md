@@ -5,6 +5,7 @@ People clock in and out from Slack with `/ems`:
 | Command | Does |
 |---|---|
 | `/ems in` | Clock in (during a break it means "I'm back") |
+| `/ems in office` · `/ems in site` · `/ems in remote` | Clock in and say where you're working. Without a place, your last choice is kept |
 | `/ems break` | Start a break |
 | `/ems back` | End the break |
 | `/ems out` | Clock out |
