@@ -2,6 +2,9 @@ import ExcelJS from 'exceljs';
 import { sql } from 'drizzle-orm';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type DB } from '@/db';
+import { ammanInstant } from '@/lib/format';
+import { monthAttendanceReport } from '../attendance';
+import { clock } from '../clock';
 import { createCalendar, createClient, setHoliday } from '../clients';
 import { createRequest, decideRequest } from '../leave';
 import { addAssignment, createEmployee, setSchedule } from '../people';
@@ -101,6 +104,34 @@ describe('month report', () => {
     expect(sept15[7]).toBe(2); // OT
     expect(sept15[10]).toBe('Release');
     expect(wb.getWorksheet('Data')!.rowCount).toBe(1 + 2 * 30);
+  });
+
+  it('adds an Attendance sheet from the clock, after the Summary', async () => {
+    const { lina, hr } = await setup();
+    await clock(db, lina.id, 'in', ammanInstant('2026-09-14', '09:30'), 'web', 'client_site');
+    await clock(db, lina.id, 'out', ammanInstant('2026-09-14', '17:30'));
+    const r = await monthReport(db, hr, 2026, 9);
+    const a = await monthAttendanceReport(db, hr, 2026, 9, ammanInstant('2026-09-16', '12:00'));
+    if (!r.ok || !a.ok) throw new Error('report');
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load((await buildMonthWorkbook(r.value, a.value)) as unknown as ArrayBuffer);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Summary', 'Attendance', 'khaled', 'lina', 'Data']);
+    const sheet = wb.getWorksheet('Attendance')!;
+    const header = (sheet.getRow(1).values as unknown[]).slice(1);
+    const row = (name: string) => {
+      let found: unknown[] = [];
+      sheet.eachRow((x) => {
+        if ((x.values as unknown[])[1] === name) found = x.values as unknown[];
+      });
+      return (col: string) => found[header.indexOf(col) + 1];
+    };
+    const linaRow = row('lina');
+    expect(linaRow('Days in')).toBe(1);
+    expect(linaRow('Late days')).toBe(1);
+    expect(linaRow('Late hrs')).toBe(0.5);
+    expect(linaRow('Absent days')).toBe(1); // the 15th: no clock-in
+    expect(linaRow('Client-site days')).toBe(1);
+    expect(row('khaled')('Note')).toBe('Not using the clock yet');
   });
 });
 

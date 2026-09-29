@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LATE_GRACE_MINUTES, presence, type PresenceInput } from '../presence';
+import { type AttendanceDay, LATE_GRACE_MINUTES, type Presence, type PresenceInput, pastPresence, presence, summarizeAttendance } from '../presence';
 import type { ResolvedDay } from '../types';
 
 const m = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
@@ -82,5 +82,51 @@ describe('presence', () => {
 
   it('someone who clocked out is done for the day', () => {
     expect(presence(at('18:00', { firstInMinutes: m('09:00') }))).toEqual({ status: 'done', lateBy: 0 });
+  });
+});
+
+describe('pastPresence', () => {
+  const past = (over: Partial<PresenceInput> = {}) => {
+    const { clockState: _c, nowMinutes: _n, ...rest } = at('00:00', over);
+    return pastPresence(rest);
+  };
+
+  it('a workday with no clock-in and no leave is absent, never "late" or "not in yet"', () => {
+    expect(past()).toEqual({ status: 'absent', lateBy: 0 });
+    expect(past({ day: nightShift })).toEqual({ status: 'absent', lateBy: 0 });
+  });
+
+  it('keeps how late someone was, and leave and days off as they are', () => {
+    expect(past({ firstInMinutes: m('09:40') })).toEqual({ status: 'done', lateBy: 40 });
+    expect(past({ firstInMinutes: m('09:05') })).toEqual({ status: 'done', lateBy: 0 });
+    expect(past({ leavePortion: 1 }).status).toBe('on_leave');
+    expect(past({ day: weekend }).status).toBe('off');
+  });
+});
+
+describe('summarizeAttendance', () => {
+  it('adds up days in, late days and minutes, absences, forgotten clock-outs and places', () => {
+    const d = (status: Presence['status'], lateBy = 0, place: AttendanceDay['place'] = null, forgotOut = false): AttendanceDay => ({
+      presence: { status, lateBy },
+      place,
+      forgotOut,
+    });
+    expect(
+      summarizeAttendance([
+        d('done', 0, 'office'),
+        d('done', 40, 'client_site', true),
+        d('done', 20, 'client_site'),
+        d('absent'),
+        d('on_leave'),
+        d('off'),
+      ]),
+    ).toEqual({
+      daysIn: 3,
+      lateDays: 2,
+      lateMinutes: 60,
+      absentDays: 1,
+      forgotOut: 1,
+      places: { office: 1, client_site: 2, remote: 0 },
+    });
   });
 });

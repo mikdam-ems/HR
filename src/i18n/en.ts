@@ -666,6 +666,18 @@ export const en = {
     leave: 'Leave',
     none: 'No one had a client assignment this month.',
     frozenNote: 'Approved months show the totals the manager approved.',
+    tabs: { timesheets: 'Timesheets', attendance: 'Attendance' },
+    attendance: {
+      intro: 'Finished days of the month, counted from the day each person started using the clock. Late means more than {grace} minutes after the shift started; a workday with no clock-in and no leave is absent.',
+      daysIn: 'Days in',
+      late: 'Late',
+      lateDetail: '{days} × · {time}',
+      absent: 'Absent',
+      forgot: 'Forgot to clock out',
+      places: 'Worked from',
+      notOnClock: 'Not using the clock yet',
+      none: 'Nobody to show for this month.',
+    },
   },
   demo: {
     banner: 'Demo site. Anyone with the link can sign in as anyone — don’t enter real hours, leave or personal details yet.',

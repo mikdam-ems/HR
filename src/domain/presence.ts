@@ -50,3 +50,55 @@ export function presence(input: PresenceInput): Presence {
   const late = lateBy(nowMinutes);
   return late ? { status: 'late', lateBy: late } : { status: 'not_in', lateBy: 0 };
 }
+
+/**
+ * A day that is over, for the monthly attendance report. Nobody is "not in yet" any more,
+ * so a workday with no clock-in and no leave is absent.
+ */
+export function pastPresence(input: Omit<PresenceInput, 'clockState' | 'nowMinutes'>): Presence {
+  const p = presence({ ...input, clockState: 'out', nowMinutes: 24 * 60 });
+  return p.status === 'late' || p.status === 'not_in' ? { status: 'absent', lateBy: 0 } : p;
+}
+
+/** Where a day was worked from, as the person said at clock-in. */
+export type WorkPlace = 'office' | 'client_site' | 'remote';
+
+export interface AttendanceDay {
+  presence: Presence;
+  place: WorkPlace | null;
+  /** They left the session open and closed it later (or still haven't). */
+  forgotOut: boolean;
+}
+
+export interface AttendanceTotals {
+  daysIn: number;
+  lateDays: number;
+  /** Total minutes late across the late days. */
+  lateMinutes: number;
+  absentDays: number;
+  forgotOut: number;
+  places: Record<WorkPlace, number>;
+}
+
+/** A month of finished days, added up for the report. */
+export function summarizeAttendance(days: readonly AttendanceDay[]): AttendanceTotals {
+  const totals: AttendanceTotals = {
+    daysIn: 0,
+    lateDays: 0,
+    lateMinutes: 0,
+    absentDays: 0,
+    forgotOut: 0,
+    places: { office: 0, client_site: 0, remote: 0 },
+  };
+  for (const d of days) {
+    if (d.presence.status === 'done') totals.daysIn++;
+    if (d.presence.status === 'absent') totals.absentDays++;
+    if (d.presence.lateBy) {
+      totals.lateDays++;
+      totals.lateMinutes += d.presence.lateBy;
+    }
+    if (d.forgotOut) totals.forgotOut++;
+    if (d.place && d.presence.status === 'done') totals.places[d.place]++;
+  }
+  return totals;
+}

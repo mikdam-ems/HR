@@ -9,6 +9,7 @@ import { can, type CurrentUser } from './permissions';
 import { notify } from './notify';
 import { loadRulesContext } from './rulesContext';
 import { getSettings } from './settings';
+import type { AttendanceMonth } from './attendance';
 import { buildTimesheetWorkbook } from './timesheetWorkbook';
 import { isMonthClosed } from './timesheets';
 import { type Result, fail, ok } from './validation';
@@ -141,6 +142,6 @@ export async function reopenMonth(db: DB, actor: Actor, year: number, month: num
 }
 
 /** The Finance export: a team summary, one sheet per person in the official EMS timesheet style, and flat data. */
-export async function buildMonthWorkbook(report: MonthReport): Promise<Buffer> {
-  return buildTimesheetWorkbook(report);
+export async function buildMonthWorkbook(report: MonthReport, attendance?: AttendanceMonth): Promise<Buffer> {
+  return buildTimesheetWorkbook(report, attendance);
 }
