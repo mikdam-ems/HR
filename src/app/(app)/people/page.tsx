@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Avatar } from '@/components/Avatar';
+import { StatusLine } from '@/components/StatusLine';
 import { EmsLogo } from '@/components/EmsLogo';
 import { DayBadge } from '@/components/DayBadge';
 import { Flash } from '@/components/Flash';
@@ -123,7 +124,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
             <div className="pyramid-wrap">
               <ul className="pyramid" aria-label={t.people.chart}>
                 {buildOrgTree(shown).map((n) => (
-                  <PyramidItem key={n.person.id} node={n} deptName={deptName} locale={locale} root />
+                  <PyramidItem key={n.person.id} node={n} deptName={deptName} locale={locale} presets={t.status.presets} root />
                 ))}
               </ul>
             </div>
@@ -167,6 +168,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                           <span className="stack" style={{ gap: 0 }}>
                             {localName(locale, p.nameEn, p.nameAr)}
                             <span className="muted small">{p.email}</span>
+                            <StatusLine status={currentStatus(p)} presets={t.status.presets} />
                           </span>
                         </Link>
                       </td>
@@ -228,6 +230,7 @@ function OrgItem({
           <span className="muted small">
             {[p.jobTitle, p.departmentId && deptName.get(p.departmentId), clientNames(d, ctxClients, locale)].filter(Boolean).join(' · ') || t.people.none}
           </span>
+          <StatusLine status={currentStatus(p)} presets={t.status.presets} />
         </span>
       </Link>
       {node.reports.length ? (
@@ -249,11 +252,13 @@ function PyramidItem({
   node,
   deptName,
   locale,
+  presets,
   root = false,
 }: {
   node: OrgNode<Employee>;
   deptName: Map<string, string>;
   locale: Locale;
+  presets: Record<string, string>;
   root?: boolean;
 }) {
   const p = node.person;
@@ -266,6 +271,7 @@ function PyramidItem({
         <Avatar person={p} size="lg" status={status} />
         <strong>{localName(locale, p.nameEn, p.nameAr)}</strong>
         <span className="muted small">{p.jobTitle}</span>
+        <StatusLine status={status} presets={presets} />
         {p.departmentId && deptName.get(p.departmentId) ? <span className="pill pill-muted">{deptName.get(p.departmentId)}</span> : null}
         {node.reports.length ? <span className="pyr-count">{node.reports.length}</span> : null}
       </Link>
@@ -279,11 +285,12 @@ function PyramidItem({
                   <span className="stack" style={{ gap: 0, minWidth: 0 }}>
                     <strong>{localName(locale, c.person.nameEn, c.person.nameAr)}</strong>
                     <span className="muted small">{c.person.jobTitle}</span>
+                    <StatusLine status={currentStatus(c.person)} presets={presets} />
                   </span>
                 </Link>
               </li>
             ) : (
-              <PyramidItem key={c.person.id} node={c} deptName={deptName} locale={locale} />
+              <PyramidItem key={c.person.id} node={c} deptName={deptName} locale={locale} presets={presets} />
             ),
           )}
         </ul>

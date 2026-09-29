@@ -9,6 +9,7 @@ import {
   setScheduleAction,
 } from '@/app/(app)/people/actions';
 import { Avatar } from '@/components/Avatar';
+import { statusLabel } from '@/components/StatusLine';
 import { DayBadge } from '@/components/DayBadge';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
@@ -104,9 +105,7 @@ export default async function ProfilePage({
             {currentStatus(person) ? (
               <span className="status-chip">
                 <span aria-hidden="true">{currentStatus(person)!.emoji}</span>{' '}
-                {currentStatus(person)!.text ??
-                  t.status.presets[currentStatus(person)!.emoji as keyof typeof t.status.presets] ??
-                  ''}
+                {statusLabel(currentStatus(person)!, t.status.presets)}
               </span>
             ) : null}
             {person.bio ? (

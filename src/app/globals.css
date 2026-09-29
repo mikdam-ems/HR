@@ -1432,8 +1432,9 @@ body::before {
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow), inset 0 0 0 1px var(--glass-edge);
 }
-.me-menu.card:not(.card-dark) {
-  background: var(--glass-strong);
+.me .me-menu.card:not(.card-dark) {
+  /* Solid, so the page never shows through behind the menu's switches */
+  background: var(--surface);
 }
 .card-dark {
   background: linear-gradient(145deg, #2b4404 0%, var(--hero) 70%);
@@ -1544,6 +1545,19 @@ body::before {
 .profile-hero .status-chip {
   align-self: center;
 }
+/* Status in words beside a person; long ones end in "…" so rows and cards keep their shape. */
+.status-line {
+  display: block;
+  max-width: 34ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+  font-weight: 400;
+}
+.pyr-card .status-line {
+  max-width: 100%;
+}
 .photo-input {
   display: flex;
   align-items: center;
@@ -1602,6 +1616,9 @@ html[dir='rtl'] .status-fab {
 }
 .status-fab.has-status .status-fab-emoji {
   background: var(--brand-200);
+}
+.status-fab:not(.has-status) .status-fab-emoji {
+  color: var(--muted);
 }
 .status-fab-text {
   overflow: hidden;
@@ -1736,13 +1753,6 @@ html[dir='rtl'] .status-fab {
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow), inset 0 0 0 1px var(--glass-edge);
-}
-.topbar-end .segmented {
-  background: transparent;
-  padding: 0;
-}
-.topbar-end .segmented button {
-  min-height: 38px;
 }
 .me summary {
   display: block;
@@ -2123,13 +2133,6 @@ a.brand {
   backdrop-filter: none;
   box-shadow: none;
 }
-.topbar-end .segmented {
-  padding: 5px;
-  background: var(--glass);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow), inset 0 0 0 1px var(--glass-edge);
-}
 .me summary .avatar {
   width: 44px;
   height: 44px;
@@ -2491,16 +2494,23 @@ a.clock-pill {
   margin-top: 8px;
 }
 
-/* ---------- Brand preview switch (shown only while BRAND_PREVIEW is on) ---------- */
-.brand-switch {
+/* ---------- Preference switches: language, brand preview (account menu, My profile, sign-in) ---------- */
+.pref-switch {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
 }
-.signin .brand-switch {
+.signin .pref-switch {
   align-self: center;
   align-items: center;
+}
+.me-menu .prefs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-block: 12px;
+  border-block: 1px solid var(--hairline);
 }
 
 /* ---------- Kadr brand (html[data-brand='kadr']) ----------
@@ -2570,9 +2580,6 @@ html[data-brand='kadr'] body::before {
 }
 html[data-brand='kadr'] .topbar {
   background: rgba(243, 245, 249, 0.8);
-}
-html[data-brand='kadr'] .me-menu.card {
-  background: #ffffff;
 }
 html[data-brand='kadr'] tbody tr:hover td {
   background: var(--brand-50);

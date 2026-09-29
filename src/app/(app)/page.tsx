@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Avatar } from '@/components/Avatar';
+import { StatusLine } from '@/components/StatusLine';
 import { ClockCard } from '@/components/Clock';
 import { DayBadge } from '@/components/DayBadge';
 import { Flash } from '@/components/Flash';
@@ -202,7 +203,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             {profile?.manager ? (
               <Link className="person" href={`/people/${profile.manager.id}`}>
                 <Avatar person={profile.manager} size="sm" status={currentStatus(profile.manager)} />
-                {localName(locale, profile.manager.nameEn, profile.manager.nameAr)}
+                <span className="stack" style={{ gap: 0 }}>
+                  {localName(locale, profile.manager.nameEn, profile.manager.nameAr)}
+                  <StatusLine status={currentStatus(profile.manager)} presets={t.status.presets} />
+                </span>
               </Link>
             ) : (
               <span className="muted">{t.home.noManager}</span>
@@ -220,9 +224,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     <Avatar person={r} size="sm" status={currentStatus(r)} />
                     <span className="stack" style={{ gap: 0 }}>
                       {localName(locale, r.nameEn, r.nameAr)}
-                      <span className="muted small">
-                        {currentStatus(r) ? `${currentStatus(r)!.emoji} ${currentStatus(r)!.text ?? r.jobTitle ?? ''}` : r.jobTitle}
-                      </span>
+                      <span className="muted small">{r.jobTitle}</span>
+                      <StatusLine status={currentStatus(r)} presets={t.status.presets} />
                     </span>
                   </Link>
                   <span className="row" style={{ gap: 6 }}>

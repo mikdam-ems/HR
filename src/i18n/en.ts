@@ -428,6 +428,7 @@ export const en = {
     about: 'About',
     noBio: 'No bio yet.',
     edit: 'Edit my profile',
+    preferences: 'Preferences',
   },
   status: {
     open: 'Set your status for today',

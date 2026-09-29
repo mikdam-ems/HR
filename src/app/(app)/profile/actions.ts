@@ -25,9 +25,11 @@ export async function saveProfileAction(fd: FormData) {
 /** The floating status bubble: set today's status, or clear it. Returns to the page it was used on. */
 export async function setStatusAction(fd: FormData) {
   const user = await requireUser();
-  const emoji = str(fd, 'emoji');
+  const text = str(fd, 'text');
+  // Words without a mood still count as a status; they get a speech bubble.
+  const emoji = str(fd, 'emoji') ?? (text ? '💬' : null);
   const clear = str(fd, 'clear') || !emoji;
-  await setStatus(await getDb(), user.id, clear ? null : { emoji: emoji!, text: str(fd, 'text') });
+  await setStatus(await getDb(), user.id, clear ? null : { emoji: emoji!, text });
   revalidatePath('/', 'layout');
   redirect(safePath(str(fd, 'back')));
 }

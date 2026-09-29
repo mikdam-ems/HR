@@ -20,7 +20,7 @@ export function Avatar({
 }) {
   const version = person.photoVersion ?? person.photoUpdatedAt?.getTime() ?? null;
   return (
-    <span className={`avatar avatar-${size}`} aria-hidden="true">
+    <span className={`avatar avatar-${size}`} aria-hidden="true" title={status?.text ?? undefined}>
       {version ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={`/api/photo/${person.id}?v=${version}`} alt="" loading="lazy" />
@@ -28,9 +28,7 @@ export function Avatar({
         initials(person.nameEn)
       )}
       {status ? (
-        <span className="avatar-status" title={status.text ?? undefined}>
-          {status.emoji}
-        </span>
+        <span className="avatar-status">{status.emoji}</span>
       ) : null}
     </span>
   );

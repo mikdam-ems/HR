@@ -1,8 +1,12 @@
 import { notFound } from 'next/navigation';
 import { saveProfileAction } from '@/app/(app)/profile/actions';
 import { Avatar } from '@/components/Avatar';
+import { BrandSwitch } from '@/components/BrandSwitch';
+import { LanguageSwitch } from '@/components/LanguageSwitch';
+import { statusLabel } from '@/components/StatusLine';
 import { Flash } from '@/components/Flash';
 import { PhotoInput } from '@/components/PhotoInput';
+import { brandPreview, getBrand } from '@/brand';
 import { getDb } from '@/db';
 import { getDict, localName } from '@/i18n';
 import { initials } from '@/lib/format';
@@ -12,7 +16,7 @@ import { requireUser } from '@/server/session';
 
 export default async function MyProfilePage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const user = await requireUser();
-  const { t, locale } = await getDict();
+  const [{ t, locale }, brand] = await Promise.all([getDict(), getBrand()]);
   const me = await getEmployeeProfile(await getDb(), user.id);
   if (!me) notFound();
   const status = currentStatus(me);
@@ -37,7 +41,7 @@ export default async function MyProfilePage({ searchParams }: { searchParams: Pr
           </div>
           {status ? (
             <span className="status-chip">
-              <span aria-hidden="true">{status.emoji}</span> {status.text ?? t.status.presets[status.emoji as keyof typeof t.status.presets] ?? ''}
+              <span aria-hidden="true">{status.emoji}</span> {statusLabel(status, t.status.presets)}
             </span>
           ) : null}
           <p className="profile-bio">{me.bio ?? <span className="muted">{t.me.noBio}</span>}</p>
@@ -62,24 +66,34 @@ export default async function MyProfilePage({ searchParams }: { searchParams: Pr
           <span className="muted small">{t.me.keptByHr}</span>
         </section>
 
-        <form action={saveProfileAction} className="card span-8">
-          <h2>{t.me.edit}</h2>
-          <div className="field">
-            <span className="label">{t.me.photo}</span>
-            <PhotoInput
-              current={photo}
-              initials={initials(me.nameEn)}
-              labels={{ change: t.me.changePhoto, remove: t.me.removePhoto, hint: t.me.photoHint, error: t.me.photoTooBig }}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="bio">{t.me.bio}</label>
-            <textarea id="bio" name="bio" rows={4} maxLength={500} defaultValue={me.bio ?? ''} placeholder={t.me.bioPlaceholder} />
-          </div>
-          <div>
-            <button className="btn btn-primary">{t.me.save}</button>
-          </div>
-        </form>
+        <div className="span-8 stack" style={{ gap: 20 }}>
+          <form action={saveProfileAction} className="card">
+            <h2>{t.me.edit}</h2>
+            <div className="field">
+              <span className="label">{t.me.photo}</span>
+              <PhotoInput
+                current={photo}
+                initials={initials(me.nameEn)}
+                labels={{ change: t.me.changePhoto, remove: t.me.removePhoto, hint: t.me.photoHint, error: t.me.photoTooBig }}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="bio">{t.me.bio}</label>
+              <textarea id="bio" name="bio" rows={4} maxLength={500} defaultValue={me.bio ?? ''} placeholder={t.me.bioPlaceholder} />
+            </div>
+            <div>
+              <button className="btn btn-primary">{t.me.save}</button>
+            </div>
+          </form>
+
+          <section className="card">
+            <h2>{t.me.preferences}</h2>
+            <div className="row" style={{ gap: 32, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <LanguageSwitch locale={locale} label={t.nav.language} />
+              {brandPreview ? <BrandSwitch brand={brand} labels={t.brand} /> : null}
+            </div>
+          </section>
+        </div>
       </div>
     </>
   );

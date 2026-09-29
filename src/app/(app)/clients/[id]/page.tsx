@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { retireShiftAction, saveShiftAction, updateClientAction } from '@/app/(app)/clients/actions';
 import { Avatar } from '@/components/Avatar';
+import { StatusLine } from '@/components/StatusLine';
 import { Flash } from '@/components/Flash';
 import { getDb } from '@/db';
 import { fmt, getDict, localName } from '@/i18n';
@@ -312,6 +313,7 @@ function People({
                 <span className="muted small">
                   {[e.jobTitle, e.department ? localName(locale, e.department.nameEn, e.department.nameAr) : null].filter(Boolean).join(' · ')}
                 </span>
+                <StatusLine status={status} presets={t.status.presets} />
                 {!compact ? <span className="small">{note(a)}</span> : null}
               </span>
               {!compact && !a.primary ? <span className="pill pill-muted member-meta">{t.client.secondary}</span> : null}

@@ -1,9 +1,11 @@
-import { setLocaleAction, signOutAction } from '@/app/actions';
+import { signOutAction } from '@/app/actions';
 import Link from 'next/link';
 import { Avatar } from '@/components/Avatar';
 import { BrandLogo } from '@/components/BrandLogo';
 import { BrandSwitch } from '@/components/BrandSwitch';
-import { BackField, NavLinks } from '@/components/NavLinks';
+import { LanguageSwitch } from '@/components/LanguageSwitch';
+import { StatusLine } from '@/components/StatusLine';
+import { NavLinks } from '@/components/NavLinks';
 import { StatusBubble } from '@/components/StatusBubble';
 import { TopClock } from '@/components/Clock';
 import { toClockData } from '@/lib/clockData';
@@ -54,15 +56,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </nav>
           <div className="topbar-end">
             <TopClock data={clockData} labels={t.clock} />
-            <form action={setLocaleAction} className="segmented" aria-label={t.nav.language}>
-              <BackField />
-              <button name="locale" value="en" aria-pressed={locale === 'en'} lang="en">
-                EN
-              </button>
-              <button name="locale" value="ar" aria-pressed={locale === 'ar'} lang="ar">
-                عربي
-              </button>
-            </form>
             <details className="me">
               <summary aria-label={name}>
                 <Avatar person={user} status={user.status} />
@@ -70,7 +63,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <div className="me-menu card">
                 <strong>{name}</strong>
                 <span className="muted small">{user.email}</span>
-                {brandPreview ? <BrandSwitch brand={brand} labels={t.brand} /> : null}
+                <StatusLine status={user.status ?? null} presets={t.status.presets} />
+                <div className="prefs">
+                  <LanguageSwitch locale={locale} label={t.nav.language} />
+                  {brandPreview ? <BrandSwitch brand={brand} labels={t.brand} /> : null}
+                </div>
                 <Link className="btn btn-small" href="/profile">
                   {t.nav.profile}
                 </Link>

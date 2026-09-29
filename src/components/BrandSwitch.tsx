@@ -9,7 +9,7 @@ import type { Dict } from '@/i18n/en';
  */
 export function BrandSwitch({ brand, labels, back }: { brand: Brand; labels: Dict['brand']; back?: string }) {
   return (
-    <form action={setBrandAction} className="brand-switch">
+    <form action={setBrandAction} className="pref-switch">
       {back ? <input type="hidden" name="back" value={back} /> : <BackField />}
       <span className="muted small">{labels.preview}</span>
       <div className="segmented" role="group" aria-label={labels.preview}>

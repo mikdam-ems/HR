@@ -432,6 +432,7 @@ export const ar: DeepString<Dict> = {
     about: 'نبذة',
     noBio: 'لا توجد نبذة بعد.',
     edit: 'تعديل ملفي',
+    preferences: 'التفضيلات',
   },
   status: {
     open: 'حدّد حالتك لليوم',
