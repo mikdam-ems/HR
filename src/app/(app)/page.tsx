@@ -131,7 +131,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             <span className="chip">
               <span className="chip-label">{t.home.hours}</span>
               {day.schedule ? (
-                <bdi dir="ltr">{`${day.schedule.start}–${day.schedule.end}`}</bdi>
+                <>
+                  <bdi dir="ltr">{`${day.schedule.start}–${day.schedule.end}`}</bdi>
+                  {day.seasonName ? ` · ${day.seasonName}` : ''}
+                </>
               ) : (
                 t.home.noSchedule
               )}

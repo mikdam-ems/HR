@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolveDay } from '../dayRules';
-import { ctx } from './fixtures';
+import { computeDayTotals } from '../timesheet';
+import { ctx, rates } from './fixtures';
 
 const type = (employeeId: string, date: string) => resolveDay(ctx, employeeId, date).dayType;
 
@@ -75,5 +76,44 @@ describe('schedules', () => {
     const day = resolveDay(ctx, 'omar', '2026-11-01');
     expect(day.schedule?.shiftCode).toBe('C');
     expect(day.expectedMinutes).toBe(480); // 22:00–06:00
+  });
+});
+
+describe('seasonal hours (Ramadan)', () => {
+  // Ramadan 2027 at Jadwa: 09:00–15:00 from Sunday 7 February to Monday 8 March.
+  const ramadan = { clientId: 'jadwa', name: 'Ramadan 2027', from: '2027-02-07', to: '2027-03-08', start: '09:00', end: '15:00' };
+  const withSeason = (extra: Partial<typeof ramadan> & { clientShiftId?: string } = {}) => ({
+    ...ctx,
+    seasonalHours: [{ ...ramadan, ...extra }],
+  });
+
+  it('replaces the usual hours on those dates only', () => {
+    const day = resolveDay(withSeason(), 'omar', '2027-02-08');
+    expect(day).toMatchObject({ dayType: 'working', expectedMinutes: 6 * 60, seasonName: 'Ramadan 2027' });
+    expect(day.schedule).toMatchObject({ start: '09:00', end: '15:00' });
+    expect(resolveDay(withSeason(), 'omar', '2027-03-08').expectedMinutes).toBe(6 * 60);
+    expect(resolveDay(withSeason(), 'omar', '2027-03-09')).toMatchObject({ expectedMinutes: 8 * 60 });
+    expect(resolveDay(withSeason(), 'omar', '2027-03-09').seasonName).toBeUndefined();
+  });
+
+  it('leaves weekends as weekends', () => {
+    expect(resolveDay(withSeason(), 'omar', '2027-02-12')).toMatchObject({ dayType: 'weekend', expectedMinutes: 0 });
+  });
+
+  it('follows the primary client only', () => {
+    // Sami is on Client B until 30 June 2026: Jadwa's seasonal hours in May don't apply to him.
+    const may = withSeason({ from: '2026-05-01', to: '2026-05-31' });
+    expect(resolveDay(may, 'sami', '2026-05-04').seasonName).toBeUndefined();
+    expect(resolveDay(may, 'omar', '2026-05-04').seasonName).toBe('Ramadan 2027');
+  });
+
+  it('can be limited to one of the client’s shifts', () => {
+    expect(resolveDay(withSeason({ clientShiftId: 'night' }), 'omar', '2027-02-08')).toMatchObject({ expectedMinutes: 8 * 60 });
+  });
+
+  it('makes overtime start after the shorter day', () => {
+    const day = resolveDay(withSeason(), 'omar', '2027-02-08');
+    const totals = computeDayTotals(day, { date: day.date, workedMinutes: 8 * 60 }, rates);
+    expect(totals.regularOvertimeMinutes).toBe(2 * 60);
   });
 });

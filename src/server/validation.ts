@@ -24,6 +24,8 @@ export type ErrorCode =
   | 'pending_changes'
   | 'clock_invalid'
   | 'unknown_shift'
+  | 'month_closed'
+  | 'season_overlap'
   | 'forbidden';
 
 export type Result<T = void> = { ok: true; value: T } | { ok: false; error: ErrorCode; detail?: string };

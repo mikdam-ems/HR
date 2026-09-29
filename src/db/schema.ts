@@ -153,6 +153,30 @@ export const clientShifts = pgTable(
   (t) => [index('client_shifts_client_idx').on(t.clientId)],
 );
 
+/** Different hours at a client for a date range, e.g. "Ramadan 2027: 09:00–15:00". See domain SeasonalHours. */
+export const seasonalHours = pgTable(
+  'seasonal_hours',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    fromDate: date('from_date', { mode: 'string' }).notNull(),
+    /** Inclusive. */
+    toDate: date('to_date', { mode: 'string' }).notNull(),
+    /** HH:MM */
+    startTime: text('start_time').notNull(),
+    /** HH:MM; at or before startTime means the shift runs past midnight. */
+    endTime: text('end_time').notNull(),
+    breakMinutes: integer('break_minutes').notNull().default(0),
+    /** Only people on this client shift; null means everyone at the client. */
+    clientShiftId: uuid('client_shift_id').references(() => clientShifts.id, { onDelete: 'cascade' }),
+    ...timestamps,
+  },
+  (t) => [index('seasonal_hours_client_idx').on(t.clientId)],
+);
+
 export const schedules = pgTable(
   'schedules',
   {
@@ -500,3 +524,4 @@ export type ClientRow = typeof clients.$inferSelect;
 export type AssignmentRow = typeof assignments.$inferSelect;
 export type ScheduleRow = typeof schedules.$inferSelect;
 export type ClientShiftRow = typeof clientShifts.$inferSelect;
+export type SeasonalHoursRow = typeof seasonalHours.$inferSelect;

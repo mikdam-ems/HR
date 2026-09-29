@@ -51,6 +51,23 @@ export interface Schedule {
 }
 
 /**
+ * Different hours at a client for a date range, e.g. "Ramadan 2027: 09:00–15:00". On those days they replace the
+ * usual hours of everyone whose primary client it is (or only those on one of its shifts).
+ */
+export interface SeasonalHours {
+  clientId: string;
+  name: string;
+  from: ISODate;
+  /** Inclusive. */
+  to: ISODate;
+  start: string;
+  end: string;
+  breakMinutes?: number;
+  /** Only people on this client shift; unset means everyone at the client. */
+  clientShiftId?: string;
+}
+
+/**
  * How the system classifies a day for one person. Rules are applied in this order:
  * 1. client_holiday   – any assigned client has a public holiday (day off, no leave used)
  * 2. weekend          – not a working day in the primary client's work week
@@ -72,6 +89,8 @@ export interface ResolvedDay {
   /** Minutes the person is expected to work. 0 on days off. */
   expectedMinutes: number;
   schedule: Schedule | null;
+  /** Name of the seasonal hours that replaced the usual ones on this day, e.g. "Ramadan 2027". */
+  seasonName?: string;
 }
 
 /** Everything the rules need to know. Loaded from the database in the app; built by hand in tests. */
@@ -82,6 +101,8 @@ export interface RulesContext {
   homeCalendar: WorkCalendar;
   assignments: readonly Assignment[];
   schedules: readonly Schedule[];
+  /** Ramadan and other seasonal hours per client. */
+  seasonalHours?: readonly SeasonalHours[];
 }
 
 export type LeaveType =

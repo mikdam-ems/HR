@@ -1,6 +1,6 @@
 import { cache } from 'react';
 import type { DB } from '@/db';
-import { assignments, calendars, clients, holidays, schedules } from '@/db/schema';
+import { assignments, calendars, clients, holidays, schedules, seasonalHours } from '@/db/schema';
 import type { RulesContext, Weekday, WorkCalendar } from '@/domain';
 import { getSettings } from './settings';
 
@@ -11,12 +11,13 @@ const EMPTY_HOME: WorkCalendar = { id: 'none', name: 'No home calendar set', wor
  * a handful of clients) loading it all is cheaper and simpler than filtering.
  */
 async function loadRulesContextUncached(db: DB): Promise<RulesContext> {
-  const [calRows, holidayRows, clientRows, assignmentRows, scheduleRows, appSettings] = await Promise.all([
+  const [calRows, holidayRows, clientRows, assignmentRows, scheduleRows, seasonRows, appSettings] = await Promise.all([
     db.select().from(calendars),
     db.select().from(holidays),
     db.select().from(clients),
     db.select().from(assignments),
     db.select().from(schedules),
+    db.select().from(seasonalHours),
     getSettings(db),
   ]);
 
@@ -48,6 +49,16 @@ async function loadRulesContextUncached(db: DB): Promise<RulesContext> {
       end: s.endTime,
       breakMinutes: s.breakMinutes,
       shiftCode: s.shiftCode ?? undefined,
+      clientShiftId: s.clientShiftId ?? undefined,
+    })),
+    seasonalHours: seasonRows.map((s) => ({
+      clientId: s.clientId,
+      name: s.name,
+      from: s.fromDate,
+      to: s.toDate,
+      start: s.startTime,
+      end: s.endTime,
+      breakMinutes: s.breakMinutes,
       clientShiftId: s.clientShiftId ?? undefined,
     })),
   };

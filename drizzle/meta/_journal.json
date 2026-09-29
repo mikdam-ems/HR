@@ -99,6 +99,13 @@
       "when": 1790683735688,
       "tag": "0013_clock_location",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790687731488,
+      "tag": "0014_seasonal_hours",
+      "breakpoints": true
     }
   ]
 }

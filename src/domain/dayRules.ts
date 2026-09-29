@@ -1,5 +1,5 @@
 import { isWithin, weekdayOf, windowMinutes } from './dates';
-import type { Assignment, Holiday, ISODate, ResolvedDay, RulesContext, Schedule, WorkCalendar } from './types';
+import type { Assignment, Holiday, ISODate, ResolvedDay, RulesContext, Schedule, SeasonalHours, WorkCalendar } from './types';
 
 export function activeAssignments(ctx: RulesContext, employeeId: string, date: ISODate): Assignment[] {
   return ctx.assignments
@@ -20,6 +20,16 @@ export function scheduleOn(ctx: RulesContext, employeeId: string, date: ISODate)
     if (!found || s.effectiveFrom > found.effectiveFrom) found = s;
   }
   return found;
+}
+
+/** Seasonal hours at the person's primary client on this date that apply to their usual schedule, if any. */
+export function seasonOn(ctx: RulesContext, clientId: string, usual: Schedule | null, date: ISODate): SeasonalHours | null {
+  if (!usual) return null;
+  return (
+    ctx.seasonalHours?.find(
+      (s) => s.clientId === clientId && isWithin(date, s.from, s.to) && (!s.clientShiftId || s.clientShiftId === usual.clientShiftId),
+    ) ?? null
+  );
 }
 
 export function scheduledMinutes(schedule: Schedule | null): number {
@@ -43,13 +53,18 @@ function holidayOn(calendar: WorkCalendar, date: ISODate): Holiday | undefined {
 export function resolveDay(ctx: RulesContext, employeeId: string, date: ISODate): ResolvedDay {
   const active = activeAssignments(ctx, employeeId, date);
   const primary = primaryAssignment(active);
-  const schedule = scheduleOn(ctx, employeeId, date);
+  const usual = scheduleOn(ctx, employeeId, date);
+  // Ramadan (or other seasonal) hours at the primary client replace the usual hours for those days.
+  const season = primary ? seasonOn(ctx, primary.clientId, usual, date) : null;
+  const schedule: Schedule | null =
+    season && usual ? { ...usual, start: season.start, end: season.end, breakMinutes: season.breakMinutes ?? 0 } : usual;
   const base = {
     date,
     employeeId,
     clientIds: active.map((a) => a.clientId),
     primaryClientId: primary?.clientId ?? null,
     schedule,
+    ...(season ? { seasonName: season.name } : {}),
   };
 
   if (!primary) return { ...base, dayType: 'unassigned', expectedMinutes: 0 };
