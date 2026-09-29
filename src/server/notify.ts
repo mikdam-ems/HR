@@ -1,7 +1,8 @@
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
 import webpush from 'web-push';
 import type { DB } from '@/db';
-import { employees, notifications, pushSubscriptions, type Employee } from '@/db/schema';
+import { approvalDelegations, employees, notifications, pushSubscriptions, type Employee } from '@/db/schema';
+import { todayISO } from '@/lib/format';
 import { en } from '@/i18n/en';
 import { notificationText, type NotificationKind } from '@/lib/notificationText';
 
@@ -26,9 +27,25 @@ export async function notify(
   runAfterResponse(() => deliver(db, rows.map((r) => r.employeeId), kind, data, link));
 }
 
-/** Who decides this person's requests: their manager, or the admins when they have none (never themselves). */
+/**
+ * Who decides this person's requests: their manager (and whoever stands in for them today), or the admins when they
+ * have none. Never the person themselves.
+ */
 export async function approversOf(db: DB, employee: Pick<Employee, 'id' | 'managerId'>): Promise<string[]> {
-  if (employee.managerId) return [employee.managerId];
+  if (employee.managerId) {
+    const today = todayISO();
+    const deputies = await db
+      .select({ id: approvalDelegations.deputyId })
+      .from(approvalDelegations)
+      .where(
+        and(
+          eq(approvalDelegations.managerId, employee.managerId),
+          lte(approvalDelegations.fromDate, today),
+          gte(approvalDelegations.toDate, today),
+        ),
+      );
+    return [employee.managerId, ...deputies.map((d) => d.id).filter((id) => id !== employee.id)];
+  }
   const admins = await db.select().from(employees).where(eq(employees.active, true));
   return admins.filter((a) => a.roles.includes('admin') && a.id !== employee.id).map((a) => a.id);
 }

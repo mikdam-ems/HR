@@ -20,6 +20,8 @@ import { type LeaveType, type ResolvedDay, annualEntitlementDays, eachDay, isWor
 import { todayISO } from '@/lib/format';
 import { audit } from './audit';
 import { approversOf, notify } from './notify';
+import { behalfOf } from './delegation';
+import { decidesFor } from './permissions';
 import { loadRulesContext } from './rulesContext';
 import type { Actor } from './timesheets';
 import { type Result, fail, isoDate, ok, parse } from './validation';
@@ -266,10 +268,7 @@ export async function getAttachment(
   return ok({ fileName: file.fileName, contentType: file.contentType, bytes: new Uint8Array(Buffer.from(file.data, 'base64')) });
 }
 
-function canDecide(actor: Actor, employee: Pick<Employee, 'id' | 'managerId'>) {
-  if (actor.id === employee.id) return false;
-  return employee.managerId === actor.id || (!employee.managerId && actor.roles.includes('admin'));
-}
+const canDecide = decidesFor;
 
 /** Months that are submitted, approved or closed can't take new leave; the manager must return them first. */
 async function lockedMonths(db: DB, employeeId: string, dates: string[]): Promise<boolean> {
@@ -295,6 +294,8 @@ export async function decideRequest(
   const [employee] = await db.select().from(employees).where(eq(employees.id, req.employeeId));
   if (!employee || !canDecide(actor, employee)) return fail('forbidden');
   if (req.status !== 'pending') return fail('already_decided');
+  const behalf = await behalfOf(db, actor, employee);
+  const stamp = behalf ? { onBehalfOf: behalf.managerId } : {};
 
   if (outcome === 'decline') {
     const [after] = await db
@@ -302,8 +303,8 @@ export async function decideRequest(
       .set({ status: 'declined', decidedById: actor.id, decidedAt: new Date(), managerNote: note })
       .where(eq(leaveRequests.id, requestId))
       .returning();
-    await audit(db, { actorId: actor.id, action: 'decline', entity: 'leave_request', entityId: requestId, before: req, after });
-    await tellDecision(db, req, 'declined', note);
+    await audit(db, { actorId: actor.id, action: 'decline', entity: 'leave_request', entityId: requestId, before: req, after: { ...after, ...stamp } });
+    await tellDecision(db, req, 'declined', note, behalf?.data);
     return ok(undefined);
   }
 
@@ -336,14 +337,20 @@ export async function decideRequest(
       .set({ status: 'approved', decidedById: actor.id, decidedAt: new Date(), managerNote: note })
       .where(eq(leaveRequests.id, requestId))
       .returning();
-    await audit(tx, { actorId: actor.id, action: 'approve', entity: 'leave_request', entityId: requestId, before: req, after });
+    await audit(tx, { actorId: actor.id, action: 'approve', entity: 'leave_request', entityId: requestId, before: req, after: { ...after, ...stamp } });
   });
-  await tellDecision(db, req, 'approved', note);
+  await tellDecision(db, req, 'approved', note, behalf?.data);
   return ok(undefined);
 }
 
-async function tellDecision(db: DB, req: LeaveRequestRow, outcome: 'approved' | 'declined', note: string | null) {
-  await notify(db, [req.employeeId], 'leave_decided', { outcome, type: req.type, from: req.fromDate, to: req.toDate, note }, '/time-off');
+async function tellDecision(
+  db: DB,
+  req: LeaveRequestRow,
+  outcome: 'approved' | 'declined',
+  note: string | null,
+  behalf: Record<string, string | null> = {},
+) {
+  await notify(db, [req.employeeId], 'leave_decided', { outcome, type: req.type, from: req.fromDate, to: req.toDate, note, ...behalf }, '/time-off');
   await tellLeads(db, req, 'leave_fyi_decided', outcome);
 }
 

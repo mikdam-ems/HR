@@ -30,7 +30,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const db = await getDb();
   const today = todayISO();
   const [year, month] = [Number(today.slice(0, 4)), Number(today.slice(5, 7))];
-  const approver = user.isManager || user.roles.includes('admin');
+  const approver = user.isManager || user.roles.includes('admin') || !!user.standingInFor?.length;
   const overview = can(user, 'people.manage') || can(user, 'reports.view');
 
   const [ctx, profile, appSettings, monthView, pendingSheets, pendingLeave, balances, depts, people, untold, parties] = await Promise.all([

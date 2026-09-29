@@ -5,6 +5,7 @@ import { auth } from '@/auth';
 import { getDb } from '@/db';
 import { employees } from '@/db/schema';
 import { can, type CurrentUser, type Permission } from './permissions';
+import { standingInFor } from './delegation';
 import { currentStatus } from './profile';
 
 /**
@@ -19,11 +20,14 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const db = await getDb();
   const [me] = await db.select().from(employees).where(eq(employees.email, email));
   if (!me?.active) return null;
-  const reports = await db
-    .select({ id: employees.id })
-    .from(employees)
-    .where(and(eq(employees.managerId, me.id), eq(employees.active, true)))
-    .limit(1);
+  const [reports, standIn] = await Promise.all([
+    db
+      .select({ id: employees.id })
+      .from(employees)
+      .where(and(eq(employees.managerId, me.id), eq(employees.active, true)))
+      .limit(1),
+    standingInFor(db, me.id),
+  ]);
 
   return {
     id: me.id,
@@ -34,6 +38,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     isManager: reports.length > 0,
     photoVersion: me.photoUpdatedAt?.getTime() ?? null,
     status: currentStatus(me),
+    standingInFor: standIn,
   };
 });
 

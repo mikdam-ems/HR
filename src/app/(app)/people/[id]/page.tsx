@@ -29,6 +29,8 @@ import { accessFor } from '@/server/timesheets';
 import { getBalances, listAdjustments } from '@/server/leave';
 import { addAdjustmentAction } from '@/app/(app)/time-off/actions';
 import { Balances } from '@/components/Balances';
+import { DelegationCard } from '@/components/DelegationCard';
+import { listDelegations } from '@/server/delegation';
 
 export default async function ProfilePage({
   params,
@@ -45,11 +47,14 @@ export default async function ProfilePage({
   if (!person) notFound();
 
   const manage = can(user, 'people.manage');
-  const [ctx, clientRows, shiftRows, everyone] = await Promise.all([
+  // People & Culture can hand a manager's approvals to a stand-in (e.g. when the manager is away without access).
+  const leadsTeam = person.reports.some((r) => r.active);
+  const [ctx, clientRows, shiftRows, everyone, delegations] = await Promise.all([
     loadRulesContext(db),
     manage ? listClients(db) : Promise.resolve([]),
     manage ? allShifts(db) : Promise.resolve([]),
     listEmployees(db, { includeInactive: true }),
+    manage && leadsTeam ? listDelegations(db, person.id) : Promise.resolve([]),
   ]);
   const byId = new Map(everyone.map((e) => [e.id, e]));
   // Anyone else still working here can lead delivery on this person's project.
@@ -360,6 +365,18 @@ export default async function ProfilePage({
           </Reveal>
         ) : null}
       </section>
+
+      {manage && leadsTeam ? (
+        <DelegationCard
+          manager={person}
+          delegations={delegations}
+          people={everyone}
+          own={person.id === user.id}
+          back={`/people/${person.id}`}
+          t={t}
+          locale={locale}
+        />
+      ) : null}
 
       <section className="stack">
         <h2>{t.profile.schedules}</h2>

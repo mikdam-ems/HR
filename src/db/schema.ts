@@ -406,6 +406,29 @@ export const pushSubscriptions = pgTable(
   (t) => [uniqueIndex('push_subscriptions_endpoint_idx').on(t.endpoint)],
 );
 
+/**
+ * A manager away (on leave, travelling) hands their approvals to a colleague for some dates. During them the stand-in
+ * sees and decides the manager's team's requests; every decision records whom it was made for.
+ */
+export const approvalDelegations = pgTable(
+  'approval_delegations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    managerId: uuid('manager_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    deputyId: uuid('deputy_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    fromDate: date('from_date', { mode: 'string' }).notNull(),
+    /** Inclusive. */
+    toDate: date('to_date', { mode: 'string' }).notNull(),
+    createdById: uuid('created_by_id').references(() => employees.id, { onDelete: 'set null' }),
+    ...timestamps,
+  },
+  (t) => [index('approval_delegations_manager_idx').on(t.managerId), index('approval_delegations_deputy_idx').on(t.deputyId)],
+);
+
 /** HR corrections to a balance: carry-over from last year, opening balances, fixes. Positive or negative. */
 export const leaveAdjustments = pgTable(
   'leave_adjustments',
@@ -504,6 +527,11 @@ export const timesheetsRelations = relations(timesheets, ({ one }) => ({
 
 export const leaveRequestsRelations = relations(leaveRequests, ({ one }) => ({
   employee: one(employees, { fields: [leaveRequests.employeeId], references: [employees.id] }),
+}));
+
+export const approvalDelegationsRelations = relations(approvalDelegations, ({ one }) => ({
+  manager: one(employees, { fields: [approvalDelegations.managerId], references: [employees.id], relationName: 'delegatedFrom' }),
+  deputy: one(employees, { fields: [approvalDelegations.deputyId], references: [employees.id], relationName: 'delegatedTo' }),
 }));
 
 export const departmentsRelations = relations(departments, ({ one, many }) => ({

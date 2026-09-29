@@ -38,5 +38,13 @@ export function notificationText(
     outcome: t.notifications.outcomes[str('outcome') as keyof Dict['notifications']['outcomes']] ?? str('outcome'),
   };
   const words = t.notifications.kinds[kind];
-  return { title: fill(words.title, vars), body: fill(words.body, vars).replace(/\s·\s$/, '') };
+  const body = fill(words.body, vars).replace(/\s·\s$/, '');
+  // A stand-in decided it: say who, and for whom, so the person knows it wasn't their manager.
+  const behalf = str('for')
+    ? fill(t.notifications.onBehalf, {
+        by: (locale === 'ar' && str('byAr')) || str('by'),
+        for: (locale === 'ar' && str('forAr')) || str('for'),
+      })
+    : '';
+  return { title: fill(words.title, vars), body: [body, behalf].filter(Boolean).join(' · ') };
 }

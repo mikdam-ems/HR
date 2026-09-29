@@ -30,7 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   const [{ t, locale }, brand] = await Promise.all([getDict(), getBrand()]);
   const name = localName(locale, user.nameEn, user.nameAr);
-  const approver = user.isManager || user.roles.includes('admin');
+  const approver = user.isManager || user.roles.includes('admin') || !!user.standingInFor?.length;
   const db = await getDb();
   const pending = approver ? (await countPendingApprovals(db, user)) + (await countPendingLeave(db, user)) : 0;
   const [myClock, ctx, recent, unread] = await Promise.all([

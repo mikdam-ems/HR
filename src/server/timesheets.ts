@@ -10,7 +10,6 @@ import {
   timesheets,
   type DayChangeRow,
   type Employee,
-  type Role,
   type TimesheetRow,
 } from '@/db/schema';
 import {
@@ -25,15 +24,14 @@ import {
 import { todayISO } from '@/lib/format';
 import { audit } from './audit';
 import { approversOf, notify } from './notify';
+import { behalfOf } from './delegation';
+import { type Approver, decidesFor } from './permissions';
 import { firstClockDates, monthClock } from './clock';
 import { loadRulesContext } from './rulesContext';
 import { getSettings } from './settings';
 import { type Result, fail, hhmm, isoDate, ok, parse } from './validation';
 
-export interface Actor {
-  id: string;
-  roles: Role[];
-}
+export type Actor = Approver;
 
 export interface TimesheetAccess {
   view: boolean;
@@ -61,13 +59,12 @@ export function accessFor(
   closed = false,
 ): TimesheetAccess {
   const self = actor.id === employee.id;
-  const manager = employee.managerId === actor.id;
-  const adminFallback = !employee.managerId && actor.roles.includes('admin');
+  const decider = decidesFor(actor, employee);
   const staff = actor.roles.some((r) => r === 'hr' || r === 'admin' || r === 'finance');
   return {
-    view: self || manager || staff,
+    view: self || decider || staff,
     edit: self && EDITABLE.has(status) && !closed,
-    decide: !self && (manager || adminFallback) && status === 'submitted' && !closed,
+    decide: decider && status === 'submitted' && !closed,
   };
 }
 
@@ -192,10 +189,9 @@ export const dayInput = z.object({
 });
 export type DayInput = z.input<typeof dayInput>;
 
-/** Who decides a person's requests: their direct manager, or an admin when they have no manager — never themselves. */
+/** Who decides a person's requests: see decidesFor (manager, their stand-in, or an admin when there's no manager). */
 export function canDecideFor(actor: Actor, employee: Pick<Employee, 'id' | 'managerId'>): boolean {
-  if (actor.id === employee.id) return false;
-  return employee.managerId === actor.id || (!employee.managerId && actor.roles.includes('admin'));
+  return decidesFor(actor, employee);
 }
 
 type DayValues = Pick<DayChangeRow, 'workedMinutes' | 'startTime' | 'endTime' | 'leaveType' | 'leavePortion' | 'note'>;
@@ -362,6 +358,7 @@ export async function decideDayChange(
   const [employee] = await db.select().from(employees).where(eq(employees.id, req.employeeId));
   if (!employee || !canDecideFor(actor, employee)) return fail('forbidden');
   if (req.status !== 'pending') return fail('already_decided');
+  const behalf = await behalfOf(db, actor, employee);
   const year = Number(req.date.slice(0, 4));
   const month = Number(req.date.slice(5, 7));
   const sheet = await findTimesheet(db, req.employeeId, year, month);
@@ -378,13 +375,20 @@ export async function decideDayChange(
       .set({ status: outcome === 'approve' ? 'approved' : 'declined', decidedById: actor.id, decidedAt: new Date(), managerNote: note })
       .where(eq(dayChangeRequests.id, requestId))
       .returning();
-    await audit(t, { actorId: actor.id, action: outcome, entity: 'day_change', entityId: requestId, before: req, after });
+    await audit(t, {
+      actorId: actor.id,
+      action: outcome,
+      entity: 'day_change',
+      entityId: requestId,
+      before: req,
+      after: { ...after, ...(behalf ? { onBehalfOf: behalf.managerId } : {}) },
+    });
   });
   await notify(
     db,
     [req.employeeId],
     'day_change_decided',
-    { outcome: outcome === 'approve' ? 'approved' : 'declined', date: req.date, note },
+    { outcome: outcome === 'approve' ? 'approved' : 'declined', date: req.date, note, ...(behalf?.data ?? {}) },
     `/timesheet/${req.employeeId}?month=${req.date.slice(0, 7)}&day=${req.date}`,
   );
   return ok(undefined);
@@ -480,6 +484,7 @@ async function decide(
   if (!view.ok) return view;
   if (!view.value.access.decide) return fail('forbidden');
   if (outcome === 'returned' && !note) return fail('invalid_input', 'a note is required when returning');
+  const behalf = await behalfOf(db, actor, view.value.employee);
 
   const [after] = await db
     .update(timesheets)
@@ -492,9 +497,22 @@ async function decide(
     })
     .where(eq(timesheets.id, timesheetId))
     .returning();
-  await audit(db, { actorId: actor.id, action: outcome === 'approved' ? 'approve' : 'return', entity: 'timesheet', entityId: timesheetId, before, after });
+  await audit(db, {
+    actorId: actor.id,
+    action: outcome === 'approved' ? 'approve' : 'return',
+    entity: 'timesheet',
+    entityId: timesheetId,
+    before,
+    after: { ...after, ...(behalf ? { onBehalfOf: behalf.managerId } : {}) },
+  });
   const monthKey = `${before.year}-${String(before.month).padStart(2, '0')}`;
-  await notify(db, [before.employeeId], 'month_decided', { outcome, month: monthKey, note }, `/timesheet/${before.employeeId}?month=${monthKey}`);
+  await notify(
+    db,
+    [before.employeeId],
+    'month_decided',
+    { outcome, month: monthKey, note, ...(behalf?.data ?? {}) },
+    `/timesheet/${before.employeeId}?month=${monthKey}`,
+  );
   return ok(undefined);
 }
 
