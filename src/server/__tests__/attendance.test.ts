@@ -35,24 +35,24 @@ describe('monthAttendanceReport', () => {
       await setSchedule(db, null, { employeeId: r.value.id, effectiveFrom: '2026-01-01', startTime: '09:00', endTime: '17:30' });
       return r.value;
     };
-    const rama = await make('rama');
+    const maya = await make('maya');
     const lina = await make('lina'); // never clocks in
 
     // Sunday 20 September 2026 onwards; Friday and Saturday are the weekend.
-    await clock(db, rama.id, 'in', t('2026-09-20 09:00'), 'web', 'office');
-    await clock(db, rama.id, 'out', t('2026-09-20 17:30'));
-    await clock(db, rama.id, 'in', t('2026-09-21 09:40'), 'web', 'client_site'); // late, forgot to clock out
-    await clockOutAt(db, rama.id, '2026-09-21', '17:30', t('2026-09-22 08:00'));
+    await clock(db, maya.id, 'in', t('2026-09-20 09:00'), 'web', 'office');
+    await clock(db, maya.id, 'out', t('2026-09-20 17:30'));
+    await clock(db, maya.id, 'in', t('2026-09-21 09:40'), 'web', 'client_site'); // late, forgot to clock out
+    await clockOutAt(db, maya.id, '2026-09-21', '17:30', t('2026-09-22 08:00'));
     // 22nd: nothing → absent.
-    const leave = await createRequest(db, { id: rama.id, roles: rama.roles }, { type: 'annual', fromDate: '2026-09-23', toDate: '2026-09-23' });
+    const leave = await createRequest(db, { id: maya.id, roles: maya.roles }, { type: 'annual', fromDate: '2026-09-23', toDate: '2026-09-23' });
     if (!leave.ok) throw new Error(leave.error);
     await decideRequest(db, { id: boss.value.id, roles: boss.value.roles }, leave.value, 'approve', null);
-    await clock(db, rama.id, 'in', t('2026-09-24 09:20'), 'slack', 'remote'); // late, still open
-    await clock(db, rama.id, 'in', t('2026-09-27 09:00'), 'web'); // refused: the 24th is still open
+    await clock(db, maya.id, 'in', t('2026-09-24 09:20'), 'slack', 'remote'); // late, still open
+    await clock(db, maya.id, 'in', t('2026-09-27 09:00'), 'web'); // refused: the 24th is still open
 
     const result = await monthAttendanceReport(db, boss.value, 2026, 9, t('2026-09-27 10:00'));
     if (!result.ok) throw new Error(result.error);
-    const row = result.value.rows.find((r) => r.employee.id === rama.id)!;
+    const row = result.value.rows.find((r) => r.employee.id === maya.id)!;
     expect(row.days.map((d) => `${d.date.slice(8)}:${d.presence.status}`)).toEqual([
       '20:done',
       '21:done',
@@ -73,11 +73,11 @@ describe('monthAttendanceReport', () => {
 
     // Where each clocked day was worked, for the export: finished days and today alike.
     expect(row.places).toEqual({ '2026-09-20': 'office', '2026-09-21': 'client_site', '2026-09-24': 'remote' });
-    await clockOutAt(db, rama.id, '2026-09-24', '17:30', t('2026-09-27 09:00'));
-    await clock(db, rama.id, 'in', t('2026-09-27 09:05'), 'web', 'office');
+    await clockOutAt(db, maya.id, '2026-09-24', '17:30', t('2026-09-27 09:00'));
+    await clock(db, maya.id, 'in', t('2026-09-27 09:05'), 'web', 'office');
     const later = await monthAttendanceReport(db, boss.value, 2026, 9, t('2026-09-27 10:00'));
     if (!later.ok) throw new Error(later.error);
-    expect(later.value.rows.find((r) => r.employee.id === rama.id)!.places['2026-09-27']).toBe('office');
+    expect(later.value.rows.find((r) => r.employee.id === maya.id)!.places['2026-09-27']).toBe('office');
 
     const never = result.value.rows.find((r) => r.employee.id === lina.id)!;
     expect(never).toMatchObject({ onClock: false, days: [], totals: { absentDays: 0 } });

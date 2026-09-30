@@ -26,11 +26,11 @@ async function setup() {
   if (!cal.ok) throw new Error('calendar');
   const jadwa = await createClient(db, null, { nameEn: 'Jadwa', calendarId: cal.value });
   if (!jadwa.ok) throw new Error('client');
-  const rama = await createEmployee(db, null, { email: 'rama@ems.com', nameEn: 'Rama' });
-  if (!rama.ok) throw new Error(rama.error);
-  await addAssignment(db, null, { employeeId: rama.value.id, clientId: jadwa.value, startDate: '2026-01-01' });
-  await setSchedule(db, null, { employeeId: rama.value.id, effectiveFrom: '2026-01-01', startTime: '09:00', endTime: '17:30' });
-  return { clientId: jadwa.value, rama: rama.value };
+  const maya = await createEmployee(db, null, { email: 'maya@ems.com', nameEn: 'Maya' });
+  if (!maya.ok) throw new Error(maya.error);
+  await addAssignment(db, null, { employeeId: maya.value.id, clientId: jadwa.value, startDate: '2026-01-01' });
+  await setSchedule(db, null, { employeeId: maya.value.id, effectiveFrom: '2026-01-01', startTime: '09:00', endTime: '17:30' });
+  return { clientId: jadwa.value, maya: maya.value };
 }
 
 const ramadan = (clientId: string, over: Record<string, string> = {}) => ({
@@ -45,14 +45,14 @@ const ramadan = (clientId: string, over: Record<string, string> = {}) => ({
 
 describe('seasonal hours', () => {
   it('change the expected hours, and Late / Absent on the Today board, during the range', async () => {
-    const { clientId, rama } = await setup();
+    const { clientId, maya } = await setup();
     expect((await createSeason(db, null, ramadan(clientId))).ok).toBe(true);
     const ctx = await loadRulesContext(db);
-    expect(resolveDay(ctx, rama.id, '2027-02-08')).toMatchObject({ expectedMinutes: 360, seasonName: 'Ramadan 2027' });
-    expect(resolveDay(ctx, rama.id, '2027-03-09').expectedMinutes).toBe(510);
+    expect(resolveDay(ctx, maya.id, '2027-02-08')).toMatchObject({ expectedMinutes: 360, seasonName: 'Ramadan 2027' });
+    expect(resolveDay(ctx, maya.id, '2027-03-09').expectedMinutes).toBe(510);
 
     // 15:00 is the end of a Ramadan day: someone who never came is absent then, not "late".
-    const [row] = await todayBoard(db, [rama], ammanInstant('2027-02-08', '15:00'));
+    const [row] = await todayBoard(db, [maya], ammanInstant('2027-02-08', '15:00'));
     expect(row!.presence.status).toBe('absent');
   });
 

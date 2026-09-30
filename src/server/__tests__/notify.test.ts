@@ -33,43 +33,43 @@ async function setup() {
     await setSchedule(db, null, { employeeId: r.value.id, effectiveFrom: '2026-01-01', startTime: '09:00', endTime: '17:30' });
     return { id: r.value.id, roles: r.value.roles } as Actor;
   };
-  const gm = await make('suma@ems.com', null, ['admin']);
-  const dania = await make('dania@ems.com', gm.id);
-  const moath = await make('moath@ems.com', dania.id);
-  return { gm, dania, moath };
+  const gm = await make('huda@ems.com', null, ['admin']);
+  const reem = await make('reem@ems.com', gm.id);
+  const yousef = await make('yousef@ems.com', reem.id);
+  return { gm, reem, yousef };
 }
 
 describe('notifications', () => {
   it('a leave request tells the manager; the decision tells the employee', async () => {
-    const { dania, moath } = await setup();
-    const req = await createRequest(db, moath, { type: 'annual', fromDate: '2026-10-04', toDate: '2026-10-05' });
+    const { reem, yousef } = await setup();
+    const req = await createRequest(db, yousef, { type: 'annual', fromDate: '2026-10-04', toDate: '2026-10-05' });
     if (!req.ok) throw new Error(req.error);
-    const [toManager] = await listNotifications(db, dania.id);
+    const [toManager] = await listNotifications(db, reem.id);
     expect(toManager).toMatchObject({ kind: 'leave_requested', link: `/approvals?l=${req.value}` });
-    expect(notificationText(en, 'en', 'leave_requested', toManager!.data as Record<string, unknown>).title).toBe('moath requested time off');
+    expect(notificationText(en, 'en', 'leave_requested', toManager!.data as Record<string, unknown>).title).toBe('yousef requested time off');
 
-    await decideRequest(db, dania, req.value, 'approve', null);
-    const [toEmployee] = await listNotifications(db, moath.id);
+    await decideRequest(db, reem, req.value, 'approve', null);
+    const [toEmployee] = await listNotifications(db, yousef.id);
     expect(toEmployee).toMatchObject({ kind: 'leave_decided', link: '/time-off' });
     expect(notificationText(en, 'en', 'leave_decided', toEmployee!.data as Record<string, unknown>).title).toBe('Your time off was approved');
     expect(notificationText(ar, 'ar', 'leave_decided', toEmployee!.data as Record<string, unknown>).title).toContain('اعتُمد');
   });
 
   it('day changes and month submissions go to the manager; someone with no manager goes to the admins', async () => {
-    const { gm, dania, moath } = await setup();
-    await ts.saveDay(db, moath, moath.id, { date: '2026-09-15', workedMinutes: 600 });
-    await ts.saveDay(db, moath, moath.id, { date: '2026-09-15', workedMinutes: 660 }); // an edit of the same request: no second ping
-    expect((await listNotifications(db, dania.id)).map((n) => n.kind)).toEqual(['day_change_requested']);
+    const { gm, reem, yousef } = await setup();
+    await ts.saveDay(db, yousef, yousef.id, { date: '2026-09-15', workedMinutes: 600 });
+    await ts.saveDay(db, yousef, yousef.id, { date: '2026-09-15', workedMinutes: 660 }); // an edit of the same request: no second ping
+    expect((await listNotifications(db, reem.id)).map((n) => n.kind)).toEqual(['day_change_requested']);
 
-    await ts.submitMonth(db, dania, dania.id, 2026, 9, '2026-09-28');
+    await ts.submitMonth(db, reem, reem.id, 2026, 9, '2026-09-28');
     expect((await listNotifications(db, gm.id)).map((n) => n.kind)).toEqual(['month_submitted']);
   });
 
   it('counts unread and marks them read', async () => {
-    const { dania, moath } = await setup();
-    await createRequest(db, moath, { type: 'annual', fromDate: '2026-10-04', toDate: '2026-10-04' });
-    expect(await countUnread(db, dania.id)).toBe(1);
-    await markAllRead(db, dania.id);
-    expect(await countUnread(db, dania.id)).toBe(0);
+    const { reem, yousef } = await setup();
+    await createRequest(db, yousef, { type: 'annual', fromDate: '2026-10-04', toDate: '2026-10-04' });
+    expect(await countUnread(db, reem.id)).toBe(1);
+    await markAllRead(db, reem.id);
+    expect(await countUnread(db, reem.id)).toBe(0);
   });
 });

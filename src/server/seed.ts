@@ -1,6 +1,6 @@
-import { eq, like, sql } from 'drizzle-orm';
+import { eq, like, notLike, sql } from 'drizzle-orm';
 import type { DB } from '@/db';
-import { calendars, clientShifts, departments, employees } from '@/db/schema';
+import { calendars, clientShifts, clients, departments, employees } from '@/db/schema';
 import { addDays, isWorkday, resolveDay } from '@/domain';
 import { ammanInstant, todayISO } from '@/lib/format';
 import { clock } from './clock';
@@ -11,8 +11,8 @@ import { loadRulesContext } from './rulesContext';
 import { getSettings, setSetting } from './settings';
 
 /**
- * First-run data: calendars, the EMS Internal and Jadwa clients, default settings, the first admin,
- * and (for demos) sample people. Used by `npm run db:seed` and by demo sites on their first request.
+ * First-run data: calendars, the EMS Internal client, default settings, the first admin, and (for demos) a
+ * made-up team placed with a made-up client. Real people and clients are added in the app, never from code. Used by `npm run db:seed` and by demo sites on their first request.
  *
  * Holidays are fixed-date ones only, as a starting point. Islamic holidays move every year
  * (moon sighting), so People & Culture adds them on the calendar page once announced.
@@ -23,7 +23,7 @@ export function must<T>(r: { ok: true; value: T } | { ok: false; error: string; 
   return r.value;
 }
 
-/** Calendars, clients and settings, if there are none yet. */
+/** Calendars, the EMS Internal client and settings, if there are none yet. Client companies are added in the app. */
 export async function seedBase(db: DB, log: (m: string) => void = console.log) {
   if ((await db.select().from(calendars)).length === 0) {
     const jordan = must(await createCalendar(db, null, { name: 'Jordan — EMS home (Sun–Thu)', workWeek: [0, 1, 2, 3, 4] }), 'jordan');
@@ -46,18 +46,9 @@ export async function seedBase(db: DB, log: (m: string) => void = console.log) {
       }
     }
     must(await createClient(db, null, { nameEn: 'EMS Internal', nameAr: 'EMS داخلي', calendarId: jordan, isInternal: true }), 'client');
-    must(
-      await createClient(db, null, {
-        nameEn: 'Jadwa Investment',
-        nameAr: 'جدوى للاستثمار',
-        calendarId: saudi,
-        leaveContact: 'Your Jadwa project manager, by email',
-      }),
-      'client',
-    );
     await setSetting(db, 'homeCalendarId', jordan);
     await setSetting(db, 'overtimeRates', (await getSettings(db)).overtimeRates);
-    log('✓ Calendars, clients and settings created.');
+    log('✓ Calendars, the EMS Internal client and settings created.');
   } else {
     log('• Calendars already exist — skipped.');
   }
@@ -124,12 +115,13 @@ type RosterPerson = {
   dept: DeptKey | null;
   manager: string | null;
   roles?: ('hr' | 'admin' | 'finance')[];
-  client: 'jadwa' | 'internal';
+  nameAr: string;
+  client: 'client' | 'internal';
   /** Heads this department. */
   heads?: DeptKey;
 };
 
-/** "moath.alhamshari@ems-itech.com" → "Moath Alhamshari". People & Culture can correct names later. */
+/** "maya.rahal@ems-itech.com" → "Maya Rahal". People & Culture can correct names later. */
 export function nameFromEmail(email: string): string {
   return email
     .split('@')[0]!
@@ -141,48 +133,82 @@ export function nameFromEmail(email: string): string {
 
 /** First day of the 8h30 full day (see drizzle/0011_schedule_history.sql). */
 const FULL_DAY_830_FROM = '2026-10-01';
-const GM = 'suma.abdullah@ems-itech.com';
-const QA_DM = 'dania.alrashed@ems-itech.com';
-const DEV_DM = 'faisal.abuzaid@ems-itech.com';
-const SUPPORT_DM = 'anas.ahmad@ems-itech.com';
+/** The client's working calendar in the demo: Saudi Arabia (Sun–Thu). */
+function saudiCalendarId(cals: { id: string; name: string }[]): string | undefined {
+  return cals.find((c) => c.name.startsWith('Saudi'))?.id;
+}
+
+/** Demo people's addresses: a subdomain no real mailbox uses, so the demo can never be mistaken for real staff. */
+export const DEMO_DOMAIN = 'demo.ems-itech.com';
+const demo = (user: string) => `${user}@${DEMO_DOMAIN}`;
+const GM = demo('huda.mansour');
+const QA_DM = demo('reem.haddad');
+const DEV_DM = demo('tariq.hamdan');
+const SUPPORT_DM = demo('khaled.yousef');
+
+/** The made-up client the demo team is placed with. */
+export const DEMO_CLIENT = {
+  nameEn: 'Acme Investment',
+  nameAr: 'أكمي للاستثمار',
+  leaveContact: 'Your Acme project manager, by email',
+};
 
 /**
- * EMS's people: the General Manager, a delivery manager per delivery department, and their teams.
- * Managers are listed before their teams. Everyone on a delivery team works for Jadwa Investment.
+ * The demo team: made-up people in the shape of EMS (a General Manager, a delivery manager per delivery department,
+ * and their teams). Managers are listed before their teams. Everyone on a delivery team works for the demo client.
+ * Real staff are loaded with People → Import on the live site, never from code.
  */
-export const EMS_ROSTER: RosterPerson[] = [
-  { email: GM, jobTitle: 'General Manager', dept: null, manager: null, roles: ['admin'], client: 'internal' },
+export const DEMO_ROSTER: RosterPerson[] = [
+  { email: GM, nameAr: 'هدى منصور', jobTitle: 'General Manager', dept: null, manager: null, roles: ['admin'], client: 'internal' },
 
-  { email: QA_DM, jobTitle: 'Delivery Manager', dept: 'qa', manager: GM, client: 'jadwa', heads: 'qa' },
-  ...['abdullah.alhajjaj', 'moath.alhamshari', 'sheraz.hasan', 'jazzaa.almohameed'].map((u) => ({
-    email: `${u}@ems-itech.com`, jobTitle: 'QA Engineer', dept: 'qa' as const, manager: QA_DM, client: 'jadwa' as const,
-  })),
+  { email: QA_DM, nameAr: 'ريم حداد', jobTitle: 'Delivery Manager', dept: 'qa', manager: GM, client: 'client', heads: 'qa' },
+  ...(
+    [
+      ['omar.khalil', 'عمر خليل'],
+      ['yara.nasser', 'يارا ناصر'],
+      ['karim.saeed', 'كريم سعيد'],
+      ['lina.farah', 'لينا فرح'],
+    ] as const
+  ).map(([u, ar]) => ({ email: demo(u), nameAr: ar, jobTitle: 'QA Engineer', dept: 'qa' as const, manager: QA_DM, client: 'client' as const })),
 
-  { email: DEV_DM, jobTitle: 'Delivery Manager', dept: 'dev', manager: GM, client: 'jadwa', heads: 'dev' },
-  ...['laith.alnajjar', 'mohammad.alghzawi'].map((u) => ({
-    email: `${u}@ems-itech.com`, jobTitle: 'Software Engineer', dept: 'dev' as const, manager: DEV_DM, client: 'jadwa' as const,
-  })),
-  { email: 'mikdam.qandil@ems-itech.com', jobTitle: 'Senior UX/UI Designer', dept: 'dev', manager: DEV_DM, client: 'jadwa' },
+  { email: DEV_DM, nameAr: 'طارق حمدان', jobTitle: 'Delivery Manager', dept: 'dev', manager: GM, client: 'client', heads: 'dev' },
+  ...(
+    [
+      ['zaid.qasem', 'زيد قاسم'],
+      ['nadia.salem', 'نادية سالم'],
+    ] as const
+  ).map(([u, ar]) => ({ email: demo(u), nameAr: ar, jobTitle: 'Software Engineer', dept: 'dev' as const, manager: DEV_DM, client: 'client' as const })),
+  { email: demo('sami.darwish'), nameAr: 'سامي درويش', jobTitle: 'Senior UX/UI Designer', dept: 'dev', manager: DEV_DM, client: 'client' },
 
-  { email: SUPPORT_DM, jobTitle: 'Delivery Manager', dept: 'support', manager: GM, client: 'jadwa', heads: 'support' },
-  ...['rama.shararah', 'alksandra.aljabery', 'ahmad.alheresh', 'ashjan.iqilan', 'saleh.ahmad'].map((u) => ({
-    email: `${u}@ems-itech.com`, jobTitle: 'Support Engineer', dept: 'support' as const, manager: SUPPORT_DM, client: 'jadwa' as const,
-  })),
+  { email: SUPPORT_DM, nameAr: 'خالد يوسف', jobTitle: 'Delivery Manager', dept: 'support', manager: GM, client: 'client', heads: 'support' },
+  ...(
+    [
+      ['maya.rahal', 'مايا رحال'],
+      ['nour.abbas', 'نور عباس'],
+      ['hani.barakat', 'هاني بركات'],
+      ['dana.khoury', 'دانة خوري'],
+      ['fadi.jaber', 'فادي جابر'],
+    ] as const
+  ).map(([u, ar]) => ({ email: demo(u), nameAr: ar, jobTitle: 'Support Engineer', dept: 'support' as const, manager: SUPPORT_DM, client: 'client' as const })),
 ];
 
 /**
- * Loads EMS's people. Safe to run again: existing people are updated, not duplicated.
- * Demo sites also drop the old made-up sample people (…@example.com).
+ * Loads the demo team and the demo client. Safe to run again: existing people are updated, not duplicated.
+ * Also drops the older sample people (…@example.com).
  */
 export async function seedDemo(db: DB, log: (m: string) => void = console.log) {
   const deptIds = await seedDepartments(db, log);
   await db.delete(employees).where(like(employees.email, '%@example.com'));
-  const clients = await db.query.clients.findMany();
-  const clientId = { jadwa: clients.find((c) => c.nameEn === 'Jadwa Investment')!.id, internal: clients.find((c) => c.nameEn === 'EMS Internal')!.id };
+  const all = await db.query.clients.findMany();
+  const internal = all.find((c) => c.isInternal)!;
+  const demoClient =
+    all.find((c) => c.nameEn === DEMO_CLIENT.nameEn)?.id ??
+    must(await createClient(db, null, { ...DEMO_CLIENT, calendarId: saudiCalendarId(await db.select().from(calendars)) ?? internal.calendarId }), 'client');
+  const clientId = { client: demoClient, internal: internal.id };
   const idByEmail = new Map((await db.select().from(employees)).map((e) => [e.email, e.id]));
   let added = 0;
 
-  for (const p of EMS_ROSTER) {
+  for (const p of DEMO_ROSTER) {
     const fields = {
       jobTitle: p.jobTitle,
       departmentId: p.dept ? deptIds[p.dept] : null,
@@ -194,7 +220,7 @@ export async function seedDemo(db: DB, log: (m: string) => void = console.log) {
       continue;
     }
     const e = must(
-      await createEmployee(db, null, { email: p.email, nameEn: nameFromEmail(p.email), ...fields, roles: p.roles ?? [] }),
+      await createEmployee(db, null, { email: p.email, nameEn: nameFromEmail(p.email), nameAr: p.nameAr, ...fields, roles: p.roles ?? [] }),
       p.email,
     );
     idByEmail.set(p.email, e.id);
@@ -214,7 +240,7 @@ export async function seedDemo(db: DB, log: (m: string) => void = console.log) {
   // Delivery managers head their departments; heads who no longer exist are cleared.
   const ids = new Set(idByEmail.values());
   for (const d of EMS_DEPARTMENTS) {
-    const head = EMS_ROSTER.find((p) => p.heads === d.key);
+    const head = DEMO_ROSTER.find((p) => p.heads === d.key);
     const [row] = await db.select().from(departments).where(eq(departments.id, deptIds[d.key]));
     const headId = head ? idByEmail.get(head.email)! : row?.headId && ids.has(row.headId) ? row.headId : null;
     if (row && row.headId !== headId) await db.update(departments).set({ headId }).where(eq(departments.id, row.id));
@@ -223,10 +249,10 @@ export async function seedDemo(db: DB, log: (m: string) => void = console.log) {
 }
 
 /** Demo sites only: the person who forgot to clock out, so the missing clock-out can be seen and closed. */
-export const DEMO_FORGOT_OUT = 'saleh.ahmad@ems-itech.com';
+export const DEMO_FORGOT_OUT = demo('fadi.jaber');
 
 /**
- * Demo sites only: Saleh clocked in two working days ago and never clocked out. That day counts 0 hours and is
+ * Demo sites only: Fadi clocked in two working days ago and never clocked out. That day counts 0 hours and is
  * flagged until he enters when he left (issue #1), instead of the clock running on until now.
  */
 export async function seedDemoClock(db: DB, now = new Date()) {
@@ -246,7 +272,7 @@ export async function seedDemoClock(db: DB, now = new Date()) {
  * command (Vercel) need no manual seeding. A Postgres advisory lock stops two cold starts seeding twice.
  */
 export async function ensureDemoData(db: DB, now = new Date()) {
-  // Also upgrades an older demo (no departments, or the made-up sample people).
+  // Also upgrades an older demo (no departments, sample people, or real people from before #29).
   const ready = async (x: DB) =>
     (await x.select({ id: departments.id }).from(departments).limit(1)).length > 0 &&
     (await x.select({ id: employees.id }).from(employees).where(eq(employees.email, GM)).limit(1)).length > 0;
@@ -255,6 +281,10 @@ export async function ensureDemoData(db: DB, now = new Date()) {
     await tx.execute(sql`select pg_advisory_xact_lock(725001)`);
     if (await ready(tx as unknown as DB)) return;
     const quiet = () => {};
+    // An older demo had EMS's real people and client (#29). Demo data is disposable: clear the people who aren't
+    // demo people, and turn the old client into the demo client so its shifts and special hours stay valid.
+    await tx.delete(employees).where(notLike(employees.email, `%@${DEMO_DOMAIN}`));
+    await tx.update(clients).set(DEMO_CLIENT).where(eq(clients.nameEn, 'Jadwa Investment'));
     await seedAll(tx as unknown as DB, quiet);
     await seedDemo(tx as unknown as DB, quiet);
     await seedDemoClock(tx as unknown as DB, now);

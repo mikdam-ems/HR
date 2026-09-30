@@ -39,7 +39,7 @@ Needs Node 22+. No database server needed — local development uses an embedded
 ```bash
 npm install
 cp .env.example .env.local        # set AUTH_SECRET; set AUTH_DEV_LOGIN=true to skip Google locally
-SEED_ADMIN_EMAIL=you@ems-itech.com npm run db:seed -- --demo   # calendars, clients, you as admin, sample people
+SEED_ADMIN_EMAIL=you@ems-itech.com npm run db:seed -- --demo   # calendars, you as admin, a made-up team and client
 npm run dev                       # http://localhost:3000
 ```
 
@@ -88,7 +88,9 @@ Demo data resets whenever the site restarts. The free plan sleeps after 15 minut
 2. Google OAuth client (Google Cloud Console → Credentials → OAuth client ID, type *Web application*).
    Redirect URI: `https://<host>/api/auth/callback/google`. Set `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`.
 3. `AUTH_SECRET` (`openssl rand -base64 32`) and `AUTH_ALLOWED_DOMAIN=ems-itech.com`.
-4. `SEED_ADMIN_EMAIL=… npm run db:seed` once (without `--demo`), then sign in and import people from Excel.
+4. `SEED_ADMIN_EMAIL=… npm run db:seed` once (without `--demo`), then sign in, add your client companies on the
+   **Clients** page, and import people from Excel. Real people and clients are never in the code; the demo uses a
+   made-up team (`…@demo.ems-itech.com`) and client (Acme Investment).
 
 Only people added by HR can sign in, and only with a Google account on the allowed domain.
 

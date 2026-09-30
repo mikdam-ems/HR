@@ -7,7 +7,7 @@ const m = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3,
 const workday: PresenceInput['day'] = {
   dayType: 'working',
   expectedMinutes: 510,
-  schedule: { employeeId: 'rama', effectiveFrom: '2026-01-01', start: '09:00', end: '17:30' },
+  schedule: { employeeId: 'maya', effectiveFrom: '2026-01-01', start: '09:00', end: '17:30' },
 };
 const nightShift: PresenceInput['day'] = {
   dayType: 'working',
