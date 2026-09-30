@@ -1,0 +1,34 @@
+name: Pilot feedback
+description: Something noticed while running the app alongside Excel during the pilot.
+labels: [pilot-feedback]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of feedback
+      options:
+        - Hours or totals differ from Excel
+        - Something is wrong (a bug)
+        - Hard to understand or to find
+        - An idea or a missing feature
+    validations:
+      required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Your role
+      options: [Employee, Manager, HR, Finance, Admin]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you saw, and what you expected. For a difference from Excel, give the person, the date and both numbers.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Open /api/health on the site and copy the "version" (for example 0.1.0).

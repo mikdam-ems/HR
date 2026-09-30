@@ -22,6 +22,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Log all work on GitHub, so everything is traceable: every change starts from an issue (open one for bugs or ideas
   raised in chat), arrives as a pull request whose description says `Closes #N`, and adds a plain-language line to
   `CHANGELOG.md` under **Unreleased** when it changes what people see or how hours, leave or payroll count. When a
-  batch ships, turn **Unreleased** into a version; merging it publishes the GitHub Release. Details:
-  `docs/HOW_WE_WORK.md`.
+  batch ships, bump `package.json` and turn **Unreleased** into that version; merging it publishes the GitHub
+  Release. New features go under an epic (sub-issue) and a milestone; ideas start as a research issue; lasting rules
+  get a note in `docs/decisions/`. Details: `docs/HOW_WE_WORK.md`.
 - The `clean-code` skill (`.claude/skills/clean-code`) is general guidance. Where it differs, this project's conventions win: server functions return a `Result` (`ok` / `fail`) instead of throwing, functions return `null`/`undefined` for "not found", and short comments explaining *why* are welcome.

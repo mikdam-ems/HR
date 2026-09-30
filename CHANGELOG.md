@@ -52,3 +52,5 @@ The pilot build: the first version meant to run alongside Excel for a month (#14
 
 - Every pull request runs the tests, typecheck and build, and a browser walkthrough of a week at EMS. (#22, #26, #30)
 - Release notes live in `CHANGELOG.md` and are published on the Releases page automatically. (#31)
+- Work is grouped into epics and milestones; ideas start as research issues; lasting rules are written down in
+  `docs/decisions/`. `/api/health` shows the running version, and every pull request must link its issue. (#33)
