@@ -6,7 +6,8 @@ Closes #
 
 ## How it was tested
 
-- [ ] `npm test`, `npm run typecheck` and `npm run build` pass (the Checks run does this automatically)
+- [ ] `npm test`, `npm run typecheck`, `npm run build` and `npm run test:e2e` pass (the Checks run does this automatically)
+- [ ] Changed what people click? The walkthrough in `e2e/walkthrough.e2e.ts` covers it
 - [ ] Tried in the app as the roles it affects (employee, manager, HR, Finance, admin)
 - [ ] Arabic (right to left) and both brands (EMS, Kadr), if the UI changed
 - [ ] Database change? New migration in `drizzle/` is included

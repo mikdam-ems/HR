@@ -10,9 +10,14 @@ Everything we plan, build, test and ship is tracked on GitHub, so anyone can fol
    The **Roadmap** view shows the same issues on a timeline by target month.
 3. **Work happens on a branch and arrives as a pull request.** Its description says `Closes #12`, so merging it closes the
    issue and moves the card to *Done*. Nothing is pushed straight to the main branch.
-4. **Every pull request is tested automatically.** The **Checks** run (`.github/workflows/ci.yml`) runs the tests,
-   the typecheck and the build. A red cross means it isn't ready. The pull request checklist also covers what a machine
-   can't check: trying it as each affected role, in Arabic, and in both brands.
+4. **Every pull request is tested automatically.** The **Checks** run (`.github/workflows/ci.yml`) has two jobs:
+   - **Tests, typecheck and build:** the rules and database tests (`npm test`), the typecheck and the build.
+   - **End-to-end in a browser:** `npm run test:e2e` starts the app on a fresh demo database and plays a week at EMS
+     in Chromium, as the people who'd do it (`e2e/walkthrough.e2e.ts`). If a step breaks, the run keeps a screenshot of
+     the page (the `e2e-results` download on the run).
+
+   A red cross means it isn't ready. When a feature changes what people click, extend the walkthrough in the same pull
+   request. The pull request checklist also covers what a machine can't judge: how it looks in Arabic and both brands.
 5. **Someone reviews and merges.** Then it goes to the pilot site.
 6. **Each shipped batch gets a release** (the repo's **Releases** page) with plain-language notes on what changed.
 

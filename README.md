@@ -15,7 +15,16 @@ Each person's days off, work week and overtime follow the client they're assigne
 **Phase 1 features are complete:** sign-in, people, org chart, clients, calendars, assignments, schedules, Excel import,
 Arabic/English, the rules engine, timesheets with manager approval, time off, **month-end reports with the Finance
 Excel export and month closing**, and **departments** (Software & Development, UX/UI, QA, Application Support, plus
-Finance and People & Culture), each with a head. The UI uses the EMS brand palette in a soft, rounded style with top navigation. **Next:** stage 6, the pilot — a few people run it alongside Excel for one month.
+Finance and People & Culture), each with a head. The UI uses the EMS brand palette in a soft, rounded style with top navigation.
+
+**Phase 2 (from the competitor research) is complete:** the **Today board** (who's in, late, absent, on leave), where
+people work (Office / Client site / Remote) at clock-in, a morning reminder for forgotten clock-outs, the monthly
+**attendance report**, **Ramadan and seasonal hours** per client, a **client hours export**, **stand-in approvals**
+while a manager is away, **shift swaps**, and telling a project's **delivery lead** about leave.
+Why these, and what's deliberately left out: [People & Culture Next Steps](https://claude.ai/artifact/R4S3FnvyyzwD9W36hfxSq6).
+
+**Next:** the pilot ([#14](https://github.com/mikdam-ems/HR/issues/14)) — a few people run it alongside Excel for one
+month. Work is tracked as GitHub issues and pull requests; see [How we work](docs/HOW_WE_WORK.md).
 
 ## Run it locally
 
@@ -34,6 +43,7 @@ With `AUTH_DEV_LOGIN=true` the sign-in page lets you pick any person (developmen
 npm test          # rules engine + database tests (in-memory PostgreSQL)
 npm run typecheck
 npm run build
+npm run test:e2e  # the app in a real browser: a week at EMS, played as each role (fresh demo database)
 ```
 
 ## Brand preview (Kadr)
@@ -96,11 +106,14 @@ Only people added by HR can sign in, and only with a Google account on the allow
 | Add their birthday (colleagues see day and month only); see birthdays and work anniversaries this week on Home | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Open leave attachments of their team | | ✓ | | | |
 | See their team's status; approve day changes; approve or return their team's timesheets and leave | | ✓ | | | |
+| Hand their approvals to a stand-in while away (the stand-in decides "for" them; everything is recorded) | | ✓ | ✓ | | ✓ |
+| Ask a colleague on the same client to swap a shift for a day (they accept, the manager approves) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Be told about leave on a project they lead as delivery lead (told, never asked to approve) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | View anyone's timesheet (read-only) | | | ✓ | ✓ | ✓ |
 | Approve timesheets of people with no manager | | | | | ✓ |
 | Add/edit people, departments, assignments, schedules; import Excel; adjust leave balances; open any leave attachment | | | ✓ | | ✓ |
-| Clients, calendars, holidays | | | ✓ | | ✓ |
-| Reports and the Finance Excel export | | | ✓ | ✓ | ✓ |
+| Clients, calendars, holidays; special hours (Ramadan, summer) per client or shift | | | ✓ | | ✓ |
+| Reports and the Finance Excel export; the Attendance tab; hours for one client as Excel | | | ✓ | ✓ | ✓ |
 | Close a month once every timesheet is approved | | | ✓ | | ✓ |
 | Roles, home calendar, overtime rates; reopen a closed month | | | | | ✓ |
 
