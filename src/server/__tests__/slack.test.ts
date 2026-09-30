@@ -5,7 +5,7 @@ import { createDb, type DB } from '@/db';
 import { employees } from '@/db/schema';
 import { ammanInstant } from '@/lib/format';
 import { createEmployee } from '../people';
-import { employeeForSlackUser, parseCommand, parseLocation, runSlackCommand, verifySlackSignature } from '../slack';
+import { employeeForSlackUser, isSlackResponseUrl, parseCommand, parseLocation, runSlackCommand, verifySlackSignature } from '../slack';
 
 let db: DB;
 beforeAll(async () => {
@@ -16,6 +16,18 @@ beforeEach(async () => {
 });
 
 const t = (local: string) => ammanInstant(local.slice(0, 10), local.slice(11, 16));
+
+describe('slack response url', () => {
+  // The deferred reply is posted to this URL, so only Slack's own hooks host is trusted.
+  it('accepts only https hooks.slack.com URLs', () => {
+    expect(isSlackResponseUrl('https://hooks.slack.com/commands/T1/123/abc')).toBe(true);
+    expect(isSlackResponseUrl('http://hooks.slack.com/commands/T1/123/abc')).toBe(false);
+    expect(isSlackResponseUrl('https://hooks.slack.com.evil.test/commands')).toBe(false);
+    expect(isSlackResponseUrl('https://evil.test/?u=https://hooks.slack.com/')).toBe(false);
+    expect(isSlackResponseUrl('not a url')).toBe(false);
+    expect(isSlackResponseUrl(null)).toBe(false);
+  });
+});
 
 describe('slack signature', () => {
   const secret = 'shhh';

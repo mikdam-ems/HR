@@ -153,3 +153,26 @@ export async function slackEmail(slackUserId: string, token: string): Promise<st
   const json = (await res.json()) as { ok: boolean; user?: { profile?: { email?: string } } };
   return json.ok ? (json.user?.profile?.email ?? null) : null;
 }
+
+/** Slack's response_url for a command. Only its own https hooks host is trusted, since we post the reply there. */
+export function isSlackResponseUrl(url: string | null): url is string {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && u.hostname === 'hooks.slack.com';
+  } catch {
+    return false;
+  }
+}
+
+/** Sends a command's reply to its response_url; only the person who typed the command sees it. */
+export async function postSlackReply(responseUrl: string, text: string): Promise<void> {
+  const res = await fetch(responseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ response_type: 'ephemeral', text }),
+    cache: 'no-store',
+  });
+  // Slack refusing the reply (e.g. an expired response_url) is only visible in the logs.
+  if (!res.ok) console.error('Slack reply refused', res.status, await res.text());
+}
