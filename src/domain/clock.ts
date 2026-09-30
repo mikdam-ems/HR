@@ -11,7 +11,7 @@ export interface ClockEvent {
   kind: ClockKind;
 }
 
-export interface ClockDay {
+export interface ClockDay<E extends ClockEvent = ClockEvent> {
   date: string;
   firstIn: Date;
   lastOut: Date | null;
@@ -19,6 +19,8 @@ export interface ClockDay {
   breakMs: number;
   /** Still clocked in (working or on a break). */
   open: boolean;
+  /** The events that made up the day's sessions, in order (a night shift's clock-out included). */
+  events: E[];
 }
 
 /** Which actions make sense from each state. Clocking out from a break ends the break too. */
@@ -43,14 +45,14 @@ export function canClock(state: ClockState, kind: ClockKind): boolean {
  * Sums worked and break time per day from events in time order. An open session counts up to `now`.
  * Events that don't fit (e.g. a second "in" while working) are ignored rather than trusted.
  */
-export function summarizeClock(
-  events: readonly ClockEvent[],
+export function summarizeClock<E extends ClockEvent>(
+  events: readonly E[],
   now: Date,
   dateOf: (d: Date) => string,
-): Map<string, ClockDay> {
-  const days = new Map<string, ClockDay>();
+): Map<string, ClockDay<E>> {
+  const days = new Map<string, ClockDay<E>>();
   let state: ClockState = 'out';
-  let day: ClockDay | null = null;
+  let day: ClockDay<E> | null = null;
   let mark = 0; // start of the current work or break stretch
 
   const close = (until: number) => {
@@ -64,12 +66,13 @@ export function summarizeClock(
     const t = e.at.getTime();
     if (e.kind === 'in') {
       const date = dateOf(e.at);
-      day = days.get(date) ?? { date, firstIn: e.at, lastOut: null, workedMs: 0, breakMs: 0, open: false };
+      day = days.get(date) ?? { date, firstIn: e.at, lastOut: null, workedMs: 0, breakMs: 0, open: false, events: [] };
       days.set(date, day);
     } else {
       close(t);
     }
     if (e.kind === 'out' && day) day.lastOut = e.at;
+    day?.events.push(e);
     state = AFTER[e.kind];
     mark = t;
   }

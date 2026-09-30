@@ -126,7 +126,7 @@ async function clockViewUncached(db: DB, employeeId: string, now = new Date()): 
   };
 }
 
-/** Clocked time per day of a month (sessions belong to the day they started). */
+/** Clocked time per day of a month with each day's events (sessions belong to the day they started). */
 export async function monthClock(db: DB, employeeId: string, year: number, month: number, now = new Date()) {
   const days = daysOfMonth(year, month);
   const from = ammanInstant(days[0]!, '00:00');
@@ -137,33 +137,8 @@ export async function monthClock(db: DB, employeeId: string, year: number, month
     .where(and(eq(clockEvents.employeeId, employeeId), gte(clockEvents.at, from), lt(clockEvents.at, to)))
     .orderBy(asc(clockEvents.at));
   const all = summarizeClock(events, now, dateOf);
-  const out: Record<string, ClockDay> = {};
+  const out: Record<string, ClockDay<(typeof events)[number]>> = {};
   for (const d of days) if (all.has(d)) out[d] = all.get(d)!;
-  return out;
-}
-
-/** A month of attendance for one person: per-day totals plus the raw events of each day's sessions. */
-export async function monthAttendance(db: DB, employeeId: string, year: number, month: number, now = new Date()) {
-  const days = daysOfMonth(year, month);
-  const from = ammanInstant(days[0]!, '00:00');
-  const to = new Date(ammanInstant(days[days.length - 1]!, '00:00').getTime() + 2 * DAY_MS);
-  const events = await db
-    .select()
-    .from(clockEvents)
-    .where(and(eq(clockEvents.employeeId, employeeId), gte(clockEvents.at, from), lt(clockEvents.at, to)))
-    .orderBy(asc(clockEvents.at));
-  const summary = summarizeClock(events, now, dateOf);
-  // Each event belongs to the day its session started (a night shift's clock-out goes with the evening it began).
-  const byDay: Record<string, typeof events> = {};
-  let session: string | null = null;
-  for (const e of events) {
-    if (e.kind === 'in') session = dateOf(e.at);
-    const d = session ?? dateOf(e.at);
-    (byDay[d] ??= []).push(e);
-    if (e.kind === 'out') session = null;
-  }
-  const out: Record<string, { day: ClockDay; events: typeof events }> = {};
-  for (const d of days) if (summary.has(d)) out[d] = { day: summary.get(d)!, events: byDay[d] ?? [] };
   return out;
 }
 
