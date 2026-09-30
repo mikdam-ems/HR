@@ -3,7 +3,7 @@ import { type Browser, type BrowserContext, type Locator, type Page, expect, tes
 
 /**
  * A week at EMS, played in the browser by the people who'd do it: the General Manager sets up shifts, Ramadan hours
- * and a delivery lead; Rama clocks in and asks for leave; Anas hands his approvals to Faisal, who approves; Rama and
+ * and a delivery lead; Rama clocks in and asks for leave; Saleh closes a clock-out he forgot; Anas hands his approvals to Faisal, who approves; Rama and
  * Alksandra swap a shift; then the reports and Excel exports. Uses the demo team (src/server/seed.ts).
  */
 
@@ -14,6 +14,8 @@ const PEOPLE = {
   rama: 'rama.shararah@ems-itech.com',
   alksandra: 'alksandra.aljabery@ems-itech.com',
   mikdam: 'mikdam.qandil@ems-itech.com',
+  /** Clocked in two working days ago on the demo site and never clocked out (seedDemoClock). */
+  saleh: 'saleh.ahmad@ems-itech.com',
 };
 
 const amman = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Amman' }).format(d);
@@ -25,6 +27,15 @@ const workday = (n: number) => {
     const d = inDays(i);
     if (new Date(`${d}T12:00:00Z`).getUTCDay() <= 4) return d;
   }
+};
+/** The Sunday–Thursday `n` working days before today. */
+const workdayAgo = (n: number) => {
+  let d = today;
+  for (let i = 1, back = 0; back < n; i++) {
+    d = inDays(-i);
+    if (new Date(`${d}T12:00:00Z`).getUTCDay() <= 4) back++;
+  }
+  return d;
 };
 
 interface AsOptions {
@@ -123,6 +134,8 @@ test('a week at EMS, as the people who use it', async ({ browser }) => {
       await page.locator('summary', { hasText: 'Put on a client shift' }).click();
       const evening = await page.locator('#shiftPick option', { hasText: 'Evening' }).first().getAttribute('value');
       await page.selectOption('#shiftPick', evening!);
+      // From the swap day: a start before 1 October 2026 would sit under the 8h30 day's version from that date.
+      await page.fill('#shiftFrom', swapDay);
       await submit(page, page.locator('form:has(#shiftPick) button.btn-primary'));
       await expect(page.locator('body')).toContainText('15:00');
 
@@ -150,6 +163,33 @@ test('a week at EMS, as the people who use it', async ({ browser }) => {
       await expect(await openBell(page)).toContainText('Rama Shararah asked for time off');
       await page.goto('/approvals');
       await expect(page.locator('main')).not.toContainText('Rama Shararah');
+    });
+  });
+
+  await test.step('Saleh forgot to clock out two days ago: that day counts nothing and is flagged until he closes it', async () => {
+    const forgotDay = workdayAgo(2);
+    const log = async (page: Page) => {
+      const saleh = await idOf(page, 'Saleh Ahmad');
+      await page.goto(`/attendance/${saleh}?month=${forgotDay.slice(0, 7)}`);
+      return page.locator('tbody tr', { hasText: 'Clock-out missing' });
+    };
+    await as(browser, PEOPLE.admin, async (page) => {
+      const missing = await log(page);
+      await expect(missing).toHaveCount(1);
+      // Not the ~50 hours since he clocked in: nothing, until he says when he left.
+      await expect(missing.locator('td').nth(4).locator('strong')).toHaveText('—');
+    });
+    await as(browser, PEOPLE.saleh, async (page) => {
+      const card = page.locator('.clock-forgot');
+      await expect(card).toContainText('You’re still clocked in from');
+      await page.fill('#clock-left', '17:30');
+      await submit(page, card.getByRole('button'));
+      await expect(page.locator('.clock-forgot')).toHaveCount(0);
+      await expect(page.locator('.clock-card button', { hasText: 'Clock in' })).toBeVisible();
+    });
+    await as(browser, PEOPLE.admin, async (page) => {
+      await expect(await log(page)).toHaveCount(0);
+      await expect(page.locator('main')).toContainText('8h 25m');
     });
   });
 

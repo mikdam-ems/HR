@@ -1,9 +1,13 @@
 import { eq, like, sql } from 'drizzle-orm';
 import type { DB } from '@/db';
 import { calendars, clientShifts, departments, employees } from '@/db/schema';
+import { addDays, isWorkday, resolveDay } from '@/domain';
+import { ammanInstant, todayISO } from '@/lib/format';
+import { clock } from './clock';
 import { createCalendar, createClient, setHoliday } from './clients';
 import { createDepartment } from './departments';
 import { addAssignment, createEmployee, putOnShift, setSchedule } from './people';
+import { loadRulesContext } from './rulesContext';
 import { getSettings, setSetting } from './settings';
 
 /**
@@ -218,11 +222,30 @@ export async function seedDemo(db: DB, log: (m: string) => void = console.log) {
   log(added ? `✓ ${added} people added.` : '• People updated.');
 }
 
+/** Demo sites only: the person who forgot to clock out, so the missing clock-out can be seen and closed. */
+export const DEMO_FORGOT_OUT = 'saleh.ahmad@ems-itech.com';
+
+/**
+ * Demo sites only: Saleh clocked in two working days ago and never clocked out. That day counts 0 hours and is
+ * flagged until he enters when he left (issue #1), instead of the clock running on until now.
+ */
+export async function seedDemoClock(db: DB, now = new Date()) {
+  const [person] = await db.select().from(employees).where(eq(employees.email, DEMO_FORGOT_OUT));
+  if (!person) return;
+  const ctx = await loadRulesContext(db);
+  let date = todayISO(now);
+  for (let back = 0; back < 2; ) {
+    date = addDays(date, -1);
+    if (isWorkday(resolveDay(ctx, person.id, date).dayType)) back++;
+  }
+  must(await clock(db, person.id, 'in', ammanInstant(date, '09:05'), 'web', 'office'), 'clock');
+}
+
 /**
  * Demo sites (DEMO_MODE=true) fill an empty database on first use, so hosts without a start
  * command (Vercel) need no manual seeding. A Postgres advisory lock stops two cold starts seeding twice.
  */
-export async function ensureDemoData(db: DB) {
+export async function ensureDemoData(db: DB, now = new Date()) {
   // Also upgrades an older demo (no departments, or the made-up sample people).
   const ready = async (x: DB) =>
     (await x.select({ id: departments.id }).from(departments).limit(1)).length > 0 &&
@@ -234,5 +257,6 @@ export async function ensureDemoData(db: DB) {
     const quiet = () => {};
     await seedAll(tx as unknown as DB, quiet);
     await seedDemo(tx as unknown as DB, quiet);
+    await seedDemoClock(tx as unknown as DB, now);
   });
 }

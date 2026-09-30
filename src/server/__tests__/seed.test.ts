@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createDb } from '@/db';
-import { departments, employees } from '@/db/schema';
-import { EMS_ROSTER, ensureDemoData, nameFromEmail, seedBase } from '../seed';
+import { clockEvents, departments, employees } from '@/db/schema';
+import { ammanInstant } from '@/lib/format';
+import { monthClock } from '../clock';
+import { DEMO_FORGOT_OUT, EMS_ROSTER, ensureDemoData, nameFromEmail, seedBase } from '../seed';
 import { createEmployee } from '../people';
 
 const PEOPLE = EMS_ROSTER.length; // 16
@@ -14,6 +16,19 @@ describe('demo data', () => {
     expect(await db.select().from(employees)).toHaveLength(PEOPLE);
     await Promise.all([ensureDemoData(db), ensureDemoData(db)]);
     expect(await db.select().from(employees)).toHaveLength(PEOPLE);
+  });
+
+  it('has one forgotten clock-out, two working days back, so the fix can be seen', async () => {
+    const db = await createDb('memory');
+    // Tuesday 29 September 2026: two Sunday–Thursday days back is Sunday the 27th.
+    await ensureDemoData(db, ammanInstant('2026-09-29', '10:00'));
+    const events = await db.select().from(clockEvents);
+    expect(events).toHaveLength(1);
+    const [saleh] = (await db.select().from(employees)).filter((e) => e.email === DEMO_FORGOT_OUT);
+    expect(events[0]).toMatchObject({ employeeId: saleh!.id, kind: 'in' });
+    const log = await monthClock(db, saleh!.id, 2026, 9);
+    expect(Object.keys(log)).toEqual(['2026-09-27']);
+    expect(log['2026-09-27']!.open).toBe(true);
   });
 
   it('builds the org: GM → delivery managers → teams, each manager heading their department', async () => {
