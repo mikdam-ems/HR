@@ -36,54 +36,54 @@ async function team() {
     await setSchedule(db, null, { employeeId: r.value.id, effectiveFrom: '2026-01-01', startTime: '09:00', endTime: '17:30' });
     return r.value;
   };
-  return { boss: boss.value, rama: await make('rama'), omar: await make('omar'), lina: await make('lina'), sami: await make('sami') };
+  return { boss: boss.value, maya: await make('maya'), omar: await make('omar'), lina: await make('lina'), sami: await make('sami') };
 }
 
 describe('todayBoard', () => {
   it('puts everyone in one state, with where they work and when they started', async () => {
-    const { boss, rama, omar, lina, sami } = await team();
-    await clock(db, rama.id, 'in', t('2026-09-29 08:55'), 'web', 'remote');
+    const { boss, maya, omar, lina, sami } = await team();
+    await clock(db, maya.id, 'in', t('2026-09-29 08:55'), 'web', 'remote');
     await clock(db, omar.id, 'in', t('2026-09-29 09:40'), 'slack', 'client_site');
     await clock(db, omar.id, 'break_start', t('2026-09-29 09:50'));
     const leave = await createRequest(db, { id: sami.id, roles: sami.roles }, { type: 'annual', fromDate: '2026-09-29', toDate: '2026-09-30' });
     if (!leave.ok) throw new Error(leave.error);
     expect((await decideRequest(db, { id: boss.id, roles: boss.roles }, leave.value, 'approve', null)).ok).toBe(true);
 
-    const board = await todayBoard(db, [rama, omar, lina, sami], t('2026-09-29 10:00'));
+    const board = await todayBoard(db, [maya, omar, lina, sami], t('2026-09-29 10:00'));
     const of = (p: Employee) => board.find((r) => r.employee.id === p.id)!;
 
-    expect(of(rama)).toMatchObject({ presence: { status: 'working', lateBy: 0 }, location: 'remote' });
-    expect(of(rama).since).toEqual(t('2026-09-29 08:55'));
+    expect(of(maya)).toMatchObject({ presence: { status: 'working', lateBy: 0 }, location: 'remote' });
+    expect(of(maya).since).toEqual(t('2026-09-29 08:55'));
     expect(of(omar)).toMatchObject({ presence: { status: 'break', lateBy: 40 }, location: 'client_site' });
     expect(of(lina)).toMatchObject({ presence: { status: 'late', lateBy: 60 }, location: null });
     expect(of(sami)).toMatchObject({ presence: { status: 'on_leave' }, leavePortion: 1 });
 
-    const evening = await todayBoard(db, [rama, lina], t('2026-09-29 18:00'));
+    const evening = await todayBoard(db, [maya, lina], t('2026-09-29 18:00'));
     expect(evening.map((r) => r.presence.status)).toEqual(['working', 'absent']);
   });
 
   it('shows a weekend as a day off, and yesterday’s clock-in as nothing for today', async () => {
-    const { rama } = await team();
-    await clock(db, rama.id, 'in', t('2026-10-01 09:00'), 'web', 'office');
-    await clock(db, rama.id, 'out', t('2026-10-01 17:30'));
+    const { maya } = await team();
+    await clock(db, maya.id, 'in', t('2026-10-01 09:00'), 'web', 'office');
+    await clock(db, maya.id, 'out', t('2026-10-01 17:30'));
     // Friday 2 October.
-    const [friday] = await todayBoard(db, [rama], t('2026-10-02 11:00'));
+    const [friday] = await todayBoard(db, [maya], t('2026-10-02 11:00'));
     expect(friday).toMatchObject({ presence: { status: 'off' }, location: null, firstIn: null });
   });
 });
 
 describe('work location', () => {
   it('is kept from last time when clocking in without choosing', async () => {
-    const { rama } = await team();
-    expect((await clockView(db, rama.id, t('2026-09-28 08:00'))).usualLocation).toBeNull();
-    await clock(db, rama.id, 'in', t('2026-09-28 09:00'), 'web', 'client_site');
-    expect(await clockView(db, rama.id, t('2026-09-28 10:00'))).toMatchObject({ location: 'client_site', usualLocation: 'client_site' });
-    await clock(db, rama.id, 'out', t('2026-09-28 17:30'));
-    expect(await clockView(db, rama.id, t('2026-09-28 18:00'))).toMatchObject({ location: null, usualLocation: 'client_site' });
+    const { maya } = await team();
+    expect((await clockView(db, maya.id, t('2026-09-28 08:00'))).usualLocation).toBeNull();
+    await clock(db, maya.id, 'in', t('2026-09-28 09:00'), 'web', 'client_site');
+    expect(await clockView(db, maya.id, t('2026-09-28 10:00'))).toMatchObject({ location: 'client_site', usualLocation: 'client_site' });
+    await clock(db, maya.id, 'out', t('2026-09-28 17:30'));
+    expect(await clockView(db, maya.id, t('2026-09-28 18:00'))).toMatchObject({ location: null, usualLocation: 'client_site' });
 
-    await clock(db, rama.id, 'in', t('2026-09-29 09:00'));
-    expect((await clockView(db, rama.id, t('2026-09-29 10:00'))).location).toBe('client_site');
-    await clock(db, rama.id, 'break_start', t('2026-09-29 12:00'), 'web', 'remote');
-    expect((await clockView(db, rama.id, t('2026-09-29 12:10'))).location).toBe('client_site');
+    await clock(db, maya.id, 'in', t('2026-09-29 09:00'));
+    expect((await clockView(db, maya.id, t('2026-09-29 10:00'))).location).toBe('client_site');
+    await clock(db, maya.id, 'break_start', t('2026-09-29 12:00'), 'web', 'remote');
+    expect((await clockView(db, maya.id, t('2026-09-29 12:10'))).location).toBe('client_site');
   });
 });

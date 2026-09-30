@@ -54,12 +54,12 @@ describe('slack commands', () => {
   });
 
   it('matches the Slack user by email once, then remembers them', async () => {
-    const r = await createEmployee(db, null, { email: 'sheraz@ems.com', nameEn: 'Sheraz' });
+    const r = await createEmployee(db, null, { email: 'tariq@ems.com', nameEn: 'Tariq' });
     if (!r.ok) throw new Error(r.error);
     let lookups = 0;
     const lookup = async () => {
       lookups++;
-      return 'Sheraz@EMS.com';
+      return 'Tariq@EMS.com';
     };
     expect((await employeeForSlackUser(db, 'U1', lookup))?.id).toBe(r.value.id);
     expect((await employeeForSlackUser(db, 'U1', lookup))?.id).toBe(r.value.id);
@@ -69,7 +69,7 @@ describe('slack commands', () => {
   });
 
   it('clocks in, breaks, comes back and clocks out with friendly replies', async () => {
-    const r = await createEmployee(db, null, { email: 'sheraz@ems.com', nameEn: 'Sheraz' });
+    const r = await createEmployee(db, null, { email: 'tariq@ems.com', nameEn: 'Tariq' });
     if (!r.ok) throw new Error(r.error);
     const id = r.value.id;
     expect(await runSlackCommand(db, id, 'status', t('2026-09-28 08:00'))).toContain('Not clocked in');
@@ -89,7 +89,7 @@ describe('slack commands', () => {
     expect(parseLocation('office')).toBe('office');
     expect(parseLocation('in')).toBeNull();
 
-    const r = await createEmployee(db, null, { email: 'sheraz@ems.com', nameEn: 'Sheraz' });
+    const r = await createEmployee(db, null, { email: 'tariq@ems.com', nameEn: 'Tariq' });
     if (!r.ok) throw new Error(r.error);
     const id = r.value.id;
     expect(await runSlackCommand(db, id, 'in', t('2026-09-28 09:00'), parseLocation('in site'))).toContain('09:00 · Client site');

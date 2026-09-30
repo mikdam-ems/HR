@@ -36,18 +36,18 @@ describe('runDaily', () => {
     const client = await createClient(db, null, { nameEn: 'Hala', calendarId: cal.value });
     if (!client.ok) throw new Error('client');
     await setSetting(db, 'hoursSource', []);
-    const moath = await person('moath@ems.com', client.value);
-    const rama = await person('rama@ems.com', client.value);
-    const submitted = await ts.submitMonth(db, { id: rama.id, roles: rama.roles }, rama.id, 2026, 9);
+    const yousef = await person('yousef@ems.com', client.value);
+    const maya = await person('maya@ems.com', client.value);
+    const submitted = await ts.submitMonth(db, { id: maya.id, roles: maya.roles }, maya.id, 2026, 9);
     expect(submitted.ok).toBe(true);
 
     expect((await runDaily(db, at('2026-09-29'))).reminded).toBe(0);
     expect((await runDaily(db, at('2026-09-30'))).reminded).toBe(1);
     expect((await runDaily(db, at('2026-09-30'))).reminded).toBe(0);
 
-    const [note] = await listNotifications(db, moath.id);
+    const [note] = await listNotifications(db, yousef.id);
     expect(note).toMatchObject({ kind: 'timesheet_reminder', link: '/timesheet?month=2026-09' });
-    expect(await listNotifications(db, rama.id)).toHaveLength(0);
+    expect(await listNotifications(db, maya.id)).toHaveLength(0);
   });
 
   it('counts today’s birthdays and anniversaries (no Slack post without a channel)', async () => {
@@ -63,29 +63,29 @@ describe('runDaily', () => {
     const client = await createClient(db, null, { nameEn: 'Hala', calendarId: cal.value });
     if (!client.ok) throw new Error('client');
     const local = (s: string) => ammanInstant(s.slice(0, 10), s.slice(11, 16));
-    const moath = await person('moath@ems.com', client.value);
+    const yousef = await person('yousef@ems.com', client.value);
     const hala = await person('hala@ems.com', client.value);
     await setSchedule(db, null, { employeeId: hala.id, effectiveFrom: '2026-01-01', startTime: '23:00', endTime: '09:00' });
-    const rama = await person('rama@ems.com', client.value);
+    const maya = await person('maya@ems.com', client.value);
 
-    await clock(db, moath.id, 'in', local('2026-09-28 09:00')); // forgot to clock out
+    await clock(db, yousef.id, 'in', local('2026-09-28 09:00')); // forgot to clock out
     await clock(db, hala.id, 'in', local('2026-09-28 23:00')); // night shift, ends 09:00
-    await clock(db, rama.id, 'in', local('2026-09-28 09:00'));
-    await clock(db, rama.id, 'out', local('2026-09-28 17:30'));
+    await clock(db, maya.id, 'in', local('2026-09-28 09:00'));
+    await clock(db, maya.id, 'out', local('2026-09-28 17:30'));
 
     // The cron runs at 08:00 Amman.
     expect((await runDaily(db, local('2026-09-29 08:00'))).nudged).toBe(1);
     expect((await runDaily(db, local('2026-09-29 08:00'))).nudged).toBe(0);
-    const [note] = await listNotifications(db, moath.id);
+    const [note] = await listNotifications(db, yousef.id);
     expect(note).toMatchObject({ kind: 'clock_open', link: '/', data: { date: '2026-09-28' } });
     expect(await listNotifications(db, hala.id)).toHaveLength(0);
-    expect(await listNotifications(db, rama.id)).toHaveLength(0);
+    expect(await listNotifications(db, maya.id)).toHaveLength(0);
 
-    // Next morning Hala still hasn't clocked out: now she's nudged. Moath, who fixed his day, isn't again.
-    expect((await clockOutAt(db, moath.id, '2026-09-28', '17:30', local('2026-09-29 09:00'))).ok).toBe(true);
+    // Next morning Hala still hasn't clocked out: now she's nudged. Yousef, who fixed his day, isn't again.
+    expect((await clockOutAt(db, yousef.id, '2026-09-28', '17:30', local('2026-09-29 09:00'))).ok).toBe(true);
     expect((await runDaily(db, local('2026-09-30 08:00'))).nudged).toBe(1);
     const nudges = async (id: string) => (await listNotifications(db, id)).filter((n) => n.kind === 'clock_open');
     expect(await nudges(hala.id)).toHaveLength(1);
-    expect(await nudges(moath.id)).toHaveLength(1);
+    expect(await nudges(yousef.id)).toHaveLength(1);
   });
 });

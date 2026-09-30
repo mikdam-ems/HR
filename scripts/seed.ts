@@ -1,7 +1,8 @@
 /**
- * First-run setup: calendars, the EMS Internal and Jadwa clients, default settings and the first admin.
+ * First-run setup: calendars, the EMS Internal client, default settings and the first admin.
+ * Client companies (e.g. the clients people are placed with) are added on the Clients page.
  *   SEED_ADMIN_EMAIL=you@ems-itech.com npm run db:seed
- *   npm run db:seed -- --demo      also adds EMS's people (for local development and demos)
+ *   npm run db:seed -- --demo      also adds a made-up team and client (for local development and demos)
  */
 import { createDb } from '@/db';
 import { ensureAdmin, seedAll, seedDemo } from '@/server/seed';

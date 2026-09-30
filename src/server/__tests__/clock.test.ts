@@ -17,7 +17,7 @@ beforeEach(async () => {
 const t = (local: string) => ammanInstant(local.slice(0, 10), local.slice(11, 16));
 
 async function me() {
-  const r = await createEmployee(db, null, { email: 'moath@ems.com', nameEn: 'Moath' });
+  const r = await createEmployee(db, null, { email: 'yousef@ems.com', nameEn: 'Yousef' });
   if (!r.ok) throw new Error(r.error);
   return r.value.id;
 }

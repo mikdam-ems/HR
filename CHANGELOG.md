@@ -7,6 +7,10 @@ version, and merging that to the main branch publishes it on the repo's **Releas
 
 ## Unreleased
 
+- **The demo uses a made-up team and client.** Demo sites show invented people (…@demo.ems-itech.com) placed with
+  "Acme Investment" instead of EMS's real staff and client; existing demo sites switch over on their next start.
+  A fresh live install no longer creates a client: add yours on the **Clients** page. (#29)
+
 ## v0.1.0 — 30 September 2026
 
 The pilot build: the first version meant to run alongside Excel for a month (#14).
