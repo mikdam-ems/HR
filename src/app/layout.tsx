@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
     return {
       title: 'Kadr',
       description: 'Timesheets, time off and month-end close for teams that work at client sites.',
-      icons: { icon: '/brand/kadr-icon.svg' },
+      icons: { icon: '/brand/kadr-icon.svg', apple: '/brand/kadr-apple-touch-icon.png' },
     };
   }
   return {

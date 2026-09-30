@@ -1,0 +1,36 @@
+display_information:
+  name: Kadr
+  description: Clock in, breaks and clock out from Slack, plus approvals and reminders from Kadr.
+  background_color: "#1B3BD1"
+  long_description: |-
+    Kadr brings your workday into Slack. Clock in, take a break and clock out with /kadr in, /kadr break, /kadr back and /kadr out, and see how long you've worked with /kadr status. Everything lands in the same clock as the Kadr website, so your timesheet fills itself.
+
+    Kadr also sends you a direct message when something needs you: a time-off request or a day change to approve, a month to submit, or the decision on your own request. Birthdays and work anniversaries are shared each morning in one channel, never ages.
+
+    Replies to commands are only visible to you. Kadr is built and supported by EMS.
+features:
+  bot_user:
+    display_name: kadr
+    always_online: false
+  slash_commands:
+    - command: /kadr
+      url: https://hr-navy-zeta.vercel.app/api/slack/commands
+      description: Clock in, break, back, out, status
+      usage_hint: "in | break | back | out | status"
+      should_escape: false
+    - command: /ems
+      url: https://hr-navy-zeta.vercel.app/api/slack/commands
+      description: Clock in, break, back, out, status
+      usage_hint: "in | break | back | out | status"
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - commands
+      - chat:write
+      - users:read
+      - users:read.email
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
