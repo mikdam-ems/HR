@@ -296,7 +296,7 @@ export async function saveDay(db: DB, actor: Actor, employeeId: string, input: D
   // What the day shows without any change: the clocked time (clock mode) or the schedule.
   const monthDay = view.value.summary.days.find((x) => x.day.date === d.date)!;
   const scheduled =
-    monthDay.clockedMinutes !== undefined || monthDay.future !== undefined
+    monthDay.source === 'clock'
       ? (monthDay.clockedMinutes ?? 0)
       : day.dayType === 'working' || day.dayType === 'special_overtime'
         ? day.expectedMinutes

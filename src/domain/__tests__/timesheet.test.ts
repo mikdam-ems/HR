@@ -139,6 +139,8 @@ describe('clock mode starts on the first clock-in', () => {
     expect(day('2026-09-14').entry.workedMinutes).toBe(day('2026-09-14').day.expectedMinutes);
     expect(day('2026-09-14').issues).toEqual([]);
     expect(day('2026-09-14').future).toBeUndefined();
+    expect(day('2026-09-14').source).toBe('schedule');
+    expect(day('2026-09-15').source).toBe('clock');
     expect(day('2026-09-15').entry.workedMinutes).toBe(600);
     expect(day('2026-09-16').issues.map((i) => i.code)).toContain('missing_hours');
 

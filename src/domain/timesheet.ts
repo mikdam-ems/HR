@@ -1,6 +1,6 @@
 import { daysOfMonth } from './dates';
 import { resolveDay } from './dayRules';
-import { type HoursPeriod, hoursSourceOn } from './hoursSource';
+import { type HoursPeriod, type HoursSource, hoursSourceOn } from './hoursSource';
 import type { DayEntry, DayType, ISODate, LeaveType, OvertimeRates, ResolvedDay, RulesContext } from './types';
 
 /** Upper limit before a day is flagged for the manager. */
@@ -93,6 +93,8 @@ export interface MonthDay {
   entry: DayEntry;
   /** True when the entry differs from the auto-filled one — these are what the manager reviews. */
   changed: boolean;
+  /** Where the day's hours come from when nobody changed it (Settings, and from the first clock-in). */
+  source: HoursSource;
   /** Clock mode: minutes clocked that day (undefined when nothing was clocked). */
   clockedMinutes?: number;
   /** Clock mode: the day hasn't happened yet, so it's left empty. */
@@ -169,7 +171,15 @@ export function summarizeMonth(
     let issues = checkDay(day, entry).filter((i) => !(byClock && i.code === 'missing_hours' && date >= clock.today));
     // A forgotten clock-out, until someone corrects the day. It says more than "missing hours" would.
     if (forgotten && entry === prefilled) issues = [{ date, code: 'clock_open' }, ...issues.filter((i) => i.code !== 'missing_hours')];
-    days.push({ day, entry, changed, totals: dayTotals, issues, ...(byClock ? { clockedMinutes, future } : {}) });
+    days.push({
+      day,
+      entry,
+      changed,
+      source: byClock ? 'clock' : 'schedule',
+      totals: dayTotals,
+      issues,
+      ...(byClock ? { clockedMinutes, future } : {}),
+    });
   }
 
   return { employeeId, year, month, days, totals: sumMonthDays(days), issues: days.flatMap((d) => d.issues) };
