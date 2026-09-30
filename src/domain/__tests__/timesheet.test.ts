@@ -64,6 +64,57 @@ describe('checks', () => {
   });
 });
 
+describe('checkDay: boundaries and combinations', () => {
+  // Omar works for Jadwa (Sun–Thu, 09:00–17:00). Dates used below:
+  //   2026-08-11 Tue  working day
+  //   2026-08-26 Wed  Jordanian holiday while Jadwa works → special overtime (still a workday)
+  //   2026-09-04 Fri  Jadwa weekend
+  const check = (date: string, entry: Omit<DayEntry, 'date'>, employeeId = 'omar') =>
+    checkDay(resolveDay(ctx, employeeId, date), { date, ...entry });
+  const codes = (date: string, entry: Omit<DayEntry, 'date'>, employeeId?: string) =>
+    check(date, entry, employeeId).map((i) => i.code);
+
+  it('a normal full day raises nothing', () => {
+    expect(codes('2026-08-11', { workedMinutes: h(8) })).toEqual([]);
+  });
+
+  it('exactly 16 hours is allowed; one minute more is flagged', () => {
+    expect(codes('2026-08-11', { workedMinutes: h(16) })).toEqual([]);
+    expect(codes('2026-08-11', { workedMinutes: h(16) + 1 })).toEqual(['too_many_hours']);
+  });
+
+  it('treats negative minutes (bad input) as no hours, not as a valid day', () => {
+    expect(codes('2026-08-11', { workedMinutes: -30 })).toEqual(['missing_hours']);
+  });
+
+  it('a special-overtime day is still a workday: no hours and no leave is missing', () => {
+    expect(codes('2026-08-26', { workedMinutes: 0 })).toEqual(['missing_hours']);
+    expect(codes('2026-08-26', { workedMinutes: h(8) })).toEqual([]);
+  });
+
+  it("a weekend with no hours is fine, but leave on it is flagged (it would use a day that isn't needed)", () => {
+    expect(codes('2026-09-04', { workedMinutes: 0 })).toEqual([]);
+    expect(codes('2026-09-04', { workedMinutes: 0, leave: { type: 'annual', portion: 1 } })).toEqual(['leave_on_day_off']);
+  });
+
+  it('flags hours worked on a full day of leave, but not on a half day', () => {
+    expect(codes('2026-08-11', { workedMinutes: h(3), leave: { type: 'annual', portion: 1 } })).toEqual(['worked_on_full_leave']);
+    expect(codes('2026-08-11', { workedMinutes: h(4), leave: { type: 'annual', portion: 0.5 } })).toEqual([]);
+  });
+
+  it('reports every problem on a day at once, each dated to that day', () => {
+    // 17 hours on a full day of sick leave: two separate things for the manager to look at.
+    const issues = check('2026-08-11', { workedMinutes: h(17), leave: { type: 'sick', portion: 1 } });
+    expect(issues.map((i) => i.code)).toEqual(['too_many_hours', 'worked_on_full_leave']);
+    expect(issues.every((i) => i.date === '2026-08-11')).toBe(true);
+  });
+
+  it('an unassigned day with leave only says "unassigned", not also "leave on a day off"', () => {
+    // Sami has no assignment before 2026; fixing the assignment is what matters.
+    expect(codes('2025-12-31', { workedMinutes: 0, leave: { type: 'annual', portion: 1 } }, 'sami')).toEqual(['unassigned']);
+  });
+});
+
 describe('month summary', () => {
   it("matches the wireframe's September for Lina (Jadwa only)", () => {
     const soloCtx = { ...ctx, assignments: ctx.assignments.filter((a) => a.clientId === 'jadwa') };
