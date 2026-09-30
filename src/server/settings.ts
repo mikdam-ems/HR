@@ -64,8 +64,8 @@ export async function setHoursSource(db: DB, actorId: string | null, input: Hour
   const next = parsed.value;
   const [current, closures] = await Promise.all([getSettingsUncached(db), db.select().from(monthClosures)]);
   const closed = closures.map((c) => `${c.year}-${String(c.month).padStart(2, '0')}`);
-  const problem = checkNewHoursPeriod(current.hoursSource, next, closed);
-  if (problem) return fail('hours_source_date', problem);
+  // The message explains both cases; the internal reason isn't shown to people.
+  if (checkNewHoursPeriod(current.hoursSource, next, closed)) return fail('hours_source_date');
   // A second switch on the same date replaces the first.
   const periods = [...current.hoursSource.filter((p) => p.from !== next.from), next];
   await setSetting(db, 'hoursSource', periods);
