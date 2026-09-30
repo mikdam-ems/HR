@@ -19,4 +19,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Schema changes: edit `src/db/schema.ts`, then `npm run db:generate` and commit the new file in `drizzle/`.
 - Before pushing: `npm test && npm run typecheck && npm run build`, and `npm run test:e2e` when pages or flows change.
   When a feature changes what people click, extend `e2e/walkthrough.e2e.ts` in the same change.
+- Log all work on GitHub, so everything is traceable: every change starts from an issue (open one for bugs or ideas
+  raised in chat), arrives as a pull request whose description says `Closes #N`, and adds a plain-language line to
+  `CHANGELOG.md` under **Unreleased** when it changes what people see or how hours, leave or payroll count. When a
+  batch ships, turn **Unreleased** into a version; merging it publishes the GitHub Release. Details:
+  `docs/HOW_WE_WORK.md`.
 - The `clean-code` skill (`.claude/skills/clean-code`) is general guidance. Where it differs, this project's conventions win: server functions return a `Result` (`ok` / `fail`) instead of throwing, functions return `null`/`undefined` for "not found", and short comments explaining *why* are welcome.
