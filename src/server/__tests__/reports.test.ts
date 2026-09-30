@@ -207,6 +207,23 @@ describe('month report in clock mode', () => {
   });
 });
 
+describe('client hours export in clock mode', () => {
+  it('a forgotten clock-out adds nothing to the client’s hours and stays flagged there', async () => {
+    const { lina, finance, jadwaId } = await setup();
+    await setSetting(db, 'hoursSource', [{ from: '2026-01-01', source: 'clock' }]);
+    await clock(db, lina.id, 'in', ammanInstant('2026-09-08', '09:00'));
+    await clock(db, lina.id, 'out', ammanInstant('2026-09-08', '19:00'));
+    await clock(db, lina.id, 'in', ammanInstant('2026-09-10', '09:00'));
+
+    const r = await monthReport(db, finance, 2026, 9);
+    if (!r.ok) throw new Error(r.error);
+    const row = clientMonthReport(r.value, jadwaId).rows.find((x) => x.employee.id === lina.id)!;
+    expect(row.totals.regularOvertimeMinutes).toBe(120);
+    expect(row.summary.days.find((d) => d.day.date === '2026-09-10')!.entry.workedMinutes).toBe(0);
+    expect(row.summary.issues.some((i) => i.date === '2026-09-10' && i.code === 'clock_open')).toBe(true);
+  });
+});
+
 describe('closing a month', () => {
   it('needs every timesheet approved, then freezes timesheets and leave', async () => {
     const { admin, khaled, lina, hr, finance } = await setup();

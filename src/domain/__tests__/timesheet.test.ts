@@ -262,3 +262,41 @@ describe('a forgotten clock-out', () => {
     expect(d.issues).toEqual([]);
   });
 });
+
+describe('fixes working with seasonal hours and dated hours sources', () => {
+  const ramadanCtx = {
+    ...ctx,
+    seasonalHours: [{ clientId: 'jadwa', name: 'Ramadan 2027', from: '2027-02-07', to: '2027-03-08', start: '09:00', end: '15:00' }],
+  };
+
+  it('a forgotten clock-out on a Ramadan day still counts nothing and asks for a correction', () => {
+    const s = summarizeMonth(ramadanCtx, 'omar', 2027, 2, [], rates, {
+      minutes: { '2027-02-08': 200 * 60, '2027-02-09': 7 * 60 },
+      open: ['2027-02-08'],
+      today: '2027-02-20',
+      since: '2027-02-01',
+    });
+    const day = (d: string) => s.days.find((x) => x.day.date === d)!;
+    expect(day('2027-02-08').day.expectedMinutes).toBe(6 * 60);
+    expect(day('2027-02-08').entry.workedMinutes).toBe(0);
+    expect(day('2027-02-08').issues.map((i) => i.code)).toEqual(['clock_open']);
+    // The next day's hour beyond the six Ramadan hours is overtime; the open day adds none.
+    expect(day('2027-02-09').totals.regularOvertimeMinutes).toBe(60);
+    expect(s.totals.regularOvertimeMinutes).toBe(60);
+  });
+
+  it('a forgotten clock-out in a schedule month is ignored: the day keeps its schedule', () => {
+    const s = summarizeMonth(ctx, 'omar', 2026, 9, [], rates, {
+      minutes: { '2026-09-10': 430 * 60 },
+      open: ['2026-09-10'],
+      today: '2026-09-28',
+      since: '2026-09-01',
+      periods: [{ from: '2026-10-01', source: 'clock' }],
+    });
+    const d = s.days.find((x) => x.day.date === '2026-09-10')!;
+    expect(d.source).toBe('schedule');
+    expect(d.entry.workedMinutes).toBe(d.day.expectedMinutes);
+    expect(d.issues).toEqual([]);
+    expect(s.totals.regularOvertimeMinutes).toBe(0);
+  });
+});
