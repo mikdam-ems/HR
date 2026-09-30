@@ -11,7 +11,7 @@ features:
     always_online: false
   slash_commands:
     - command: /ems
-      url: https://hr-navy-zeta.vercel.app/api/slack/commands
+      url: https://hr-ems.vercel.app/api/slack/commands
       description: Clock in, break, back, out, status
       usage_hint: in | break | back | out | status
       should_escape: false
