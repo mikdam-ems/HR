@@ -25,7 +25,7 @@ async function setup() {
   if (!cal.ok) throw new Error('cal');
   const client = await createClient(db, null, { nameEn: 'Jadwa', calendarId: cal.value });
   if (!client.ok) throw new Error('client');
-  await setSetting(db, 'hoursSource', 'schedule');
+  await setSetting(db, 'hoursSource', []);
   const make = async (email: string, managerId: string | null, roles: ('admin' | 'hr')[] = []) => {
     const r = await createEmployee(db, null, { email, nameEn: email.split('@')[0]!, managerId, roles, hireDate: '2022-01-01' });
     if (!r.ok) throw new Error(r.error);

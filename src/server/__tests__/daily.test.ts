@@ -35,7 +35,7 @@ describe('runDaily', () => {
     if (!cal.ok) throw new Error('cal');
     const client = await createClient(db, null, { nameEn: 'Hala', calendarId: cal.value });
     if (!client.ok) throw new Error('client');
-    await setSetting(db, 'hoursSource', 'schedule');
+    await setSetting(db, 'hoursSource', []);
     const moath = await person('moath@ems.com', client.value);
     const rama = await person('rama@ems.com', client.value);
     const submitted = await ts.submitMonth(db, { id: rama.id, roles: rama.roles }, rama.id, 2026, 9);

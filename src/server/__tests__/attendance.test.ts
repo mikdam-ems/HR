@@ -83,6 +83,30 @@ describe('monthAttendanceReport', () => {
     expect(never).toMatchObject({ onClock: false, days: [], totals: { absentDays: 0 } });
   });
 
+  it('files a night shift under the day it began, where it began', async () => {
+    const cal = await createCalendar(db, null, { name: 'Saudi', workWeek: [0, 1, 2, 3, 4] });
+    if (!cal.ok) throw new Error('calendar');
+    const jadwa = await createClient(db, null, { nameEn: 'Jadwa', calendarId: cal.value });
+    if (!jadwa.ok) throw new Error('client');
+    const boss = await createEmployee(db, null, { email: 'boss@ems.com', nameEn: 'Boss', roles: ['hr'] });
+    const nora = await createEmployee(db, null, { email: 'nora@ems.com', nameEn: 'Nora', hireDate: '2022-01-01' });
+    if (!boss.ok || !nora.ok) throw new Error('employee');
+    await addAssignment(db, null, { employeeId: nora.value.id, clientId: jadwa.value, startDate: '2026-01-01' });
+    await setSchedule(db, null, { employeeId: nora.value.id, effectiveFrom: '2026-01-01', startTime: '22:00', endTime: '06:00' });
+
+    await clock(db, nora.value.id, 'in', t('2026-09-20 22:00'), 'web', 'client_site');
+    await clock(db, nora.value.id, 'out', t('2026-09-21 06:00'));
+
+    const result = await monthAttendanceReport(db, boss.value, 2026, 9, t('2026-09-22 10:00'));
+    if (!result.ok) throw new Error(result.error);
+    const row = result.value.rows.find((r) => r.employee.id === nora.value.id)!;
+    expect(row.places).toEqual({ '2026-09-20': 'client_site' });
+    expect(row.days.find((d) => d.date === '2026-09-20')!.forgotOut).toBe(false);
+    // The clock-out after midnight doesn't make the 21st a clocked day of its own.
+    expect(row.days.find((d) => d.date === '2026-09-21')!.firstIn).toBeNull();
+    expect(row.totals.forgotOut).toBe(0);
+  });
+
   it('is for HR, Finance and admins only', async () => {
     expect(await monthAttendanceReport(db, { roles: ['employee'] }, 2026, 9)).toMatchObject({ ok: false, error: 'forbidden' });
   });

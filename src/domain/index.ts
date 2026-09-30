@@ -8,3 +8,4 @@ export * from './celebrations';
 export * from './roster';
 export * from './timesheetExport';
 export * from './presence';
+export * from './hoursSource';

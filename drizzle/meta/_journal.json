@@ -127,6 +127,13 @@
       "when": 1790688781711,
       "tag": "0017_shift_swaps",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790772733811,
+      "tag": "0018_schedule_history",
+      "breakpoints": true
     }
   ]
 }

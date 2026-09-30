@@ -4,6 +4,7 @@ import { clockEvents, type ClockEventRow, dayEntries, type Department, departmen
 import {
   type AttendanceDay,
   type AttendanceTotals,
+  type ClockDay,
   type WorkPlace,
   daysOfMonth,
   pastPresence,
@@ -45,23 +46,9 @@ export interface AttendanceMonth {
   rows: AttendanceRow[];
 }
 
-/** Each clock session's day (the day it began): where it was worked from and whether its clock-out was fixed later. */
-function sessionsByDay(events: readonly ClockEventRow[]) {
-  const out = new Map<string, { place: WorkPlace | null; corrected: boolean }>();
-  let day: string | null = null;
-  for (const e of events) {
-    if (e.kind === 'in') {
-      day = todayISO(e.at);
-      const s = out.get(day) ?? { place: null, corrected: false };
-      s.place ??= e.location;
-      out.set(day, s);
-    }
-    if (e.kind === 'out' && day) {
-      if (e.source === 'correction') out.get(day)!.corrected = true;
-      day = null;
-    }
-  }
-  return out;
+/** Where a clocked day was worked from: the first clock-in that says. */
+function placeOf(day: ClockDay<ClockEventRow> | undefined): WorkPlace | null {
+  return day?.events.find((e) => e.kind === 'in' && e.location)?.location ?? null;
 }
 
 /**
@@ -99,13 +86,11 @@ export async function monthAttendanceReport(
     if (resolved.every((d) => d.dayType === 'unassigned')) continue; // not working for anyone this month
     const mine = events.filter((e) => e.employeeId === employee.id);
     const clocked = summarizeClock(mine, now, todayISO);
-    const sessions = sessionsByDay(mine);
     const first = since[employee.id] ?? null;
     const counted = first ? resolved.filter((d) => d.date >= first && d.date < today) : [];
     const dayRows = counted.map((day): AttendanceDayRow => {
       const c = clocked.get(day.date);
       const entry = leave.find((l) => l.employeeId === employee.id && l.date === day.date);
-      const session = sessions.get(day.date);
       return {
         date: day.date,
         firstIn: c?.firstIn ?? null,
@@ -114,8 +99,9 @@ export async function monthAttendanceReport(
           firstInMinutes: c ? toMinutes(timeOfDay(c.firstIn)) : null,
           leavePortion: entry?.leavePortion ?? null,
         }),
-        place: session?.place ?? null,
-        forgotOut: !!session?.corrected || !!c?.open,
+        place: placeOf(c),
+        // Left open, or its clock-out was added later as a correction.
+        forgotOut: !!c?.open || !!c?.events.some((e) => e.kind === 'out' && e.source === 'correction'),
       };
     });
     rows.push({
@@ -125,7 +111,12 @@ export async function monthAttendanceReport(
       onClock: !!first && first <= days[days.length - 1]!,
       totals: summarizeAttendance(dayRows),
       days: dayRows,
-      places: Object.fromEntries([...sessions].flatMap(([date, s]) => (s.place && days.includes(date) ? [[date, s.place]] : []))),
+      places: Object.fromEntries(
+        [...clocked].flatMap(([date, c]) => {
+          const place = placeOf(c);
+          return place && days.includes(date) ? [[date, place]] : [];
+        }),
+      ),
     });
   }
   return ok({ year, month, rows });

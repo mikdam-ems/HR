@@ -17,7 +17,7 @@ import {
   type LeaveType,
   type MonthSummary,
   daysOfMonth,
-  msToMinutes,
+  monthUsesClock,
   summarizeMonth,
   windowMinutes,
 } from '@/domain';
@@ -26,7 +26,7 @@ import { audit } from './audit';
 import { approversOf, notify } from './notify';
 import { behalfOf } from './delegation';
 import { type Approver, decidesFor } from './permissions';
-import { firstClockDates, monthClock } from './clock';
+import { firstClockDates, monthClock, toClockedMonth } from './clock';
 import { loadRulesContext } from './rulesContext';
 import { getSettings } from './settings';
 import { type Result, fail, hhmm, isoDate, ok, parse } from './validation';
@@ -66,6 +66,14 @@ export function accessFor(
     edit: self && EDITABLE.has(status) && !closed,
     decide: decider && status === 'submitted' && !closed,
   };
+}
+
+/**
+ * Who can see someone's attendance log (every clock in, break and out): the person, their manager, and
+ * HR, Finance and admins — the same people who see their timesheet (README, "Who can do what").
+ */
+export function canViewAttendance(actor: Actor, employee: Pick<Employee, 'id' | 'managerId'>): boolean {
+  return accessFor(actor, employee, 'draft').view;
 }
 
 export interface MonthView {
@@ -144,25 +152,16 @@ export async function getMonth(
   }));
   const notes = Object.fromEntries(rows.filter((r) => r.note).map((r) => [r.date, r.note!]));
   const times = Object.fromEntries(rows.map((r) => [r.date, { start: r.startTime, end: r.endTime }]));
-  const [clocked, since] =
-    appSettings.hoursSource === 'clock'
-      ? await Promise.all([monthClock(db, employeeId, year, month), firstClockDates(db, [employeeId])])
-      : [null, {}];
-  const summary = summarizeMonth(
-    ctx,
-    employeeId,
-    year,
-    month,
-    entries,
-    appSettings.overtimeRates,
-    clocked
-      ? {
-          minutes: Object.fromEntries(Object.entries(clocked).map(([d, c]) => [d, msToMinutes(c.workedMs)])),
+  const periods = appSettings.hoursSource;
+  const clockSource = monthUsesClock(periods, year, month)
+      ? await Promise.all([monthClock(db, employeeId, year, month), firstClockDates(db, [employeeId])]).then(([days, since]) => ({
+          ...toClockedMonth(days),
           today: todayISO(),
-          since: (since as Record<string, string>)[employeeId] ?? null,
-        }
-      : undefined,
-  );
+          since: since[employeeId] ?? null,
+          periods,
+        }))
+      : undefined;
+  const summary = summarizeMonth(ctx, employeeId, year, month, entries, appSettings.overtimeRates, clockSource);
   // A note alone is worth the manager's attention, even if the hours match.
   for (const d of summary.days) if (notes[d.day.date]) d.changed = true;
 
@@ -297,7 +296,7 @@ export async function saveDay(db: DB, actor: Actor, employeeId: string, input: D
   // What the day shows without any change: the clocked time (clock mode) or the schedule.
   const monthDay = view.value.summary.days.find((x) => x.day.date === d.date)!;
   const scheduled =
-    monthDay.clockedMinutes !== undefined || monthDay.future !== undefined
+    monthDay.source === 'clock'
       ? (monthDay.clockedMinutes ?? 0)
       : day.dayType === 'working' || day.dayType === 'special_overtime'
         ? day.expectedMinutes

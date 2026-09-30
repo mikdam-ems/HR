@@ -57,4 +57,18 @@ describe('clocking', () => {
     expect(msToMinutes(month['2026-09-27']!.workedMs)).toBe(8 * 60 + 30);
     expect(month['2026-09-28']!.open).toBe(true);
   });
+
+  it('a session forgotten more than 3 days ago still shows as open, so it can be closed', async () => {
+    const id = await me();
+    await clock(db, id, 'in', t('2026-09-10 09:00'));
+    const view = await clockView(db, id, t('2026-09-28 08:55'));
+    // Not "clocked out" with a Clock in button that the server then refuses.
+    expect(view.state).toBe('working');
+    expect(view.openFrom).toMatchObject({ date: '2026-09-10' });
+    expect(view.today.workedMs).toBe(0);
+
+    expect((await clockOutAt(db, id, '2026-09-10', '17:30', t('2026-09-28 09:00'))).ok).toBe(true);
+    expect((await clock(db, id, 'in', t('2026-09-28 09:01'))).ok).toBe(true);
+    expect((await clockView(db, id, t('2026-09-28 09:30'))).openFrom).toBeNull();
+  });
 });

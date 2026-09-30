@@ -2,7 +2,7 @@ import { cache } from 'react';
 import { and, asc, desc, eq, gte, inArray, isNotNull, lt, min } from 'drizzle-orm';
 import type { DB } from '@/db';
 import { clockEvents, type WorkLocation } from '@/db/schema';
-import { type ClockDay, type ClockKind, type ClockState, canClock, daysOfMonth, stateAfter, summarizeClock } from '@/domain';
+import { type ClockDay, type ClockKind, type ClockState, canClock, daysOfMonth, msToMinutes, stateAfter, summarizeClock } from '@/domain';
 import { ammanInstant, todayISO } from '@/lib/format';
 import { audit } from './audit';
 import { type Result, fail, ok } from './validation';
@@ -99,10 +99,16 @@ export interface ClockView {
 
 /** Everything the clock widget needs for one person. */
 async function clockViewUncached(db: DB, employeeId: string, now = new Date()): Promise<ClockView> {
+  // Three days covers today and a night shift; reach back further only for a session still open from before,
+  // otherwise it looks like "clocked out" while the server refuses a new clock-in.
+  const recent = new Date(now.getTime() - 3 * DAY_MS);
+  const openDate = await openSince(db, employeeId);
+  const openStart = openDate ? ammanInstant(openDate, '00:00') : null;
+  const from = openStart && openStart < recent ? openStart : recent;
   const events = await db
     .select()
     .from(clockEvents)
-    .where(and(eq(clockEvents.employeeId, employeeId), gte(clockEvents.at, new Date(now.getTime() - 3 * DAY_MS))))
+    .where(and(eq(clockEvents.employeeId, employeeId), gte(clockEvents.at, from)))
     .orderBy(asc(clockEvents.at));
   const { state, since } = stateAfter(events);
   const days = summarizeClock(events, now, dateOf);
@@ -120,7 +126,7 @@ async function clockViewUncached(db: DB, employeeId: string, now = new Date()): 
   };
 }
 
-/** Clocked time per day of a month (sessions belong to the day they started). */
+/** Clocked time per day of a month with each day's events (sessions belong to the day they started). */
 export async function monthClock(db: DB, employeeId: string, year: number, month: number, now = new Date()) {
   const days = daysOfMonth(year, month);
   const from = ammanInstant(days[0]!, '00:00');
@@ -131,43 +137,30 @@ export async function monthClock(db: DB, employeeId: string, year: number, month
     .where(and(eq(clockEvents.employeeId, employeeId), gte(clockEvents.at, from), lt(clockEvents.at, to)))
     .orderBy(asc(clockEvents.at));
   const all = summarizeClock(events, now, dateOf);
-  const out: Record<string, ClockDay> = {};
+  const out: Record<string, ClockDay<(typeof events)[number]>> = {};
   for (const d of days) if (all.has(d)) out[d] = all.get(d)!;
   return out;
 }
 
-/** A month of attendance for one person: per-day totals plus the raw events of each day's sessions. */
-export async function monthAttendance(db: DB, employeeId: string, year: number, month: number, now = new Date()) {
-  const days = daysOfMonth(year, month);
-  const from = ammanInstant(days[0]!, '00:00');
-  const to = new Date(ammanInstant(days[days.length - 1]!, '00:00').getTime() + 2 * DAY_MS);
-  const events = await db
-    .select()
-    .from(clockEvents)
-    .where(and(eq(clockEvents.employeeId, employeeId), gte(clockEvents.at, from), lt(clockEvents.at, to)))
-    .orderBy(asc(clockEvents.at));
-  const summary = summarizeClock(events, now, dateOf);
-  // Each event belongs to the day its session started (a night shift's clock-out goes with the evening it began).
-  const byDay: Record<string, typeof events> = {};
-  let session: string | null = null;
-  for (const e of events) {
-    if (e.kind === 'in') session = dateOf(e.at);
-    const d = session ?? dateOf(e.at);
-    (byDay[d] ??= []).push(e);
-    if (e.kind === 'out') session = null;
-  }
-  const out: Record<string, { day: ClockDay; events: typeof events }> = {};
-  for (const d of days) if (summary.has(d)) out[d] = { day: summary.get(d)!, events: byDay[d] ?? [] };
-  return out;
+/** Clocked minutes per day, and the days whose session is still open — what a timesheet needs from the clock. */
+export interface ClockedMonth {
+  minutes: Record<string, number>;
+  open: string[];
 }
 
-/** Clocked minutes per person per day for a whole month, in one query (for reports). */
-export async function monthClockMinutes(
-  db: DB,
-  year: number,
-  month: number,
-  now = new Date(),
-): Promise<Record<string, Record<string, number>>> {
+/** Turns a month of clock days into what a timesheet needs. */
+export function toClockedMonth(days: Record<string, ClockDay>): ClockedMonth {
+  const minutes: Record<string, number> = {};
+  const open: string[] = [];
+  for (const [date, d] of Object.entries(days)) {
+    minutes[date] = msToMinutes(d.workedMs);
+    if (d.open) open.push(date);
+  }
+  return { minutes, open };
+}
+
+/** Clocked time per person per day for a whole month, in one query (for reports). */
+export async function monthClockMinutes(db: DB, year: number, month: number, now = new Date()): Promise<Record<string, ClockedMonth>> {
   const days = daysOfMonth(year, month);
   const from = ammanInstant(days[0]!, '00:00');
   const to = new Date(ammanInstant(days[days.length - 1]!, '00:00').getTime() + 2 * DAY_MS);
@@ -177,22 +170,28 @@ export async function monthClockMinutes(
     .where(and(gte(clockEvents.at, from), lt(clockEvents.at, to)))
     .orderBy(asc(clockEvents.at));
   const byPerson = new Map<string, typeof events>();
-  for (const e of events) byPerson.set(e.employeeId, [...(byPerson.get(e.employeeId) ?? []), e]);
-  const out: Record<string, Record<string, number>> = {};
+  for (const e of events) {
+    const list = byPerson.get(e.employeeId);
+    if (list) list.push(e);
+    else byPerson.set(e.employeeId, [e]);
+  }
+  const out: Record<string, ClockedMonth> = {};
   for (const [id, list] of byPerson) {
     const summary = summarizeClock(list, now, dateOf);
-    out[id] = {};
-    for (const d of days) if (summary.has(d)) out[id][d] = Math.floor(summary.get(d)!.workedMs / 60000);
+    const inMonth: Record<string, ClockDay> = {};
+    for (const d of days) if (summary.has(d)) inMonth[d] = summary.get(d)!;
+    out[id] = toClockedMonth(inMonth);
   }
   return out;
 }
 
 /** The first day each person clocked in (the day the clock takes over their timesheet). */
 export async function firstClockDates(db: DB, ids?: string[]): Promise<Record<string, string>> {
+  if (ids && !ids.length) return {};
   const rows = await db
     .select({ employeeId: clockEvents.employeeId, first: min(clockEvents.at) })
     .from(clockEvents)
-    .where(ids ? inArray(clockEvents.employeeId, ids.length ? ids : ['00000000-0000-0000-0000-000000000000']) : undefined)
+    .where(ids ? inArray(clockEvents.employeeId, ids) : undefined)
     .groupBy(clockEvents.employeeId);
   return Object.fromEntries(rows.filter((r) => r.first).map((r) => [r.employeeId, dateOf(new Date(r.first!))]));
 }

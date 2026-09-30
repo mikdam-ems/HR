@@ -2268,6 +2268,11 @@ html[dir='rtl'] .clock-time strong {
 .top-clock-form {
   display: contents;
 }
+.top-clock-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .top-clock {
   display: inline-flex;
   align-items: center;

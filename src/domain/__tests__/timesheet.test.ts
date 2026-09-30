@@ -64,6 +64,57 @@ describe('checks', () => {
   });
 });
 
+describe('checkDay: boundaries and combinations', () => {
+  // Omar works for Jadwa (Sun–Thu, 09:00–17:00). Dates used below:
+  //   2026-08-11 Tue  working day
+  //   2026-08-26 Wed  Jordanian holiday while Jadwa works → special overtime (still a workday)
+  //   2026-09-04 Fri  Jadwa weekend
+  const check = (date: string, entry: Omit<DayEntry, 'date'>, employeeId = 'omar') =>
+    checkDay(resolveDay(ctx, employeeId, date), { date, ...entry });
+  const codes = (date: string, entry: Omit<DayEntry, 'date'>, employeeId?: string) =>
+    check(date, entry, employeeId).map((i) => i.code);
+
+  it('a normal full day raises nothing', () => {
+    expect(codes('2026-08-11', { workedMinutes: h(8) })).toEqual([]);
+  });
+
+  it('exactly 16 hours is allowed; one minute more is flagged', () => {
+    expect(codes('2026-08-11', { workedMinutes: h(16) })).toEqual([]);
+    expect(codes('2026-08-11', { workedMinutes: h(16) + 1 })).toEqual(['too_many_hours']);
+  });
+
+  it('treats negative minutes (bad input) as no hours, not as a valid day', () => {
+    expect(codes('2026-08-11', { workedMinutes: -30 })).toEqual(['missing_hours']);
+  });
+
+  it('a special-overtime day is still a workday: no hours and no leave is missing', () => {
+    expect(codes('2026-08-26', { workedMinutes: 0 })).toEqual(['missing_hours']);
+    expect(codes('2026-08-26', { workedMinutes: h(8) })).toEqual([]);
+  });
+
+  it("a weekend with no hours is fine, but leave on it is flagged (it would use a day that isn't needed)", () => {
+    expect(codes('2026-09-04', { workedMinutes: 0 })).toEqual([]);
+    expect(codes('2026-09-04', { workedMinutes: 0, leave: { type: 'annual', portion: 1 } })).toEqual(['leave_on_day_off']);
+  });
+
+  it('flags hours worked on a full day of leave, but not on a half day', () => {
+    expect(codes('2026-08-11', { workedMinutes: h(3), leave: { type: 'annual', portion: 1 } })).toEqual(['worked_on_full_leave']);
+    expect(codes('2026-08-11', { workedMinutes: h(4), leave: { type: 'annual', portion: 0.5 } })).toEqual([]);
+  });
+
+  it('reports every problem on a day at once, each dated to that day', () => {
+    // 17 hours on a full day of sick leave: two separate things for the manager to look at.
+    const issues = check('2026-08-11', { workedMinutes: h(17), leave: { type: 'sick', portion: 1 } });
+    expect(issues.map((i) => i.code)).toEqual(['too_many_hours', 'worked_on_full_leave']);
+    expect(issues.every((i) => i.date === '2026-08-11')).toBe(true);
+  });
+
+  it('an unassigned day with leave only says "unassigned", not also "leave on a day off"', () => {
+    // Sami has no assignment before 2026; fixing the assignment is what matters.
+    expect(codes('2025-12-31', { workedMinutes: 0, leave: { type: 'annual', portion: 1 } }, 'sami')).toEqual(['unassigned']);
+  });
+});
+
 describe('month summary', () => {
   it("matches the wireframe's September for Lina (Jadwa only)", () => {
     const soloCtx = { ...ctx, assignments: ctx.assignments.filter((a) => a.clientId === 'jadwa') };
@@ -139,6 +190,8 @@ describe('clock mode starts on the first clock-in', () => {
     expect(day('2026-09-14').entry.workedMinutes).toBe(day('2026-09-14').day.expectedMinutes);
     expect(day('2026-09-14').issues).toEqual([]);
     expect(day('2026-09-14').future).toBeUndefined();
+    expect(day('2026-09-14').source).toBe('schedule');
+    expect(day('2026-09-15').source).toBe('clock');
     expect(day('2026-09-15').entry.workedMinutes).toBe(600);
     expect(day('2026-09-16').issues.map((i) => i.code)).toContain('missing_hours');
 
@@ -164,5 +217,86 @@ describe('sumMonthDays', () => {
     const july = summarizeMonth(ctx, 'sami', 2026, 7, [], rates);
     const atJadwa = [...june.days, ...july.days].filter((d) => d.day.primaryClientId === 'jadwa');
     expect(sumMonthDays(atJadwa)).toEqual(july.totals);
+  });
+});
+
+describe('a forgotten clock-out', () => {
+  it('counts nothing on a past day and asks for a correction instead of adding the time since', () => {
+    // Clocked in on the 10th and never out: by the 28th the clock has run for ~430 hours.
+    const s = summarizeMonth(ctx, 'omar', 2026, 9, [], rates, {
+      minutes: { '2026-09-10': 430 * 60 },
+      open: ['2026-09-10'],
+      today: '2026-09-28',
+      since: '2026-09-01',
+    });
+    const d = s.days.find((x) => x.day.date === '2026-09-10')!;
+    expect(d.entry.workedMinutes).toBe(0);
+    expect(d.totals.regularOvertimeMinutes).toBe(0);
+    expect(d.clockedMinutes).toBeUndefined();
+    expect(d.issues.map((i) => i.code)).toEqual(['clock_open']);
+    expect(s.totals.regularOvertimeMinutes).toBe(0);
+  });
+
+  it("keeps counting today's open session live", () => {
+    const s = summarizeMonth(ctx, 'omar', 2026, 9, [], rates, {
+      minutes: { '2026-09-28': 5 * 60 },
+      open: ['2026-09-28'],
+      today: '2026-09-28',
+      since: '2026-09-01',
+    });
+    const d = s.days.find((x) => x.day.date === '2026-09-28')!;
+    expect(d.entry.workedMinutes).toBe(5 * 60);
+    expect(d.issues).toEqual([]);
+  });
+
+  it('an approved correction for that day replaces the open session', () => {
+    const s = summarizeMonth(ctx, 'omar', 2026, 9, [{ date: '2026-09-10', workedMinutes: 8 * 60 }], rates, {
+      minutes: { '2026-09-10': 430 * 60 },
+      open: ['2026-09-10'],
+      today: '2026-09-28',
+      since: '2026-09-01',
+    });
+    const d = s.days.find((x) => x.day.date === '2026-09-10')!;
+    expect(d.entry.workedMinutes).toBe(8 * 60);
+    expect(d.changed).toBe(true);
+    expect(d.issues).toEqual([]);
+  });
+});
+
+describe('fixes working with seasonal hours and dated hours sources', () => {
+  const ramadanCtx = {
+    ...ctx,
+    seasonalHours: [{ clientId: 'jadwa', name: 'Ramadan 2027', from: '2027-02-07', to: '2027-03-08', start: '09:00', end: '15:00' }],
+  };
+
+  it('a forgotten clock-out on a Ramadan day still counts nothing and asks for a correction', () => {
+    const s = summarizeMonth(ramadanCtx, 'omar', 2027, 2, [], rates, {
+      minutes: { '2027-02-08': 200 * 60, '2027-02-09': 7 * 60 },
+      open: ['2027-02-08'],
+      today: '2027-02-20',
+      since: '2027-02-01',
+    });
+    const day = (d: string) => s.days.find((x) => x.day.date === d)!;
+    expect(day('2027-02-08').day.expectedMinutes).toBe(6 * 60);
+    expect(day('2027-02-08').entry.workedMinutes).toBe(0);
+    expect(day('2027-02-08').issues.map((i) => i.code)).toEqual(['clock_open']);
+    // The next day's hour beyond the six Ramadan hours is overtime; the open day adds none.
+    expect(day('2027-02-09').totals.regularOvertimeMinutes).toBe(60);
+    expect(s.totals.regularOvertimeMinutes).toBe(60);
+  });
+
+  it('a forgotten clock-out in a schedule month is ignored: the day keeps its schedule', () => {
+    const s = summarizeMonth(ctx, 'omar', 2026, 9, [], rates, {
+      minutes: { '2026-09-10': 430 * 60 },
+      open: ['2026-09-10'],
+      today: '2026-09-28',
+      since: '2026-09-01',
+      periods: [{ from: '2026-10-01', source: 'clock' }],
+    });
+    const d = s.days.find((x) => x.day.date === '2026-09-10')!;
+    expect(d.source).toBe('schedule');
+    expect(d.entry.workedMinutes).toBe(d.day.expectedMinutes);
+    expect(d.issues).toEqual([]);
+    expect(s.totals.regularOvertimeMinutes).toBe(0);
   });
 });

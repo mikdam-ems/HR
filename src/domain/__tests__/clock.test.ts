@@ -62,4 +62,17 @@ describe('clock', () => {
     const days = summarizeClock([ev('out', '2026-09-27T08:00'), ev('in', '2026-09-27T09:00'), ev('in', '2026-09-27T10:00'), ev('out', '2026-09-27T11:00')], at('2026-09-27T12:00'), dateOf);
     expect(msToMinutes(days.get('2026-09-27')!.workedMs)).toBe(120);
   });
+
+  it("keeps each day's events with it, so the attendance log and the totals agree", () => {
+    // A session carried over from the previous month: its clock-out belongs to that month, not to the 1st.
+    const days = summarizeClock(
+      [ev('break_end', '2026-09-01T00:30'), ev('out', '2026-09-01T06:00'), ev('in', '2026-09-01T22:00'), ev('out', '2026-09-02T06:00')],
+      at('2026-09-02T09:00'),
+      dateOf,
+    );
+    expect([...days.keys()]).toEqual(['2026-09-01']);
+    expect(days.get('2026-09-01')!.events.map((e) => e.kind)).toEqual(['in', 'out']);
+    expect(days.get('2026-09-01')!.events[1]!.at).toEqual(at('2026-09-02T06:00'));
+  });
 });
+
