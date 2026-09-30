@@ -127,7 +127,7 @@ export default async function AttendancePage({
           <strong className={overtime ? 'stat-highlight' : undefined}>{formatHours(overtime, locale)}</strong>
         </div>
         <div className="stat">
-          <span className="muted small">{t.attendance.avgStart}</span>
+          <span className="muted small">{t.attendance.usualStart}</span>
           <strong dir="ltr">{usualStart}</strong>
         </div>
       </div>

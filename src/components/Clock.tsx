@@ -1,10 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { clockAction, clockOutAtAction } from '@/app/(app)/clock/actions';
 import type { WorkLocation } from '@/db/schema';
 import type { ClockState } from '@/domain';
+import { fmt } from '@/i18n/fmt';
 
 const LOCATIONS: WorkLocation[] = ['office', 'client_site', 'remote'];
 
@@ -76,7 +78,7 @@ function progress(workedMs: number, targetMs: number) {
   return {
     pct: targetMs ? Math.min(100, (workedMs / targetMs) * 100) : 100,
     full: targetMs > 0 && workedMs >= targetMs,
-    overMs: over > 0 && (targetMs > 0 || workedMs > 0) ? over : 0,
+    overMs: Math.max(0, over),
     leftMs: targetMs > workedMs ? targetMs - workedMs : 0,
   };
 }
@@ -115,7 +117,7 @@ export function ClockCard({ data, labels }: { data: ClockData; labels: ClockLabe
 
       {data.openFrom ? (
         <form action={clockOutAtAction} className="clock-forgot">
-          <strong>{labels.forgotTitle.replace('{date}', data.openFrom.label)}</strong>
+          <strong>{fmt(labels.forgotTitle, { date: data.openFrom.label })}</strong>
           <span className="small">{labels.forgotHint}</span>
           <input type="hidden" name="date" value={data.openFrom.date} />
           <input type="hidden" name="back" value={back} />
@@ -133,7 +135,7 @@ export function ClockCard({ data, labels }: { data: ClockData; labels: ClockLabe
             <strong>{hms(worked)}</strong>
             <span className="muted small">
               {labels.worked}
-              {data.startedAt ? ` · ${labels.started.replace('{time}', data.startedAt)}` : ''}
+              {data.startedAt ? ` · ${fmt(labels.started, { time: data.startedAt })}` : ''}
               {rest >= 60_000 ? ` · ${labels.breaks} ${hm(rest)}` : ''}
             </span>
           </div>
@@ -141,7 +143,15 @@ export function ClockCard({ data, labels }: { data: ClockData; labels: ClockLabe
             const p = progress(worked, data.targetMs);
             return (
               <div className="clock-progress">
-                <div className={`progress${p.overMs ? ' progress-over' : ''}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p.pct)}>
+                <div
+                  className={`progress${p.overMs ? ' progress-over' : ''}`}
+                  role="progressbar"
+                  aria-label={labels.fullDay}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(p.pct)}
+                  aria-valuetext={data.targetMs ? `${hm(worked)} / ${hm(data.targetMs)}` : hm(worked)}
+                >
                   <span style={{ inlineSize: `${p.pct}%` }} />
                 </div>
                 <span className="small clock-verdict">
@@ -150,7 +160,7 @@ export function ClockCard({ data, labels }: { data: ClockData; labels: ClockLabe
                     : p.full
                       ? `✓ ${labels.fullDay}`
                       : data.targetMs
-                        ? labels.left.replace('{time}', hm(p.leftMs)).replace('{target}', hm(data.targetMs))
+                        ? fmt(labels.left, { time: hm(p.leftMs), target: hm(data.targetMs) })
                         : ''}
                 </span>
               </div>
@@ -182,7 +192,7 @@ export function ClockCard({ data, labels }: { data: ClockData; labels: ClockLabe
       )}
       <span className="row muted small" style={{ justifyContent: 'space-between' }}>
         <span>{labels.pilot}</span>
-        <a href="/attendance">{labels.log}</a>
+        <Link href="/attendance">{labels.log}</Link>
       </span>
     </section>
   );
@@ -213,7 +223,7 @@ export function TopClock({ data, labels }: { data: ClockData; labels: ClockLabel
     .filter(Boolean)
     .join(' · ');
   const total = (
-    <a href={data.openFrom ? '/' : '/attendance'} className={`top-clock clock-${data.state}${p.full ? ' is-full' : ''}${p.overMs ? ' is-over' : ''}`} title={title}>
+    <Link href={data.openFrom ? '/' : '/attendance'} className={`top-clock clock-${data.state}${p.full ? ' is-full' : ''}${p.overMs ? ' is-over' : ''}`} title={title}>
       <span className="clock-dot" aria-hidden="true" />
       <span dir="ltr" className="top-clock-time">
         {hm(worked)}
@@ -226,7 +236,7 @@ export function TopClock({ data, labels }: { data: ClockData; labels: ClockLabel
         </span>
       ) : null}
       {data.state === 'break' ? <span className="top-clock-tag">☕</span> : null}
-    </a>
+    </Link>
   );
   // Clocked out after working today (lunch, a client visit): keep the total and offer the next session.
   if (data.state === 'out' && !data.openFrom) {

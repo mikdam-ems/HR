@@ -501,7 +501,7 @@ export const en = {
     daysIn: 'Days attended',
     total: 'Worked',
     overtime: 'Overtime',
-    avgStart: 'Usual start',
+    usualStart: 'Usual start',
     date: 'Day',
     in: 'In',
     out: 'Out',
