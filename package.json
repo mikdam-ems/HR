@@ -12,9 +12,11 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "@types/node": "^26.6.2",
     "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
