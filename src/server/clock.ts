@@ -99,10 +99,16 @@ export interface ClockView {
 
 /** Everything the clock widget needs for one person. */
 async function clockViewUncached(db: DB, employeeId: string, now = new Date()): Promise<ClockView> {
+  // Three days covers today and a night shift; reach back further only for a session still open from before,
+  // otherwise it looks like "clocked out" while the server refuses a new clock-in.
+  const recent = new Date(now.getTime() - 3 * DAY_MS);
+  const openDate = await openSince(db, employeeId);
+  const openStart = openDate ? ammanInstant(openDate, '00:00') : null;
+  const from = openStart && openStart < recent ? openStart : recent;
   const events = await db
     .select()
     .from(clockEvents)
-    .where(and(eq(clockEvents.employeeId, employeeId), gte(clockEvents.at, new Date(now.getTime() - 3 * DAY_MS))))
+    .where(and(eq(clockEvents.employeeId, employeeId), gte(clockEvents.at, from)))
     .orderBy(asc(clockEvents.at));
   const { state, since } = stateAfter(events);
   const days = summarizeClock(events, now, dateOf);
