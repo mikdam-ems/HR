@@ -7,7 +7,7 @@ const rates = { regular: 1, special: 1.2, offDay: 1 };
 function day(dayType: DayType, entry: Omit<DayEntry, 'date'>, expectedMinutes = dayType === 'working' || dayType === 'special_overtime' ? 510 : 0): MonthDay {
   const resolved = { date: '2026-09-01', employeeId: 'e', dayType, clientIds: ['c'], primaryClientId: 'c', expectedMinutes, schedule: null };
   const e = { date: '2026-09-01', ...entry };
-  return { day: resolved, entry: e, changed: false, totals: computeDayTotals(resolved, e, rates), issues: [] };
+  return { day: resolved, entry: e, source: 'schedule', changed: false, totals: computeDayTotals(resolved, e, rates), issues: [] };
 }
 const zero = { client: 0, pl: 0, sl: 0, other: 0, ph: 0, ot: 0, sot: 0 };
 
