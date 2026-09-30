@@ -1,7 +1,7 @@
 import { and, between, eq } from 'drizzle-orm';
 import type { DB } from '@/db';
 import { dayEntries, departments, employees, monthClosures, timesheets, type Department, type Employee, type TimesheetRow } from '@/db/schema';
-import { type DayEntry, type MonthSummary, type MonthTotals, daysOfMonth, sumMonthDays, summarizeMonth } from '@/domain';
+import { type DayEntry, type MonthSummary, type MonthTotals, daysOfMonth, monthUsesClock, sumMonthDays, summarizeMonth } from '@/domain';
 import { todayISO } from '@/lib/format';
 import { audit } from './audit';
 import { firstClockDates, monthClockMinutes } from './clock';
@@ -53,6 +53,7 @@ export async function monthReport(db: DB, actor: Actor, year: number, month: num
     monthClockMinutes(db, year, month),
     firstClockDates(db),
   ]);
+  const usesClock = monthUsesClock(appSettings.hoursSource, year, month);
   const today = todayISO();
   const deptById = new Map(depts.map((d) => [d.id, d]));
   const byId = new Map(people.map((p) => [p.id, p]));
@@ -72,8 +73,8 @@ export async function monthReport(db: DB, actor: Actor, year: number, month: num
       month,
       dayEntryList,
       appSettings.overtimeRates,
-      appSettings.hoursSource === 'clock'
-        ? { ...(clocked[employee.id] ?? { minutes: {}, open: [] }), today, since: since[employee.id] ?? null }
+      usesClock
+        ? { ...(clocked[employee.id] ?? { minutes: {}, open: [] }), today, since: since[employee.id] ?? null, periods: appSettings.hoursSource }
         : undefined,
     );
     if (summary.days.every((d) => d.day.dayType === 'unassigned')) continue; // not working for anyone this month

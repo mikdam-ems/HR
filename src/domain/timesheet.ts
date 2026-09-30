@@ -1,5 +1,6 @@
 import { daysOfMonth } from './dates';
 import { resolveDay } from './dayRules';
+import { type HoursPeriod, hoursSourceOn } from './hoursSource';
 import type { DayEntry, DayType, ISODate, LeaveType, OvertimeRates, ResolvedDay, RulesContext } from './types';
 
 /** Upper limit before a day is flagged for the manager. */
@@ -135,6 +136,8 @@ export interface ClockSource {
    * they started using it) keep the schedule. Null: they've never clocked, so the whole month uses the schedule.
    */
   since: ISODate | null;
+  /** When the clock is the source (Settings). Days outside a clock period keep the schedule. Omitted: always. */
+  periods?: readonly HoursPeriod[];
 }
 
 /** Builds a full month: resolves every day, fills in what the employee didn't change, totals and checks. */
@@ -152,7 +155,8 @@ export function summarizeMonth(
 
   for (const date of daysOfMonth(year, month)) {
     const day = resolveDay(ctx, employeeId, date);
-    const byClock = !!clock && clock.since !== null && date >= clock.since;
+    const byClock =
+      !!clock && clock.since !== null && date >= clock.since && (!clock.periods || hoursSourceOn(clock.periods, date) === 'clock');
     const forgotten = byClock && date < clock.today && !!clock.open?.includes(date);
     const clockedMinutes = byClock && !forgotten ? clock.minutes[date] : undefined;
     const future = byClock ? date > clock.today : false;

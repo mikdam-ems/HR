@@ -2,7 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/db';
+import { hoursSourceOn } from '@/domain';
 import { bool, redirectWith, str, strs } from '@/lib/forms';
+import { todayISO } from '@/lib/format';
 import {
   createCalendar,
   createClient,
@@ -15,7 +17,7 @@ import { audit } from '@/server/audit';
 import { createSeason, deleteSeason } from '@/server/seasons';
 import { requirePermission } from '@/server/session';
 import { createShift, deactivateShift, updateShift } from '@/server/shifts';
-import { setSetting } from '@/server/settings';
+import { getSettings, setHoursSource, setSetting } from '@/server/settings';
 
 export async function createClientAction(fd: FormData) {
   const actor = await requirePermission('clients.manage');
@@ -99,14 +101,19 @@ export async function saveSettingsAction(fd: FormData) {
   }
   await setSetting(db, 'homeCalendarId', str(fd, 'homeCalendarId'));
   await setSetting(db, 'overtimeRates', { regular, special, offDay });
-  const hoursSource = str(fd, 'hoursSource') === 'schedule' ? 'schedule' : 'clock';
-  await setSetting(db, 'hoursSource', hoursSource);
   await audit(db, {
     actorId: actor.id,
     action: 'update',
     entity: 'settings',
-    after: { homeCalendarId: str(fd, 'homeCalendarId'), overtimeRates: { regular, special, offDay }, hoursSource },
+    after: { homeCalendarId: str(fd, 'homeCalendarId'), overtimeRates: { regular, special, offDay } },
   });
+  // Only a real switch adds a period; saving the form as it was leaves the hours source alone.
+  const source = str(fd, 'hoursSource') === 'clock' ? 'clock' : 'schedule';
+  const from = str(fd, 'hoursFrom') ?? '';
+  if (source !== hoursSourceOn((await getSettings(db)).hoursSource, from || todayISO())) {
+    const switched = await setHoursSource(db, actor.id, { from, source });
+    if (!switched.ok) redirectWith('/settings', switched);
+  }
   revalidatePath('/');
   redirectWith('/settings', { ok: true, value: undefined });
 }

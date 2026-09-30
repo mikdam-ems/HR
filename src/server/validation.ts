@@ -28,6 +28,7 @@ export type ErrorCode =
   | 'season_overlap'
   | 'delegation_overlap'
   | 'swap_not_possible'
+  | 'hours_source_date'
   | 'forbidden';
 
 export type Result<T = void> = { ok: true; value: T } | { ok: false; error: ErrorCode; detail?: string };
