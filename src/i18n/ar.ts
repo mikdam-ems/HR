@@ -517,6 +517,8 @@ export const ar: DeepString<Dict> = {
     over: 'عمل إضافي +{time}',
     dayOff: 'يوم عطلة',
     stillIn: 'ما زال مسجّلاً',
+    toGo: 'اليوم · متبقٍ {time}',
+    sinceFirst: 'يبدأ السجل من أول تسجيل دخول ({date})؛ الأيام قبله تبقى حسب الجدول.',
     noRecord: 'لا يوجد تسجيل حضور هذا الشهر بعد.',
     events: 'عرض تفاصيل التسجيل',
     kinds: { in: 'تسجيل دخول', break_start: 'بدء استراحة', break_end: 'عودة من الاستراحة', out: 'تسجيل خروج' },

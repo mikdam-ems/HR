@@ -77,6 +77,8 @@ export default async function AttendancePage({
   const monthKey = ym(year, month);
 
   const result = (r: (typeof rows)[number]) => {
+    // Today isn't over: show what's left, not "short" or "missing".
+    if (r.date === today && r.target && r.worked < r.target) return <span className="badge">{fmt(t.attendance.toGo, { time: formatHours(r.target - r.worked, locale) })}</span>;
     if (!r.rec) return <span className="badge badge-unassigned">{t.timesheet.issues.missing_hours}</span>;
     if (r.forgotten) return <span className="badge badge-unassigned">{t.timesheet.issues.clock_open}</span>;
     if (r.rec.open) return <span className="badge status-submitted">{t.attendance.stillIn}</span>;
@@ -130,6 +132,11 @@ export default async function AttendancePage({
         </div>
       </div>
 
+      {firsts[person.id] ? (
+        <p className="muted small" style={{ margin: 0 }}>
+          {fmt(t.attendance.sinceFirst, { date: formatDate(firsts[person.id]!, locale) })}
+        </p>
+      ) : null}
       {rows.length === 0 ? (
         <p className="muted">{t.attendance.noRecord}</p>
       ) : (
