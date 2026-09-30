@@ -11,6 +11,7 @@ Closes #
 - [ ] Tried in the app as the roles it affects (employee, manager, HR, Finance, admin)
 - [ ] Arabic (right to left) and both brands (EMS, Kadr), if the UI changed
 - [ ] Database change? New migration in `drizzle/` is included
+- [ ] `CHANGELOG.md` has a line under **Unreleased** (if people will notice the change)
 
 ## Screenshots
 

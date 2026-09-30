@@ -9,6 +9,7 @@ Each person's days off, work week and overtime follow the client they're assigne
 - **Brand book (Kadr, draft):** [Kadr Brand Book](https://claude.ai/artifact/G9offKCj1BEQp3zFnLXHJX) · assets in [docs/brand/kadr](docs/brand/kadr)
 - **Technical design:** [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md)
 - **How we work (issues, board, pull requests, automatic checks):** [docs/HOW_WE_WORK.md](docs/HOW_WE_WORK.md)
+- **What changed, release by release:** [CHANGELOG.md](CHANGELOG.md) and the repo's [Releases](https://github.com/mikdam-ems/HR/releases)
 
 ## Status
 
@@ -21,6 +22,11 @@ Finance and People & Culture), each with a head. The UI uses the EMS brand palet
 people work (Office / Client site / Remote) at clock-in, a morning reminder for forgotten clock-outs, the monthly
 **attendance report**, **Ramadan and seasonal hours** per client, a **client hours export**, **stand-in approvals**
 while a manager is away, **shift swaps**, and telling a project's **delivery lead** about leave.
+
+**Payroll fixes before the pilot are in** ([#30](https://github.com/mikdam-ems/HR/pull/30)): a forgotten clock-out
+counts nothing until it's corrected, past months keep the hours they were worked under (the 8h30 day starts on
+1 October 2026), and switching where hours come from never changes earlier days. Released as
+[v0.1.0](CHANGELOG.md#v010--30-september-2026).
 Why these, and what's deliberately left out: [People & Culture Next Steps](https://claude.ai/artifact/R4S3FnvyyzwD9W36hfxSq6).
 
 **Next:** the pilot ([#14](https://github.com/mikdam-ems/HR/issues/14)) — a few people run it alongside Excel for one

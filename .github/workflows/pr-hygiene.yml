@@ -1,0 +1,38 @@
+# Every change is logged (docs/HOW_WE_WORK.md): a pull request must name the issue it closes or relates to, and a
+# version bump must match the changelog. Runs on every pull request, next to the Checks.
+name: Logged
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  logged:
+    name: Linked to an issue, version consistent
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The description links an issue
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if printf '%s' "$BODY" | grep -qiE '(close[sd]?|fix(e[sd])?|resolve[sd]?|refs?|part of)[[:space:]]+(mikdam-ems/HR)?#[0-9]+'; then
+            echo "Linked to an issue."
+          else
+            echo "::error::Say which issue this is for, e.g. 'Closes #12' (or 'Refs #12' when it doesn't finish it). Open an issue first if there isn't one."
+            exit 1
+          fi
+
+      - name: package.json matches the newest version in CHANGELOG.md
+        run: |
+          app=$(node -p "require('./package.json').version")
+          latest=$(grep -m1 -oE '^## v[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | sed 's/^## v//' || true)
+          if [ -n "$latest" ] && [ "$app" != "$latest" ]; then
+            echo "::error::package.json is $app but the newest version in CHANGELOG.md is $latest. They must match."
+            exit 1
+          fi
+          echo "Version $app is consistent."

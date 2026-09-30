@@ -1,0 +1,30 @@
+name: Research or idea
+description: Something worth looking into before we decide to build it.
+labels: [research]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: The question
+      description: What we want to find out, and who it matters to (HR, Finance, managers, employees, the client).
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why now
+      description: What prompted it: a request, a pain point, a competitor, pilot feedback.
+  - type: textarea
+    id: findings
+    attributes:
+      label: Findings
+      description: Filled in during the research. Options compared, sources, what other products do, rough effort.
+      value: |
+        _To be filled in._
+  - type: textarea
+    id: recommendation
+    attributes:
+      label: Recommendation and decision
+      description: What we recommend, and what was decided. If we build it, link the epic or feature issues; if it's a lasting rule, add a decision in docs/decisions/.
+      value: |
+        _To be filled in._
