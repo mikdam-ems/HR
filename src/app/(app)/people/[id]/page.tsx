@@ -25,7 +25,7 @@ import { can } from '@/server/permissions';
 import { currentStatus } from '@/server/profile';
 import { loadRulesContext } from '@/server/rulesContext';
 import { requireUser } from '@/server/session';
-import { accessFor } from '@/server/timesheets';
+import { accessFor, canViewAttendance } from '@/server/timesheets';
 import { getBalances, listAdjustments } from '@/server/leave';
 import { addAdjustmentAction } from '@/app/(app)/time-off/actions';
 import { Balances } from '@/components/Balances';
@@ -143,7 +143,7 @@ export default async function ProfilePage({
               {t.nav.timesheet}
             </Link>
           ) : null}
-          {accessFor(user, person, 'draft').view ? (
+          {canViewAttendance(user, person) ? (
             <Link className="btn" href={`/attendance/${person.id}`}>
               {t.attendance.open}
             </Link>

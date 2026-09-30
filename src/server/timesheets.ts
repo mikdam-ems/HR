@@ -68,6 +68,14 @@ export function accessFor(
   };
 }
 
+/**
+ * Who can see someone's attendance log (every clock in, break and out): the person, their manager, and
+ * HR, Finance and admins — the same people who see their timesheet (README, "Who can do what").
+ */
+export function canViewAttendance(actor: Actor, employee: Pick<Employee, 'id' | 'managerId'>): boolean {
+  return accessFor(actor, employee, 'draft').view;
+}
+
 export interface MonthView {
   employee: Employee;
   year: number;
