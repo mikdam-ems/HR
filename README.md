@@ -43,6 +43,7 @@ With `AUTH_DEV_LOGIN=true` the sign-in page lets you pick any person (developmen
 npm test          # rules engine + database tests (in-memory PostgreSQL)
 npm run typecheck
 npm run build
+npm run test:e2e  # the app in a real browser: a week at EMS, played as each role (fresh demo database)
 ```
 
 ## Brand preview (Kadr)
