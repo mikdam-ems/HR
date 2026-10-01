@@ -58,10 +58,11 @@ export const employees = pgTable(
     active: boolean('active').notNull().default(true),
     /** Written by the person themselves. */
     bio: text('bio'),
-    /** Today's status, e.g. 💻 "Deep in the release". Only shown on the day it was set. */
+    /** Their status, e.g. 💻 "Deep in the release": set on statusDate, shown through statusUntil (null: until cleared). */
     statusEmoji: text('status_emoji'),
     statusText: text('status_text'),
     statusDate: date('status_date', { mode: 'string' }),
+    statusUntil: date('status_until', { mode: 'string' }),
     /** Their Slack member id, remembered the first time they use a Slack command (matched by email). */
     slackUserId: text('slack_user_id'),
     /** Set when the person has a photo (stored in employee_photos); also busts the image cache. */

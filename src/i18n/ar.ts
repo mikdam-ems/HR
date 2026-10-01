@@ -590,7 +590,9 @@ export const ar: DeepString<Dict> = {
     placeholder: 'أضف بضع كلمات (اختياري)',
     share: 'مشاركة',
     clear: 'مسح',
-    hint: 'يراها زملاؤك. تُمسح تلقائياً غداً.',
+    hint: 'يراها زملاؤك.',
+    duration: 'مدة الظهور',
+    durations: { today: 'اليوم', week: 'هذا الأسبوع', until_cleared: 'حتى أمسحها' },
     today: 'اليوم',
     presets: {
       '💻': 'مركّز',

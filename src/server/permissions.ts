@@ -10,7 +10,7 @@ export interface CurrentUser {
   isManager: boolean;
   /** Bumps when the photo changes; absent = no photo. */
   photoVersion?: number | null;
-  status?: { emoji: string; text: string | null } | null;
+  status?: { emoji: string; text: string | null; until: string | null } | null;
   /** Managers whose approvals this person is standing in for today (see approval_delegations). */
   standingInFor?: readonly string[];
 }

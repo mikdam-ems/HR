@@ -9,3 +9,4 @@ export * from './roster';
 export * from './timesheetExport';
 export * from './presence';
 export * from './hoursSource';
+export * from './status';

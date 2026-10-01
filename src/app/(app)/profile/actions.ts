@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db';
+import type { StatusDuration } from '@/domain';
 import { redirectWith, safePath, str } from '@/lib/forms';
 import { setPhoto, setStatus, updateOwnProfile } from '@/server/profile';
 import { requireUser } from '@/server/session';
@@ -29,7 +30,9 @@ export async function setStatusAction(fd: FormData) {
   // Words without a mood still count as a status; they get a speech bubble.
   const emoji = str(fd, 'emoji') ?? (text ? '💬' : null);
   const clear = str(fd, 'clear') || !emoji;
-  await setStatus(await getDb(), user.id, clear ? null : { emoji: emoji!, text });
+  // An unknown duration is refused by setStatus's validation, so the cast only satisfies the type.
+  const duration = (str(fd, 'duration') ?? 'today') as StatusDuration;
+  await setStatus(await getDb(), user.id, clear ? null : { emoji: emoji!, text, duration });
   revalidatePath('/', 'layout');
   redirect(safePath(str(fd, 'back')));
 }

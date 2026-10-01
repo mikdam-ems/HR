@@ -97,4 +97,26 @@ describe('slack commands', () => {
     await runSlackCommand(db, id, 'out', t('2026-09-28 17:00'));
     expect(await runSlackCommand(db, id, 'in', t('2026-09-29 09:00'))).toContain('· Client site');
   });
+  it('points a forgotten clock-out at the page that fixes it, in the words of the command used', async () => {
+    const r = await createEmployee(db, null, { email: 'tariq@ems.com', nameEn: 'Tariq' });
+    if (!r.ok) throw new Error(r.error);
+    const id = r.value.id;
+    const opts = { command: '/kadr', appUrl: 'https://hr-ems.vercel.app' };
+    await runSlackCommand(db, id, 'in', t('2026-09-29 09:00'));
+    const reply = await runSlackCommand(db, id, 'in', t('2026-09-30 09:00'), null, opts);
+    expect(reply).toContain('still clocked in from Tue 29');
+    expect(reply).toContain('<https://hr-ems.vercel.app/|');
+    expect(reply).not.toContain('People & Culture');
+  });
+
+  it('answers help and hints with the command the person typed', async () => {
+    const r = await createEmployee(db, null, { email: 'tariq@ems.com', nameEn: 'Tariq' });
+    if (!r.ok) throw new Error(r.error);
+    const help = await runSlackCommand(db, r.value.id, 'help', t('2026-09-28 08:00'), null, { command: '/kadr' });
+    expect(help).toContain('`/kadr in`');
+    expect(help).not.toContain('/ems');
+    expect(await runSlackCommand(db, r.value.id, 'status', t('2026-09-28 08:00'), null, { command: '/kadr' })).toContain('`/kadr in`');
+    // A direct command like /in is itself the action, so its hints fall back to /ems.
+    expect(await runSlackCommand(db, r.value.id, 'help', t('2026-09-28 08:00'), null, { command: '/in' })).toContain('`/ems in`');
+  });
 });

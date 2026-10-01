@@ -7,6 +7,12 @@ version, and merging that to the main branch publishes it on the repo's **Releas
 
 ## Unreleased
 
+- **Statuses can last the week, or until you clear them.** The status picker has a **Show it** choice: Today, This
+  week (through Saturday) or Until I clear it, for things like "On leave until Sunday". Statuses set before this
+  change still clear at midnight. (#41, #40)
+- **Clearer Slack replies.** "You're still clocked in" shows a readable date and links straight to the page where you
+  close that day. Help and hints use the command you typed (`/kadr` or `/ems`), and replies no longer name the old
+  app. (#42, #40)
 - **The demo uses a made-up team and client.** Demo sites show invented people (…@demo.ems-itech.com) placed with
   "Acme Investment" instead of EMS's real staff and client; existing demo sites switch over on their next start.
   A fresh live install no longer creates a client: add yours on the **Clients** page. (#29)
