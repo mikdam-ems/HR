@@ -35,7 +35,7 @@ Replies to commands are only visible to you. Kadr is built and supported by EMS.
 | Field | Value |
 |---|---|
 | Command | `/kadr` |
-| Request URL | `https://hr-navy-zeta.vercel.app/api/slack/commands` (the same URL `/ems` uses) |
+| Request URL | `https://hr-ems.vercel.app/api/slack/commands` (the same URL `/ems` uses) |
 | Short description | `Clock in, break, back, out, status` |
 | Usage hint | `in \| break \| back \| out \| status` |
 | Escape channels, users and links | Off |
