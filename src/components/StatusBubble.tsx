@@ -3,6 +3,7 @@
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { setStatusAction } from '@/app/(app)/profile/actions';
+import { STATUS_DURATIONS, type StatusDuration } from '@/domain/status';
 
 export interface StatusLabels {
   open: string;
@@ -11,15 +12,27 @@ export interface StatusLabels {
   share: string;
   clear: string;
   hint: string;
+  duration: string;
+  durations: Record<StatusDuration, string>;
   presets: Record<string, string>;
 }
 
-/** The floating "how's today?" bubble: pick a mood, add a few words, share it with colleagues for the day. */
-export function StatusBubble({ status, labels }: { status: { emoji: string; text: string | null } | null; labels: StatusLabels }) {
+type Status = { emoji: string; text: string | null; until: string | null };
+
+/** The duration a status was shared with, read back from its last day. */
+function durationOf(status: Status | null, today: string): StatusDuration {
+  if (!status) return 'today';
+  if (status.until === null) return 'until_cleared';
+  return status.until === today ? 'today' : 'week';
+}
+
+/** The floating "how's today?" bubble: pick a mood, add a few words, and choose how long colleagues see it. */
+export function StatusBubble({ status, today, labels }: { status: Status | null; today: string; labels: StatusLabels }) {
   const [open, setOpen] = useState(false);
   // Nothing is picked until the person chooses; a status only exists once they share one.
   const [emoji, setEmoji] = useState<string | null>(status?.emoji ?? null);
   const [text, setText] = useState(status?.text ?? '');
+  const [duration, setDuration] = useState<StatusDuration>(durationOf(status, today));
   const box = useRef<HTMLDivElement>(null);
   const path = usePathname();
   const query = useSearchParams().toString();
@@ -42,6 +55,7 @@ export function StatusBubble({ status, labels }: { status: { emoji: string; text
         <form action={setStatusAction} className="status-panel glass" onSubmit={() => setOpen(false)}>
           <input type="hidden" name="back" value={query ? `${path}?${query}` : path} />
           <input type="hidden" name="emoji" value={emoji ?? ''} />
+          <input type="hidden" name="duration" value={duration} />
           <strong>{labels.title}</strong>
           <div className="status-presets" role="radiogroup" aria-label={labels.title}>
             {Object.entries(labels.presets).map(([e, label]) => (
@@ -67,6 +81,18 @@ export function StatusBubble({ status, labels }: { status: { emoji: string; text
             placeholder={labels.placeholder}
             aria-label={labels.placeholder}
           />
+          <div className="status-duration">
+            <span className="muted small" id="status-duration-label">
+              {labels.duration}
+            </span>
+            <div className="segmented" role="radiogroup" aria-labelledby="status-duration-label">
+              {STATUS_DURATIONS.map((d) => (
+                <button key={d} type="button" role="radio" aria-checked={duration === d} aria-pressed={duration === d} onClick={() => setDuration(d)}>
+                  {labels.durations[d]}
+                </button>
+              ))}
+            </div>
+          </div>
           <span className="muted small">{labels.hint}</span>
           <div className="row" style={{ justifyContent: 'flex-end' }}>
             {status ? (

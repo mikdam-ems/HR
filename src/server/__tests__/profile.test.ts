@@ -44,10 +44,23 @@ describe('own profile', () => {
     const p = await me();
     await setStatus(db, p.id, { emoji: '💻', text: 'Deep in the release' }, '2026-09-27');
     const [row] = await db.select().from(employees).where(eq(employees.id, p.id));
-    expect(currentStatus(row!, '2026-09-27')).toEqual({ emoji: '💻', text: 'Deep in the release' });
+    expect(currentStatus(row!, '2026-09-27')).toEqual({ emoji: '💻', text: 'Deep in the release', until: '2026-09-27' });
     expect(currentStatus(row!, '2026-09-28')).toBeNull();
     await setStatus(db, p.id, null);
     const [cleared] = await db.select().from(employees).where(eq(employees.id, p.id));
     expect(currentStatus(cleared!, '2026-09-27')).toBeNull();
+  });
+
+  it('a status can last the week (through Saturday) or until it is cleared', async () => {
+    const p = await me();
+    // 2026-10-01 is a Thursday.
+    await setStatus(db, p.id, { emoji: '🏠', text: 'On leave until Sunday', duration: 'week' }, '2026-10-01');
+    let [row] = await db.select().from(employees).where(eq(employees.id, p.id));
+    expect(currentStatus(row!, '2026-10-03')?.until).toBe('2026-10-03');
+    expect(currentStatus(row!, '2026-10-04')).toBeNull();
+
+    await setStatus(db, p.id, { emoji: '🤝', duration: 'until_cleared' }, '2026-10-01');
+    [row] = await db.select().from(employees).where(eq(employees.id, p.id));
+    expect(currentStatus(row!, '2027-01-01')).toEqual({ emoji: '🤝', text: null, until: null });
   });
 });

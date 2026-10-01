@@ -586,7 +586,9 @@ export const en = {
     placeholder: 'Add a few words (optional)',
     share: 'Share',
     clear: 'Clear',
-    hint: 'Visible to colleagues. Clears itself tomorrow.',
+    hint: 'Visible to colleagues.',
+    duration: 'Show it',
+    durations: { today: 'Today', week: 'This week', until_cleared: 'Until I clear it' },
     today: 'Today',
     presets: {
       '💻': 'Focused',

@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DB } from '@/db';
 import { employeePhotos, employees, type Employee } from '@/db/schema';
+import { STATUS_DURATIONS, isStatusVisible, statusShowsUntil } from '@/domain';
 import { todayISO } from '@/lib/format';
 import { audit } from './audit';
 import { type Result, fail, isoDate, ok, parse } from './validation';
@@ -60,20 +61,27 @@ export async function getPhoto(db: DB, employeeId: string): Promise<string | nul
 export const statusInput = z.object({
   emoji: z.string().trim().min(1).max(16),
   text: optional(80),
+  duration: z.enum(STATUS_DURATIONS).default('today'),
 });
 
-/** Today's status. It fades by itself tomorrow; null clears it now. */
+/** Sets a status for today, this week or until cleared (see statusShowsUntil); null clears it now. */
 export async function setStatus(
   db: DB,
   actorId: string,
   input: z.input<typeof statusInput> | null,
   today = todayISO(),
 ): Promise<Result<void>> {
-  let values = { statusEmoji: null as string | null, statusText: null as string | null, statusDate: null as string | null };
+  let values = {
+    statusEmoji: null as string | null,
+    statusText: null as string | null,
+    statusDate: null as string | null,
+    statusUntil: null as string | null,
+  };
   if (input) {
     const parsed = parse(statusInput, input);
     if (!parsed.ok) return parsed;
-    values = { statusEmoji: parsed.value.emoji, statusText: parsed.value.text, statusDate: today };
+    const { emoji, text, duration } = parsed.value;
+    values = { statusEmoji: emoji, statusText: text, statusDate: today, statusUntil: statusShowsUntil(duration, today) };
   }
   const [after] = await db.update(employees).set(values).where(eq(employees.id, actorId)).returning();
   if (!after) return fail('not_found');
@@ -81,10 +89,11 @@ export async function setStatus(
   return ok(undefined);
 }
 
-/** The person's status if they set it today, else nothing. */
+/** The person's status if it's up today (with its last day, null when it stays until cleared), else nothing. */
 export function currentStatus(
-  e: Pick<Employee, 'statusEmoji' | 'statusText' | 'statusDate'>,
+  e: Pick<Employee, 'statusEmoji' | 'statusText' | 'statusDate' | 'statusUntil'>,
   today = todayISO(),
-): { emoji: string; text: string | null } | null {
-  return e.statusEmoji && e.statusDate === today ? { emoji: e.statusEmoji, text: e.statusText } : null;
+): { emoji: string; text: string | null; until: string | null } | null {
+  if (!e.statusEmoji || !isStatusVisible({ setOn: e.statusDate, until: e.statusUntil }, today)) return null;
+  return { emoji: e.statusEmoji, text: e.statusText, until: e.statusUntil };
 }

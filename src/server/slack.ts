@@ -3,8 +3,9 @@ import { and, eq } from 'drizzle-orm';
 import type { DB } from '@/db';
 import { employees, type WorkLocation } from '@/db/schema';
 import { type ClockKind, msToMinutes } from '@/domain';
-import { formatHours, timeOfDay } from '@/lib/format';
+import { formatDate, formatHours, timeOfDay } from '@/lib/format';
 import { type ClockView, clock, clockView } from './clock';
+import { siteUrl } from './notify';
 
 /**
  * Slack slash commands: `/ems in`, `/ems break`, `/ems back`, `/ems out`, `/ems status` (and `/in`, `/out`, … if
@@ -60,29 +61,51 @@ export function parseLocation(text: string): WorkLocation | null {
   return null;
 }
 
-export const HELP = [
-  '*EMS clock*',
-  '`/ems in` — clock in (add `office`, `site` or `remote` to say where; otherwise your last choice is kept)',
-  '`/ems break` — start a break',
-  '`/ems back` — back from a break',
-  '`/ems out` — clock out',
-  '`/ems status` — how long you’ve worked today',
-].join('\n');
+/**
+ * How replies speak: the command the person typed (`/ems` or `/kadr`, both work), so hints match what they use,
+ * and the site to link to.
+ */
+export interface ReplyOptions {
+  command?: string;
+  appUrl?: string;
+}
+
+/** The command to show in hints. Direct ones like `/in` are an action themselves, so hints then use `/ems`. */
+function commandOf(o: ReplyOptions): string {
+  const name = o.command?.replace(/^\//, '').toLowerCase() ?? '';
+  return /^[a-z]+$/.test(name) && !(name in WORDS) ? `/${name}` : '/ems';
+}
+
+export function helpText(o: ReplyOptions = {}): string {
+  const c = commandOf(o);
+  return [
+    '*Clock commands*',
+    `\`${c} in\` — clock in (add \`office\`, \`site\` or \`remote\` to say where; otherwise your last choice is kept)`,
+    `\`${c} break\` — start a break`,
+    `\`${c} back\` — back from a break`,
+    `\`${c} out\` — clock out`,
+    `\`${c} status\` — how long you’ve worked today`,
+  ].join('\n');
+}
 
 const worked = (v: ClockView) => formatHours(msToMinutes(v.today.workedMs));
 const breaks = (v: ClockView) => (v.today.breakMs >= 60_000 ? ` (breaks ${formatHours(msToMinutes(v.today.breakMs))})` : '');
 
 /** The reply text for a state after an action (or for `status`). */
-export function describe(action: SlackAction, v: ClockView): string {
+export function describe(action: SlackAction, v: ClockView, o: ReplyOptions = {}): string {
   const at = timeOfDay(v.now);
+  const c = commandOf(o);
   if (v.openFrom) {
-    return `⚠️ You're still clocked in from ${v.openFrom.date}. Open the People & Culture app and enter when you left that day, then clock in again.`;
+    // The Home page asks "When did you leave that day?" for exactly this case, so link straight to it.
+    const day = formatDate(v.openFrom.date, 'en', { weekday: 'short', day: 'numeric', month: 'short' });
+    const home = `${o.appUrl ?? siteUrl()}/`;
+    return `⚠️ You're still clocked in from ${day}. <${home}|Open the app> and enter when you left that day, then clock in again.`;
   }
   switch (action) {
     case 'in':
       return `✅ Clocked in at ${at}${v.location ? ` · ${PLACE_NAMES[v.location]}` : ''}. Have a good day!`;
     case 'break_start':
-      return `☕ Break started at ${at} · ${worked(v)} worked so far. Type \`/ems back\` when you return.`;
+      return `☕ Break started at ${at} · ${worked(v)} worked so far. Type \`${c} back\` when you return.`;
     case 'break_end':
       return `💪 Back at ${at} · ${worked(v)} worked so far${breaks(v)}.`;
     case 'out':
@@ -93,15 +116,16 @@ export function describe(action: SlackAction, v: ClockView): string {
         return `🟢 Working since ${v.since ? timeOfDay(v.since) : at}${place} · ${worked(v)} today${breaks(v)}.`;
       }
       if (v.state === 'break') return `☕ On a break since ${v.since ? timeOfDay(v.since) : at} · ${worked(v)} worked today.`;
-      return v.today.workedMs ? `⚪ Clocked out · ${worked(v)} today${breaks(v)}.` : '⚪ Not clocked in today. Type `/ems in` to start.';
+      return v.today.workedMs ? `⚪ Clocked out · ${worked(v)} today${breaks(v)}.` : `⚪ Not clocked in today. Type \`${c} in\` to start.`;
   }
 }
 
 /** Why an action doesn't fit the current state, in plain words. */
-function refusal(action: ClockKind, v: ClockView): string {
+function refusal(action: ClockKind, v: ClockView, o: ReplyOptions): string {
+  const notIn = `You're not clocked in. Type \`${commandOf(o)} in\` first.`;
   if (action === 'in') return `You're already clocked in (${worked(v)} today).`;
-  if (action === 'out' || action === 'break_start') return "You're not clocked in. Type `/ems in` first.";
-  return v.state === 'working' ? "You're not on a break." : "You're not clocked in. Type `/ems in` first.";
+  if (action === 'out' || action === 'break_start') return notIn;
+  return v.state === 'working' ? "You're not on a break." : notIn;
 }
 
 /** Finds the person behind a Slack user: by the remembered id, else by their Slack email (then remembers it). */
@@ -130,18 +154,19 @@ export async function runSlackCommand(
   action: SlackAction,
   now = new Date(),
   location: WorkLocation | null = null,
+  options: ReplyOptions = {},
 ): Promise<string> {
-  if (action === 'help') return HELP;
-  if (action === 'status') return describe('status', await clockView(db, employeeId, now));
+  if (action === 'help') return helpText(options);
+  if (action === 'status') return describe('status', await clockView(db, employeeId, now), options);
 
   let kind: ClockKind = action;
   const before = await clockView(db, employeeId, now);
-  if (before.openFrom) return describe(action, before);
+  if (before.openFrom) return describe(action, before, options);
   // "/ems in" during a break means "I'm back".
   if (kind === 'in' && before.state === 'break') kind = 'break_end';
   const result = await clock(db, employeeId, kind, now, 'slack', location);
-  if (!result.ok) return refusal(kind, before);
-  return describe(kind, await clockView(db, employeeId, now));
+  if (!result.ok) return refusal(kind, before, options);
+  return describe(kind, await clockView(db, employeeId, now), options);
 }
 
 /** Slack's users.info, for the email behind a Slack user (needs the users:read.email scope). */

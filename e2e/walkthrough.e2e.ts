@@ -166,6 +166,23 @@ test('a week at EMS, as the people who use it', async ({ browser }) => {
     });
   });
 
+  await test.step('Maya shares a status for the week; colleagues see her words beside her name', async () => {
+    await as(browser, PEOPLE.maya, async (page) => {
+      await page.locator('.status-fab').click();
+      const panel = page.locator('.status-panel');
+      // Nothing is picked until she chooses, so there's nothing to share yet.
+      await expect(panel.getByRole('button', { name: 'Share' })).toBeDisabled();
+      await panel.getByRole('radio', { name: 'In meetings' }).click();
+      await panel.getByPlaceholder('Add a few words (optional)').fill('Workshop at the client all week');
+      await panel.getByRole('radio', { name: 'This week' }).click();
+      await Promise.all([page.waitForURL('/'), panel.getByRole('button', { name: 'Share' }).click()]);
+    });
+    await as(browser, PEOPLE.nour, async (page) => {
+      await page.goto('/people');
+      await expect(page.locator('tr', { hasText: 'Maya Rahal' }).locator('.status-line')).toContainText('Workshop at the client all week');
+    });
+  });
+
   await test.step('Fadi forgot to clock out two days ago: that day counts nothing and is flagged until he closes it', async () => {
     const forgotDay = workdayAgo(2);
     const log = async (page: Page) => {

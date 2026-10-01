@@ -12,7 +12,7 @@ import {
 } from '@/server/slack';
 
 const NOT_FOUND =
-  "I couldn't find you in EMS People & Culture. Your Slack email must match your EMS account — ask People & Culture to add you.";
+  "I couldn't find you in the app. Your Slack email must match the email you sign in with — ask People & Culture to add you.";
 const FAILED = 'Something went wrong on our side, so nothing was recorded. Please try again in a minute.';
 
 /**
@@ -55,5 +55,7 @@ async function answer(form: URLSearchParams, token: string): Promise<string> {
   const db = await getDb();
   const person = await employeeForSlackUser(db, form.get('user_id') ?? '', (id) => slackEmail(id, token));
   if (!person) return NOT_FOUND;
-  return runSlackCommand(db, person.id, action, new Date(), parseLocation(form.get('text') ?? ''));
+  return runSlackCommand(db, person.id, action, new Date(), parseLocation(form.get('text') ?? ''), {
+    command: form.get('command') ?? undefined,
+  });
 }

@@ -3532,3 +3532,21 @@ html[data-brand='kadr'] .drp {
   border-start-end-radius: 20px;
   border-end-end-radius: 20px;
 }
+
+/* Status picker: how long the status stays up */
+.status-duration {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* One row across the panel: three short options share the width instead of wrapping inside the pill. */
+.status-duration .segmented {
+  display: flex;
+  width: 100%;
+}
+.status-duration .segmented button {
+  flex: 1 1 auto;
+  justify-content: center;
+  padding: 0 10px;
+  font-size: 13px;
+}

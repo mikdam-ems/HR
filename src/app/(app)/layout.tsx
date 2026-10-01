@@ -112,7 +112,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ) : null}
         {children}
       </main>
-      <StatusBubble status={user.status ?? null} labels={t.status} />
+      <StatusBubble status={user.status ?? null} today={todayISO()} labels={t.status} />
     </div>
   );
 }
